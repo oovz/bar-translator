@@ -1,0 +1,44 @@
+{
+  "name": "bar-translator",
+  "version": "1.0.0",
+  "description": "Quick translations from the Chrome address bar",
+  "type": "module",
+  "scripts": {
+    "dev": "wxt",
+    "dev:firefox": "wxt -b firefox",
+    "build": "wxt build",
+    "build:firefox": "wxt build -b firefox",
+    "zip": "wxt zip",
+    "zip:firefox": "wxt zip -b firefox",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "chrome-extension",
+    "translation",
+    "omnibox"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "posthog-js": "^1.311.0",
+    "preact": "10.28.0",
+    "sortablejs": "^1.15.6",
+    "wxt": "0.20.13"
+  },
+  "devDependencies": {
+    "@playwright/test": "~1.57.0",
+    "@preact/preset-vite": "^2.10.2",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/preact": "^3.2.4",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/chrome": "^0.1.32",
+    "@types/sortablejs": "^1.15.9",
+    "jsdom": "^27.4.0",
+    "typescript": "~5.7.3",
+    "vitest": "^4.0.16"
+  }
+}
