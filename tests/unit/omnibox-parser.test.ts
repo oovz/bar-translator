@@ -13,6 +13,19 @@ import {
     normalizeTextForCache,
 } from '@/utils/omnibox-parser';
 
+// Mock browser global for i18n
+(global as any).browser = {
+    i18n: {
+        getMessage: (key: string) => {
+            const messages: Record<string, string> = {
+                'lang_fr': 'French',
+                // Add others if needed
+            };
+            return messages[key] || key;
+        },
+    },
+};
+
 describe('parseOmniboxInput', () => {
     describe('empty input', () => {
         it('handles empty string', () => {
@@ -27,6 +40,8 @@ describe('parseOmniboxInput', () => {
             expect(result.isLanguageQuery).toBe(true);
         });
     });
+
+
 
     describe('single language code', () => {
         it('parses single language code as target', () => {
@@ -80,6 +95,7 @@ describe('parseOmniboxInput', () => {
             const defaults = {
                 defaultTargetLang: 'en',
                 defaultSourceLang: 'auto' as const,
+                languageOverrides: {} // Fix lint error
             };
             const result = parseOmniboxInput('Hello world', defaults);
             expect(result.targetLang).toBe('en');
@@ -146,34 +162,19 @@ describe('formatSuggestionDescription', () => {
     it('formats basic translation', () => {
         const result = formatSuggestionDescription(
             'Bonjour le monde',
-            'Hello world',
-            false
+            'fr'
         );
+        // Format: <dim>= </dim> <match>Translation</match> <dim> in </dim> <url>Language</url>
         expect(result).toContain('<match>Bonjour le monde</match>');
-        expect(result).toContain('<dim>← Hello world</dim>');
-    });
-
-    it('includes fallback indicator', () => {
-        const result = formatSuggestionDescription(
-            'Bonjour',
-            'Hello',
-            true,
-            'DeepL'
-        );
-        expect(result).toContain('(via DeepL)');
-    });
-
-    it('truncates long source text', () => {
-        const longText = 'This is a very long text that exceeds thirty characters';
-        const result = formatSuggestionDescription('Translation', longText, false);
-        expect(result).toContain('...');
+        expect(result).toContain('<url>French</url>');
+        expect(result).toContain('<dim>= </dim>');
+        expect(result).toContain('<dim> in </dim>');
     });
 
     it('escapes XML special characters', () => {
         const result = formatSuggestionDescription(
             '<test> & "quotes"',
-            'source',
-            false
+            'fr'
         );
         expect(result).toContain('&lt;test&gt;');
         expect(result).toContain('&amp;');

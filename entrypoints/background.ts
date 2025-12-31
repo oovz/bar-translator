@@ -17,7 +17,6 @@ import {
 } from '@/utils/storage';
 import {
     parseOmniboxInput,
-    formatSuggestionDescription,
     formatErrorDescription,
 } from '@/utils/omnibox-parser';
 import { copyToClipboard } from '@/utils/clipboard';
@@ -131,9 +130,7 @@ export default defineBackground(() => {
                 // Format and suggest
                 const description = formatSuggestionDescription(
                     result.translation,
-                    parsed.text,
-                    result.usedFallback,
-                    result.serviceId
+                    parsed.targetLang || preferences.defaultTargetLang
                 );
 
                 // Update the default suggestion to the result

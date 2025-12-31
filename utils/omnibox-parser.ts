@@ -13,7 +13,7 @@
  */
 
 import type { ParsedOmniboxInput, UserPreferences } from '@/src/types';
-import { isValidLanguageCode, resolveLanguageCode } from './languages';
+import { isValidLanguageCode, resolveLanguageCode, getLanguageName } from './languages';
 
 /**
  * Parse omnibox input string.
@@ -117,21 +117,14 @@ export function parseOmniboxInput(
  */
 export function formatSuggestionDescription(
     translation: string,
-    sourceText: string,
-    usedFallback: boolean,
-    serviceName?: string
+    targetLang: string
 ): string {
     // XML tags: <match>, <dim>, <url>
-    const truncatedSource =
-        sourceText.length > 30 ? sourceText.substring(0, 30) + '...' : sourceText;
+    const langName = getLanguageName(targetLang);
 
-    let description = `<match>${escapeXml(translation)}</match>`;
-
-    if (usedFallback && serviceName) {
-        description += ` <dim>(via ${escapeXml(serviceName)})</dim>`;
-    }
-
-    description += ` <dim>← ${escapeXml(truncatedSource)}</dim>`;
+    // Format: <dim>= </dim> <match>Translation</match> <dim> in </dim> <url>Language</url>
+    // Note: <url> is used here solely for the side-effect of coloring the text (usually blue/green)
+    const description = `<dim>= </dim> <match>${escapeXml(translation)}</match> <dim> in </dim> <url>${escapeXml(langName)}</url>`;
 
     return description;
 }
