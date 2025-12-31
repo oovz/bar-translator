@@ -45,7 +45,7 @@ describe('Combobox', () => {
 
         fireEvent.input(input, { target: { value: 'Xyz' } });
 
-        expect(await screen.findByText('No results')).toBeTruthy();
+        expect(await screen.findByText('noResults')).toBeTruthy();
     });
 
     it('calls onChange when selecting an option', () => {

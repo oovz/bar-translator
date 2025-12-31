@@ -22,7 +22,7 @@ describe('PrivacySettings Component', () => {
 
     it('renders storage type selector', () => {
         const { getByText, container } = render(<PrivacySettings {...mockProps} />);
-        expect(getByText('API Key Storage')).toBeTruthy();
+        expect(getByText('labelStorage')).toBeTruthy();
         const select = container.querySelector('select');
         expect(select).toBeTruthy();
         expect(select?.value).toBe('local');
@@ -30,7 +30,7 @@ describe('PrivacySettings Component', () => {
 
     it('renders telemetry toggle', () => {
         const { getByText, container } = render(<PrivacySettings {...mockProps} />);
-        expect(getByText('Usage Analytics')).toBeTruthy();
+        expect(getByText('labelTelemetry')).toBeTruthy();
         const checkbox = container.querySelector('input[type="checkbox"]');
         expect(checkbox).toBeTruthy();
         expect((checkbox as HTMLInputElement).checked).toBe(true);
@@ -69,7 +69,7 @@ describe('PrivacySettings Component', () => {
 
     it('shows security warning tooltip', () => {
         const { container } = render(<PrivacySettings {...mockProps} />);
-        const tooltipIcon = container.querySelector('span[title*="Synced storage is unencrypted"]');
+        const tooltipIcon = container.querySelector('span[title*="storageDesc"]');
         expect(tooltipIcon).toBeTruthy();
     });
 });

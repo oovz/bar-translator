@@ -45,14 +45,14 @@ describe('ServiceList Component', () => {
     it('renders enabled services', () => {
         const { getByText } = render(<ServiceList {...mockProps} />);
         expect(getByText('Google Translate (Web)')).toBeTruthy();
-        expect(getByText('PRIMARY')).toBeTruthy();
+        expect(getByText('primary')).toBeTruthy();
     });
 
     it('renders disabled services list when services are available', () => {
         const { getByText } = render(<ServiceList {...mockProps} />);
         // DeepL is not in DEFAULT_PREFERENCES.fallbackOrder
         expect(getByText('DeepL')).toBeTruthy();
-        expect(getByText('Key required')).toBeTruthy();
+        expect(getByText('keyRequired')).toBeTruthy();
     });
 
     it('toggling service calls updatePreferences', () => {
@@ -70,6 +70,6 @@ describe('ServiceList Component', () => {
         const apiKeyButtons = getAllByText('API Key');
         fireEvent.click(apiKeyButtons[0]); // Expand DeepL
 
-        expect(getByPlaceholderText('Enter DeepL API Key')).toBeTruthy();
+        expect(getByPlaceholderText('enterApiKey')).toBeTruthy();
     });
 });
