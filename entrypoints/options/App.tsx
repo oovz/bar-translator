@@ -1,9 +1,10 @@
 import { useEffect } from 'preact/hooks';
 import { usePreferences } from './hooks/usePreferences';
 import { getAllServiceDefinitions } from '@/services/base';
-import { getSourceLanguages, getTargetLanguages } from '@/utils/languages';
+import { getSourceLanguages, getTargetLanguages, OVERRIDABLE_LANGUAGES, fromUserInput } from '@/utils/languages';
 import { ServiceList } from './components/ServiceList';
 import { PrivacySettings } from './components/PrivacySettings';
+import { Combobox } from './components/Combobox';
 
 export default function App() {
     const {
@@ -43,32 +44,55 @@ export default function App() {
                 <div class="form-row">
                     <div class="form-group">
                         <label>Source</label>
-                        <select
-                            class="select"
+                        <Combobox
                             value={preferences.defaultSourceLang}
-                            onChange={(e) => updatePreferences({ defaultSourceLang: e.currentTarget.value })}
-                        >
-                            {sourceLanguages.map(lang => (
-                                <option key={lang.code} value={lang.code}>
-                                    {lang.code === 'auto' ? 'Auto-detect' : `${lang.code} → ${lang.name}`}
-                                </option>
-                            ))}
-                        </select>
+                            options={sourceLanguages}
+                            onChange={(val) => updatePreferences({ defaultSourceLang: val })}
+                        />
                     </div>
                     <div class="form-group">
                         <label>Target</label>
-                        <select
-                            class="select"
+                        <Combobox
                             value={preferences.defaultTargetLang}
-                            onChange={(e) => updatePreferences({ defaultTargetLang: e.currentTarget.value })}
-                        >
-                            {targetLanguages.map(lang => (
-                                <option key={lang.code} value={lang.code}>
-                                    {lang.code} → {lang.name}
-                                </option>
-                            ))}
-                        </select>
+                            options={targetLanguages}
+                            onChange={(val) => updatePreferences({ defaultTargetLang: val })}
+                        />
                     </div>
+                </div>
+            </div>
+
+            {/* Regional Dialects */}
+            <div class="section">
+                <div class="section-title">Regional Dialects</div>
+                <div style="margin-bottom: 16px; color: var(--text-secondary); font-size: 13px;">
+                    Choose which specific variant to use when typing short codes (e.g., 'zh' → 'zh-TW').
+                </div>
+                <div class="form-row">
+                    {Object.entries(OVERRIDABLE_LANGUAGES).map(([isoCode, config]) => (
+                        <div class="form-group" key={isoCode}>
+                            <label>{config.name} ({isoCode})</label>
+                            <select
+                                class="select"
+                                value={preferences.languageOverrides?.[isoCode] || ''}
+                                onChange={(e) => {
+                                    const newOverrides = { ...(preferences.languageOverrides || {}) };
+                                    if (e.currentTarget.value) {
+                                        newOverrides[isoCode] = e.currentTarget.value;
+                                    } else {
+                                        delete newOverrides[isoCode];
+                                    }
+                                    updatePreferences({ languageOverrides: newOverrides });
+                                }}
+                            >
+                                <option value="">Default ({fromUserInput(isoCode)})</option>
+                                {config.options.map(opt => (
+                                    <option key={opt.code} value={opt.code}>
+                                        {opt.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    ))}
                 </div>
             </div>
 
