@@ -4,7 +4,7 @@
         "description": "Extension name"
     },
     "extDescription": {
-        "message": "Traductions rapides depuis la barre d'adresse de Chrome",
+        "message": "Traductions instantanées directement depuis votre barre d'adresse. Prend en charge Google, DeepL et plus.",
         "description": "Extension description"
     },
     "loading": {

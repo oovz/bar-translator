@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "Chrome のアドレスバーから素早く翻訳"
+        "message": "アドレスバーから直接、瞬時に翻訳。Google、DeepLなどに対応。"
     },
     "loading": {
         "message": "読み込み中..."

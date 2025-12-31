@@ -4,7 +4,7 @@
         "description": "Extension name"
     },
     "extDescription": {
-        "message": "Quick translations from the Chrome address bar",
+        "message": "Instant translations directly from your address bar. Supports Google, DeepL, and more.",
         "description": "Extension description"
     },
     "loading": {

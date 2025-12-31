@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "在 Chrome 地址栏快速翻译"
+        "message": "直接从地址栏即时翻译。支持 Google、DeepL等。"
     },
     "loading": {
         "message": "加载中..."

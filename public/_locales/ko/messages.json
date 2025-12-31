@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "Chrome 주소 표시줄에서 빠른 번역"
+        "message": "주소 표시줄에서 직접 즉시 번역합니다. Google, DeepL 등을 지원합니다."
     },
     "loading": {
         "message": "로딩 중..."
