@@ -16,7 +16,7 @@ vi.mock('sortablejs', () => ({
 describe('ServiceList Component', () => {
     const mockServices: TranslationService[] = [
         {
-            id: 'google-scraper',
+            id: 'google-web',
             name: 'Google Translate (Web)',
             type: 'web',
             requiresApiKey: false,
@@ -61,7 +61,7 @@ describe('ServiceList Component', () => {
         fireEvent.click(enableButtons[0]);
 
         expect(mockProps.updatePreferences).toHaveBeenCalledWith({
-            fallbackOrder: ['google-scraper', 'deepl'],
+            fallbackOrder: ['google-web', 'deepl'],
         });
     });
 

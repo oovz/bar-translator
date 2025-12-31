@@ -1,10 +1,10 @@
 /**
- * Google Translate Scraper Service
+ * Google Translate Web Service
  * 
- * Implements translation via scraping the Google Translate mobile interface.
+ * Implements translation via the Google Translate mobile web interface.
  * Does not require an API key.
  * 
- * @module services/google-scraper
+ * @module services/google-web
  */
 
 import { BaseTranslationService } from './base';
@@ -16,7 +16,7 @@ import type {
     TranslateResult
 } from '@/src/types';
 
-export class GoogleScraperService extends BaseTranslationService {
+export class GoogleTranslationWebService extends BaseTranslationService {
     constructor(public readonly service: TranslationService) {
         super();
     }
@@ -57,7 +57,7 @@ export class GoogleScraperService extends BaseTranslationService {
 
             if (!translation) {
                 throw new TranslationError(
-                    'SCRAPING_FAILED',
+                    'WEB_REQUEST_FAILED',
                     'Could not parse translation from response',
                     { serviceId: this.service.id }
                 );
@@ -138,7 +138,7 @@ export class GoogleScraperService extends BaseTranslationService {
         }
 
         // Log HTML for debugging (in dev mode the extension can see console)
-        console.warn('[GoogleScraper] Could not parse translation from HTML. First 500 chars:', html.substring(0, 500));
+        console.warn('[GoogleWeb] Could not parse translation from HTML. First 500 chars:', html.substring(0, 500));
 
         return null;
     }

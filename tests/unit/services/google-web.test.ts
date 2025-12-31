@@ -1,11 +1,11 @@
 /**
  * Unit Tests for Google Scraper Service
  *
- * @module tests/unit/services/google-scraper.test
+ * @module tests/unit/services/google-web.test
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { GoogleScraperService } from '@/services/google-scraper';
+import { GoogleTranslationWebService } from '@/services/google-web';
 import { getServiceDefinition } from '@/services/base';
 import { TranslationError } from '@/utils/errors';
 
@@ -13,12 +13,12 @@ import { TranslationError } from '@/utils/errors';
 const fetchMock = vi.fn();
 vi.stubGlobal('fetch', fetchMock);
 
-describe('GoogleScraperService', () => {
-    let service: GoogleScraperService;
-    const definition = getServiceDefinition('google-scraper');
+describe('GoogleTranslationWebService', () => {
+    let service: GoogleTranslationWebService;
+    const definition = getServiceDefinition('google-web');
 
     beforeEach(() => {
-        service = new GoogleScraperService(definition);
+        service = new GoogleTranslationWebService(definition);
         vi.clearAllMocks();
     });
 
@@ -46,7 +46,7 @@ describe('GoogleScraperService', () => {
             });
 
             expect(result.translation).toBe('Hello world');
-            expect(result.serviceId).toBe('google-scraper');
+            expect(result.serviceId).toBe('google-web');
             expect(fetchMock).toHaveBeenCalledWith(
                 expect.stringContaining('translate.google.com/m'),
                 expect.anything()
@@ -204,7 +204,7 @@ describe('GoogleScraperService', () => {
             }
         });
 
-        it('throws SCRAPING_FAILED when missing result container', async () => {
+        it('throws WEB_REQUEST_FAILED when missing result container', async () => {
             fetchMock.mockResolvedValue({
                 ok: true,
                 status: 200,
@@ -227,7 +227,7 @@ describe('GoogleScraperService', () => {
                 });
             } catch (e) {
                 if (e instanceof TranslationError) {
-                    expect(e.code).toBe('SCRAPING_FAILED');
+                    expect(e.code).toBe('WEB_REQUEST_FAILED');
                 }
             }
         });

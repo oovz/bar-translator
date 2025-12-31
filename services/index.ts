@@ -20,7 +20,7 @@ import { TranslationError } from '@/utils/errors';
 import { getServiceDefinition, getAllServiceDefinitions } from './base';
 import type { TranslationService } from './base';
 
-import { GoogleScraperService } from './google-scraper';
+import { GoogleTranslationWebService } from './google-web';
 import { DeepLTranslationService } from './deepl';
 import { LingvaTranslationService } from './lingva';
 
@@ -28,8 +28,8 @@ import { LingvaTranslationService } from './lingva';
 const serviceRegistry = new Map<ServiceId, TranslationServiceHandler>();
 
 // Register default services
-const googleDefinition = getServiceDefinition('google-scraper');
-registerService(new GoogleScraperService(googleDefinition));
+const googleDefinition = getServiceDefinition('google-web');
+registerService(new GoogleTranslationWebService(googleDefinition));
 
 const lingvaDefinition = getServiceDefinition('lingva');
 registerService(new LingvaTranslationService(lingvaDefinition));
@@ -108,7 +108,7 @@ function getStorageKeyForService(id: ServiceId): keyof StoredApiKeys | null {
             return 'baidu';
         case 'youdao':
             return 'youdao';
-        case 'google-scraper':
+        case 'google-web':
         case 'lingva':
         default:
             return null;

@@ -110,7 +110,7 @@ export abstract class BaseTranslationService implements TranslationServiceHandle
  */
 export const TRANSLATION_SERVICES: readonly TranslationService[] = [
     {
-        id: 'google-scraper',
+        id: 'google-web',
         name: 'Google Translate (Web)',
         type: 'web',
         requiresApiKey: false,

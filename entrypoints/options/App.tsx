@@ -24,7 +24,7 @@ export default function App() {
     useEffect(() => {
         if (loading) return;
         if (preferences.fallbackOrder.length === 0) {
-            updatePreferences({ fallbackOrder: ['google-scraper'] });
+            updatePreferences({ fallbackOrder: ['google-web'] });
         }
     }, [loading]);
 

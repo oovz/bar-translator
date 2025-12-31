@@ -25,7 +25,7 @@
  * - lingva: Free proxy for Google Translate, works in restricted regions
  */
 export type ServiceId =
-  | 'google-scraper'
+  | 'google-web'
   | 'deepl'
   | 'google-cloud'
   | 'yandex'
@@ -235,8 +235,8 @@ export interface UserPreferences {
  * Default preferences for new installations.
  */
 export const DEFAULT_PREFERENCES: Readonly<UserPreferences> = {
-  preferredServiceId: 'google-scraper',
-  fallbackOrder: ['google-scraper'],
+  preferredServiceId: 'google-web',
+  fallbackOrder: ['google-web'],
   fallbackEnabled: true,
   defaultTargetLang: 'en',
   defaultSourceLang: 'auto',
@@ -403,7 +403,7 @@ export type TranslationErrorCode =
   | 'SERVICE_UNAVAILABLE' // Skip to next service
   | 'INVALID_LANGUAGE' // Show error, don't fallback
   | 'TEXT_TOO_LONG' // Truncate or reject
-  | 'SCRAPING_FAILED' // Skip to API services
+  | 'WEB_REQUEST_FAILED' // Skip to API services
   | 'AUTH_METHOD_DEPRECATED' // DeepL: update auth method
   | 'ALL_SERVICES_FAILED'; // Show final error
 
@@ -598,7 +598,7 @@ export function getDeepLEndpoint(apiKey: string): string {
  * Mapping of service IDs to storage keys.
  */
 export const SERVICE_TO_STORAGE_KEY: Record<ServiceId, keyof StoredApiKeys | null> = {
-  'google-scraper': null,
+  'google-web': null,
   'deepl': 'deepl',
   'google-cloud': 'googleCloud',
   'yandex': 'yandex',
@@ -612,7 +612,7 @@ export const SERVICE_TO_STORAGE_KEY: Record<ServiceId, keyof StoredApiKeys | nul
  * Service-specific text length limits.
  */
 export const SERVICE_TEXT_LIMITS: Record<ServiceId, number> = {
-  'google-scraper': 5000,
+  'google-web': 5000,
   'deepl': 5000, // Free tier; Pro allows 10000
   'google-cloud': 30000,
   'yandex': 10000,

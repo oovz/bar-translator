@@ -18,7 +18,7 @@ Bar Translator is a simple, lightweight browser extension built with [WXT](https
 
 Bar Translator supports a wide range of translation services to ensure reliable results:
 
-- **Google Translate**: Fast, reliable translation via web scraping (no API key required).
+- **Google Translate**: Fast, reliable translation via web (no API key required).
 - **Lingva Translate**: Privacy-focused alternative frontend for Google Translate (no API key required).
 - **DeepL**: Industry-leading translation quality (requires Free or Pro API key).
 - **Microsoft Translator**: Integrated Azure Cognitive Services (requires API key).
