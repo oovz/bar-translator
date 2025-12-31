@@ -11,6 +11,8 @@ import { test, expect } from './fixtures';
 test.describe('Options Page', () => {
     test('loads and displays settings', async ({ context, extensionId }) => {
         const page = await context.newPage();
+
+        await page.setViewportSize({ width: 1000, height: 800 });
         await page.goto(`chrome-extension://${extensionId}/options.html`);
 
         // Check title
@@ -21,6 +23,7 @@ test.describe('Options Page', () => {
 
         // Check for sections
         await expect(page.locator('.section-title', { hasText: 'Default Languages' })).toBeVisible();
+        await expect(page.locator('.section-title', { hasText: 'Regional Dialects' })).toBeVisible();
         await expect(page.locator('.section-title', { hasText: 'Translation Services' })).toBeVisible();
         await expect(page.locator('.section-title', { hasText: 'Privacy & Storage' })).toBeVisible();
     });
@@ -29,18 +32,45 @@ test.describe('Options Page', () => {
         const page = await context.newPage();
         await page.goto(`chrome-extension://${extensionId}/options.html`);
 
-        await page.waitForSelector('select');
+        // Locate Source Language Combobox within Default Languages section
+        const defaultLangsSection = page.locator('.section', { hasText: 'Default Languages' });
+        // Source is the first form-group input
+        const sourceInput = defaultLangsSection.locator('input').first();
 
-        // Change source language to French (fr)
-        const sourceSelect = page.locator('select').first();
-        await sourceSelect.selectOption('fr');
+        // Select 'French'
+        await sourceInput.click();
+        await sourceInput.fill('French');
+
+        // Wait for and click the option
+        const frenchOption = page.locator('.combobox-option', { hasText: 'French' });
+        await frenchOption.click();
+
+        await page.waitForTimeout(500); // Wait for storage save
+
+        await page.reload();
+
+        const reloadedSourceInput = page.locator('.section', { hasText: 'Default Languages' }).locator('input').first();
+        await expect(reloadedSourceInput).toHaveValue('French');
+    });
+
+    test('persists regional dialect overrides', async ({ context, extensionId }) => {
+        const page = await context.newPage();
+        await page.goto(`chrome-extension://${extensionId}/options.html`);
+
+        const regionalSection = page.locator('.section', { hasText: 'Regional Dialects' });
+        // Find Chinese (zh) select
+        const zhSelect = regionalSection.locator('.form-group', { hasText: 'Chinese (zh)' }).locator('select');
+
+        await zhSelect.scrollIntoViewIfNeeded();
+        // Select 'zh-TW'
+        await zhSelect.selectOption('zh-TW');
 
         await page.waitForTimeout(500);
 
         await page.reload();
-        await page.waitForSelector('select');
 
-        await expect(sourceSelect).toHaveValue('fr');
+        const reloadedZhSelect = page.locator('.section', { hasText: 'Regional Dialects' }).locator('.form-group', { hasText: 'Chinese (zh)' }).locator('select');
+        await expect(reloadedZhSelect).toHaveValue('zh-TW');
     });
 
     test('can toggle and reorder services', async ({ context, extensionId }) => {
