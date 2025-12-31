@@ -9,6 +9,7 @@ Bar Translator is a simple, lightweight browser extension built with [WXT](https
 - **Omnibox Integration**: Instantly translate by typing `t` in the address bar.
 - **Language Overrides**: Prefix your query with a language code (e.g., `t fr hello`) to override your default target language on the fly.
 - **Auto-Detection**: Automatically identifies the source language if not provided.
+- **Regional Dialect Support**: Configure preferred regional variants for languages (e.g., map 'zh' to 'zh-TW').
 - **Service Fallback**: Support for multiple translation providers with automatic fallback logic.
 - **Chrome Sync Support**: Your settings and API keys can be synced across all your Chrome instances using your Google account.
 - **Clipboard Sync**: Press **Enter** to instantly copy the translation result to your clipboard.
