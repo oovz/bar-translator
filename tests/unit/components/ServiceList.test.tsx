@@ -17,8 +17,8 @@ describe('ServiceList Component', () => {
     const mockServices: TranslationService[] = [
         {
             id: 'google-scraper',
-            name: 'Google Translate',
-            type: 'scraping',
+            name: 'Google Translate (Web)',
+            type: 'web',
             requiresApiKey: false,
             authMethod: 'none',
             httpMethod: 'GET',
@@ -44,7 +44,7 @@ describe('ServiceList Component', () => {
 
     it('renders enabled services', () => {
         const { getByText } = render(<ServiceList {...mockProps} />);
-        expect(getByText('Google Translate')).toBeTruthy();
+        expect(getByText('Google Translate (Web)')).toBeTruthy();
         expect(getByText('PRIMARY')).toBeTruthy();
     });
 

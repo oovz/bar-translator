@@ -111,8 +111,8 @@ export abstract class BaseTranslationService implements TranslationServiceHandle
 export const TRANSLATION_SERVICES: readonly TranslationService[] = [
     {
         id: 'google-scraper',
-        name: 'Google Translate',
-        type: 'scraping',
+        name: 'Google Translate (Web)',
+        type: 'web',
         requiresApiKey: false,
         authMethod: 'none',
         httpMethod: 'GET',
@@ -122,7 +122,7 @@ export const TRANSLATION_SERVICES: readonly TranslationService[] = [
     {
         id: 'lingva',
         name: 'Lingva (Google Proxy)',
-        type: 'scraping',
+        type: 'web',
         requiresApiKey: false,
         authMethod: 'none',
         httpMethod: 'GET',

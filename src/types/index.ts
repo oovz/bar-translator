@@ -37,7 +37,7 @@ export type ServiceId =
 /**
  * Translation service integration type.
  */
-export type ServiceType = 'scraping' | 'api';
+export type ServiceType = 'web' | 'api';
 
 /**
  * API tier for services with multiple tiers (e.g., DeepL).
@@ -52,7 +52,7 @@ export type ApiTier = 'free' | 'pro';
  * Full deprecation deadline: January 15, 2026.
  */
 export type AuthMethod =
-  | 'none' // No authentication (scraping)
+  | 'none' // No authentication (usually web access)
   | 'header-auth-key' // DeepL: Authorization: DeepL-Auth-Key {key}
   | 'header-bearer' // Standard: Authorization: Bearer {key}
   | 'api-key-header'; // X-API-Key header
@@ -95,7 +95,7 @@ export interface TranslationService {
 
   /**
    * HTTP method for translation requests.
-   * @default 'POST' for APIs, 'GET' for scraping
+   * @default 'POST' for APIs, 'GET' for web access
    */
   readonly httpMethod: HttpMethod;
 

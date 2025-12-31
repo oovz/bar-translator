@@ -82,7 +82,7 @@ test.describe('Options Page', () => {
 
         // Check primary badge on first item
         await expect(serviceList.locator('li').first()).toContainText('PRIMARY');
-        await expect(serviceList.locator('li').first()).toContainText('Google Translate');
+        await expect(serviceList.locator('li').first()).toContainText('Google Translate (Web)');
 
         // Enable DeepL (from disabled list)
         // Note: This test might fail if DeepL is already enabled from previous run.

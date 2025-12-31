@@ -42,7 +42,7 @@ export function ServiceCard({
                         )}
                     </h3>
                     <p style="margin: 0.25rem 0 0; color: var(--text-secondary); font-size: 0.875rem;">
-                        Type: {service.type === 'api' ? 'Official API' : 'Web Scraper'}
+                        Type: {service.type === 'api' ? 'Official API' : 'Web Interface'}
                         {service.requiresApiKey && ' • Requires API Key'}
                     </p>
                 </div>
