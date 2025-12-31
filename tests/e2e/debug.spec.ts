@@ -1,17 +1,20 @@
-import { test, expect } from './fixtures';
+import { test } from './fixtures';
 
-test('debug page content', async ({ context, extensionId }) => {
+test('debug page content', async ({ context, extensionId }, testInfo) => {
     const page = await context.newPage();
     await page.goto(`chrome-extension://${extensionId}/options.html`);
     await page.waitForTimeout(2000); // Wait in case of loading
+
     const content = await page.content();
-    console.log('--- PAGE CONTENT ---');
-    console.log(content);
-    console.log('--- END CONTENT ---');
+    await testInfo.attach('page-content.html', {
+        body: content,
+        contentType: 'text/html'
+    });
 
     // Also log visible text
     const text = await page.innerText('body');
-    console.log('--- VISIBLE TEXT ---');
-    console.log(text);
-    console.log('--- END TEXT ---');
+    await testInfo.attach('visible-text.txt', {
+        body: text,
+        contentType: 'text/plain'
+    });
 });

@@ -13,7 +13,6 @@ import { test, expect } from './fixtures';
 test('extension loads and background worker is active', async ({ context, extensionId }) => {
     // Verify extension ID is present
     expect(extensionId).toBeTruthy();
-    console.log(`Extension ID: ${extensionId}`);
 
     // Get the service worker
     let worker = context.serviceWorkers().find(sw => sw.url().includes(extensionId));
