@@ -13,7 +13,7 @@
  */
 
 import type { ParsedOmniboxInput, UserPreferences } from '@/src/types';
-import { isValidLanguageCode } from './languages';
+import { isValidLanguageCode, resolveLanguageCode } from './languages';
 
 /**
  * Parse omnibox input string.
@@ -24,9 +24,10 @@ import { isValidLanguageCode } from './languages';
  */
 export function parseOmniboxInput(
     input: string,
-    defaults?: Pick<UserPreferences, 'defaultTargetLang' | 'defaultSourceLang'>
+    defaults?: Pick<UserPreferences, 'defaultTargetLang' | 'defaultSourceLang' | 'languageOverrides'>
 ): ParsedOmniboxInput {
     const trimmed = input.trim();
+    const overrides = defaults?.languageOverrides;
 
     if (!trimmed) {
         return {
@@ -45,8 +46,8 @@ export function parseOmniboxInput(
             const [source, target] = trimmed.split('>');
             if (isValidLanguageCode(source) && isValidLanguageCode(target)) {
                 return {
-                    sourceLang: source.toLowerCase(),
-                    targetLang: target.toLowerCase(),
+                    sourceLang: resolveLanguageCode(source, overrides),
+                    targetLang: resolveLanguageCode(target, overrides),
                     text: '',
                     isLanguageQuery: true,
                 };
@@ -56,7 +57,7 @@ export function parseOmniboxInput(
         // Check if it looks like a single language code
         if (isValidLanguageCode(trimmed)) {
             return {
-                targetLang: trimmed.toLowerCase(),
+                targetLang: resolveLanguageCode(trimmed, overrides),
                 text: '',
                 isLanguageQuery: true,
             };
@@ -78,8 +79,8 @@ export function parseOmniboxInput(
         const [source, target] = firstPart.split('>');
         if (isValidLanguageCode(source) && isValidLanguageCode(target)) {
             return {
-                sourceLang: source.toLowerCase(),
-                targetLang: target.toLowerCase(),
+                sourceLang: resolveLanguageCode(source, overrides),
+                targetLang: resolveLanguageCode(target, overrides),
                 text: rest,
                 isLanguageQuery: rest.length === 0,
             };
@@ -89,7 +90,7 @@ export function parseOmniboxInput(
     // Check if first part is a language code
     if (isValidLanguageCode(firstPart)) {
         return {
-            targetLang: firstPart.toLowerCase(),
+            targetLang: resolveLanguageCode(firstPart, overrides),
             sourceLang: defaults?.defaultSourceLang,
             text: rest,
             isLanguageQuery: rest.length === 0,

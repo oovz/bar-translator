@@ -10,6 +10,7 @@
 
 import { BaseTranslationService } from './base';
 import { TranslationError } from '@/utils/errors';
+import { toLingvaLanguage } from '@/utils/languages';
 import type {
     TranslationService,
     TranslateParams,
@@ -24,9 +25,9 @@ export class LingvaTranslationService extends BaseTranslationService {
     async translate(params: TranslateParams): Promise<TranslateResult> {
         const { text, sourceLang, targetLang } = params;
 
-        // Lingva uses 'auto' for auto-detect
-        const sl = sourceLang === 'auto' ? 'auto' : sourceLang;
-        const tl = targetLang;
+        // Convert to Lingva's expected format (same as Google Translate)
+        const sl = toLingvaLanguage(sourceLang);
+        const tl = toLingvaLanguage(targetLang);
 
         // Lingva API: /api/v1/{source}/{target}/{text}
         // Use lingva.ml as default, but can be self-hosted

@@ -218,6 +218,12 @@ export interface UserPreferences {
   /** Where to store API keys: 'local' (more secure) or 'sync' (cross-device) */
   storageType: 'local' | 'sync';
 
+  /**
+   * Overrides for language code resolution.
+   * Map of 2-letter ISO code (e.g., 'zh') to specific BCP 47 code (e.g., 'zh-TW').
+   */
+  languageOverrides: Record<string, string>;
+
   /** Whether to send anonymous usage analytics via PostHog */
   telemetryEnabled: boolean;
 
@@ -235,6 +241,7 @@ export const DEFAULT_PREFERENCES: Readonly<UserPreferences> = {
   defaultTargetLang: 'en',
   defaultSourceLang: 'auto',
   storageType: 'local',
+  languageOverrides: {},
   telemetryEnabled: true,
   distinctId: '', // Generated on first use
 } as const;

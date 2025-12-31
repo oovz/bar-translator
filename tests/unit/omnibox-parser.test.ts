@@ -107,6 +107,39 @@ describe('parseOmniboxInput', () => {
             expect(result.text).toBe('hello');
         });
     });
+
+    describe('ISO 639-1 to BCP 47 conversion', () => {
+        it('converts "zh" to BCP 47 "zh-CN"', () => {
+            const result = parseOmniboxInput('zh Hello');
+            expect(result.targetLang).toBe('zh-CN');
+            expect(result.text).toBe('Hello');
+        });
+
+        it('converts "no" to BCP 47 "nb" for Norwegian', () => {
+            const result = parseOmniboxInput('no Hei verden');
+            expect(result.targetLang).toBe('nb');
+            expect(result.text).toBe('Hei verden');
+        });
+
+        it('preserves already-BCP47 codes', () => {
+            const result = parseOmniboxInput('zh-TW Hello');
+            // Should normalize to lowercase but preserve the code
+            expect(result.targetLang).toBe('zh-tw');
+            expect(result.text).toBe('Hello');
+        });
+
+        it('converts source>target with ISO 639-1 codes', () => {
+            const result = parseOmniboxInput('en>zh Test');
+            expect(result.sourceLang).toBe('en');
+            expect(result.targetLang).toBe('zh-CN');
+            expect(result.text).toBe('Test');
+        });
+
+        it('handles case-insensitive ISO 639-1 input', () => {
+            const result = parseOmniboxInput('ZH Test');
+            expect(result.targetLang).toBe('zh-CN');
+        });
+    });
 });
 
 describe('formatSuggestionDescription', () => {

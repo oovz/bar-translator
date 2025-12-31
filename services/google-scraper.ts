@@ -9,6 +9,7 @@
 
 import { BaseTranslationService } from './base';
 import { TranslationError } from '@/utils/errors';
+import { toGoogleLanguage } from '@/utils/languages';
 import type {
     TranslationService,
     TranslateParams,
@@ -23,9 +24,9 @@ export class GoogleScraperService extends BaseTranslationService {
     async translate(params: TranslateParams): Promise<TranslateResult> {
         const { text, sourceLang, targetLang } = params;
 
-        // Google Translate uses 'auto' for auto-detect
-        const sl = sourceLang === 'auto' ? 'auto' : sourceLang;
-        const tl = targetLang;
+        // Convert to Google Translate's expected format
+        const sl = toGoogleLanguage(sourceLang);
+        const tl = toGoogleLanguage(targetLang);
 
         const url = new URL(this.service.endpoint || 'https://translate.google.com/m');
         url.searchParams.set('sl', sl);

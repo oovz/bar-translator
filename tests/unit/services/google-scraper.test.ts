@@ -70,6 +70,40 @@ describe('GoogleScraperService', () => {
             expect(url.searchParams.get('sl')).toBe('auto');
         });
 
+        it('maps Chinese zh-CN to correct Google format', async () => {
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                text: () => Promise.resolve('<div class="result-container">测试</div>'),
+            });
+
+            await service.translate({
+                text: 'Test',
+                sourceLang: 'en',
+                targetLang: 'zh-CN',
+            });
+
+            const url = new URL(fetchMock.mock.calls[0][0]);
+            expect(url.searchParams.get('tl')).toBe('zh-CN');
+        });
+
+        it('maps Norwegian nb to Google no format', async () => {
+            fetchMock.mockResolvedValue({
+                ok: true,
+                status: 200,
+                text: () => Promise.resolve('<div class="result-container">Test</div>'),
+            });
+
+            await service.translate({
+                text: 'Test',
+                sourceLang: 'en',
+                targetLang: 'nb',
+            });
+
+            const url = new URL(fetchMock.mock.calls[0][0]);
+            expect(url.searchParams.get('tl')).toBe('no');
+        });
+
         it('decodes HTML entities in result', async () => {
             const mockHtml = '<div class="result-container">You &amp; Me</div>';
 

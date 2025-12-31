@@ -9,6 +9,7 @@
 
 import { BaseTranslationService } from './base';
 import { TranslationError } from '@/utils/errors';
+import { toDeepLLanguage, fromDeepLLanguage } from '@/utils/languages';
 import type {
     TranslationService,
     TranslateParams,
@@ -44,11 +45,12 @@ export class DeepLTranslationService extends BaseTranslationService {
         const isFreeKey = tier === 'free' || (!tier && apiKey.endsWith(':fx'));
         const endpoint = this.getEndpoint(isFreeKey ? 'free' : 'pro');
 
+        // Convert to DeepL's expected format (uppercase, special codes for Chinese)
         const body = new URLSearchParams();
         body.append('text', text);
-        body.append('target_lang', targetLang.toUpperCase());
+        body.append('target_lang', toDeepLLanguage(targetLang));
         if (sourceLang !== 'auto') {
-            body.append('source_lang', sourceLang.toUpperCase());
+            body.append('source_lang', toDeepLLanguage(sourceLang));
         }
 
         try {
@@ -93,7 +95,7 @@ export class DeepLTranslationService extends BaseTranslationService {
 
             return {
                 translation: result.text,
-                detectedSourceLang: result.detected_source_language.toLowerCase(),
+                detectedSourceLang: fromDeepLLanguage(result.detected_source_language),
                 serviceId: this.service.id
             };
 
