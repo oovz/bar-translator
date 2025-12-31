@@ -9,34 +9,32 @@
 
 import type { CopyToClipboardMessage } from '@/src/types';
 
-export default defineUnlistedScript(() => {
-    /**
-     * Handle messages from the service worker.
-     */
-    chrome.runtime.onMessage.addListener(
-        (
-            message: CopyToClipboardMessage,
-            _sender: chrome.runtime.MessageSender,
-            sendResponse: (response: { success: boolean; error?: string }) => void
-        ) => {
-            if (message.type === 'COPY_TO_CLIPBOARD') {
-                copyToClipboard(message.text)
-                    .then(() => {
-                        sendResponse({ success: true });
-                    })
-                    .catch((error) => {
-                        console.error('[Offscreen] Clipboard write failed:', error);
-                        sendResponse({ success: false, error: String(error) });
-                    });
+/**
+ * Handle messages from the service worker.
+ */
+chrome.runtime.onMessage.addListener(
+    (
+        message: CopyToClipboardMessage,
+        _sender: chrome.runtime.MessageSender,
+        sendResponse: (response: { success: boolean; error?: string }) => void
+    ) => {
+        if (message.type === 'COPY_TO_CLIPBOARD') {
+            copyToClipboard(message.text)
+                .then(() => {
+                    sendResponse({ success: true });
+                })
+                .catch((error) => {
+                    console.error('[Offscreen] Clipboard write failed:', error);
+                    sendResponse({ success: false, error: String(error) });
+                });
 
-                // Return true to indicate we'll respond asynchronously
-                return true;
-            }
+            // Return true to indicate we'll respond asynchronously
+            return true;
         }
-    );
+    }
+);
 
-    console.log('[Offscreen] Document loaded and ready');
-});
+console.log('[Offscreen] Document loaded and ready');
 
 /**
  * Write text to clipboard using the Clipboard API.
