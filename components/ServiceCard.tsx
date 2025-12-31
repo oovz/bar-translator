@@ -1,5 +1,5 @@
-// import { h } from 'preact';
 import { useState } from 'preact/hooks';
+import { t } from '@/utils/i18n';
 import type { TranslationService } from '@/src/types';
 
 interface ServiceCardProps {
@@ -37,13 +37,13 @@ export function ServiceCard({
                         {service.name}
                         {isPreferred && (
                             <span style="background: var(--primary-color); color: white; font-size: 0.75rem; padding: 0.125rem 0.5rem; border-radius: 999px;">
-                                Preferred
+                                {t('primary')}
                             </span>
                         )}
                     </h3>
                     <p style="margin: 0.25rem 0 0; color: var(--text-secondary); font-size: 0.875rem;">
-                        Type: {service.type === 'api' ? 'Official API' : 'Web Interface'}
-                        {service.requiresApiKey && ' • Requires API Key'}
+                        {t('type')}: {service.type === 'api' ? t('serviceTypeApi') : t('serviceTypeWeb')}
+                        {service.requiresApiKey && ` ${t('requiresApiKey')}`}
                     </p>
                 </div>
 
@@ -53,7 +53,7 @@ export function ServiceCard({
                         onClick={onSetPreferred}
                         style="color: var(--primary-color); border: 1px solid var(--primary-color); background: transparent;"
                     >
-                        Make Preferred
+                        {t('makePreferred')}
                     </button>
                 )}
             </div>
@@ -61,14 +61,14 @@ export function ServiceCard({
             {service.requiresApiKey && (
                 <div class="api-key-section" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
                     <div class="form-group">
-                        <label class="label">API Key</label>
+                        <label class="label">{t('apiKeyLabel')}</label>
                         <div style="display: flex; gap: 0.5rem;">
                             <input
                                 type={showKey ? 'text' : 'password'}
                                 class="input"
                                 value={apiKey}
                                 onInput={(e) => onApiKeyChange(e.currentTarget.value)}
-                                placeholder={`Enter ${service.name} API Key`}
+                                placeholder={t('enterApiKey', [service.name])}
                                 disabled={loading}
                             />
                             <button
@@ -76,9 +76,9 @@ export function ServiceCard({
                                 type="button"
                                 onClick={() => setShowKey(!showKey)}
                                 style="background: var(--bg-color); border: 1px solid var(--border-color);"
-                                title={showKey ? "Hide key" : "Show key"}
+                                title={showKey ? t('hide') : t('show')}
                             >
-                                {showKey ? 'Hide' : 'Show'}
+                                {showKey ? t('hide') : t('show')}
                             </button>
                         </div>
                     </div>
@@ -89,12 +89,12 @@ export function ServiceCard({
                             onClick={onValidateKey}
                             disabled={loading || !apiKey}
                         >
-                            {loading ? 'Checking...' : (isKeyValid ? 'Re-validate' : 'Validate Key')}
+                            {loading ? t('checking') : (isKeyValid ? t('reValidate') : t('validateKey'))}
                         </button>
 
                         {isKeyValid && (
                             <span style="color: var(--success-color); font-size: 0.875rem; font-weight: 500;">
-                                ✓ Validated
+                                {t('validated')}
                             </span>
                         )}
                         {error && (

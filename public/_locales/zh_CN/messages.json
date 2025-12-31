@@ -1,0 +1,287 @@
+{
+    "extName": {
+        "message": "Bar Translator"
+    },
+    "extDescription": {
+        "message": "在 Chrome 地址栏快速翻译"
+    },
+    "loading": {
+        "message": "加载中..."
+    },
+    "sectionDefaultLanguages": {
+        "message": "默认语言"
+    },
+    "labelSource": {
+        "message": "源语言"
+    },
+    "labelTarget": {
+        "message": "目标语言"
+    },
+    "sectionRegionalDialects": {
+        "message": "地区偏好"
+    },
+    "regionalDialectsDesc": {
+        "message": "选择输入简短代码时使用的特定变体（例如：'zh' → 'zh-TW'）。"
+    },
+    "optionDefault": {
+        "message": "默认 ($1)",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "sectionTranslationServices": {
+        "message": "翻译服务"
+    },
+    "servicesDesc": {
+        "message": "第一个启用的服务为首选服务。其他的为备用服务（拖动以重新排序）。"
+    },
+    "availableServices": {
+        "message": "可用服务（点击 + 启用）："
+    },
+    "primary": {
+        "message": "首选"
+    },
+    "free": {
+        "message": "免费"
+    },
+    "keyRequired": {
+        "message": "需要密钥"
+    },
+    "keyNeeded": {
+        "message": "需要密钥"
+    },
+    "makePreferred": {
+        "message": "设为首选"
+    },
+    "apiKeyLabel": {
+        "message": "API 密钥"
+    },
+    "enterApiKey": {
+        "message": "输入 $1 API 密钥",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "show": {
+        "message": "显示"
+    },
+    "hide": {
+        "message": "隐藏"
+    },
+    "validateKey": {
+        "message": "验证密钥"
+    },
+    "reValidate": {
+        "message": "重新验证"
+    },
+    "checking": {
+        "message": "检查中..."
+    },
+    "validated": {
+        "message": "✓ 已验证"
+    },
+    "valid": {
+        "message": "✓ 有效"
+    },
+    "retry": {
+        "message": "重试"
+    },
+    "invalidApiKey": {
+        "message": "API 密钥无效"
+    },
+    "apiKeyRequired": {
+        "message": "需要 API 密钥"
+    },
+    "enableFallback": {
+        "message": "启用备用服务"
+    },
+    "fallbackDesc": {
+        "message": "如果首选服务失败，尝试其他服务"
+    },
+    "dragToReorder": {
+        "message": "拖动以重新排序优先级（顶部 = 首先尝试）"
+    },
+    "noFallbackAvailable": {
+        "message": "没有可用的备用服务。添加 API 密钥以启用更多服务。"
+    },
+    "noServicesEnabled": {
+        "message": "未启用任何服务。请启用至少一个服务以使用翻译。"
+    },
+    "sectionPrivacy": {
+        "message": "隐私与存储"
+    },
+    "labelStorage": {
+        "message": "API 密钥存储"
+    },
+    "storageDesc": {
+        "message": "同步存储未加密。API 密钥可能对其他扩展程序可见，或者如果您的 Google 帐户遭到入侵，密钥可能会泄露。使用本地存储以获得更好的安全性。"
+    },
+    "storageSync": {
+        "message": "跨设备同步"
+    },
+    "storageLocal": {
+        "message": "仅本地"
+    },
+    "storageSyncWarning": {
+        "message": "⚠️ 密钥将在设备间同步（安全性较低）"
+    },
+    "storageLocalHint": {
+        "message": "🔒 密钥仅存储在本地（更安全）"
+    },
+    "labelTelemetry": {
+        "message": "使用分析"
+    },
+    "telemetryDesc": {
+        "message": "通过匿名使用数据帮助改进 Bar Translator"
+    },
+    "footerUsage": {
+        "message": "在地址栏输入 <code>t hello</code> 进行翻译"
+    },
+    "omniboxSuggestion": {
+        "message": "输入 <match>[语言] 文本</match> 进行翻译（例如：<match>zh Hello</match>）"
+    },
+    "omniboxTranslating": {
+        "message": "<dim>翻译中...</dim>"
+    },
+    "omniboxCopied": {
+        "message": "<match>已复制：</match> $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "noResults": {
+        "message": "无结果"
+    },
+    "serviceTypeApi": {
+        "message": "官方 API"
+    },
+    "serviceTypeWeb": {
+        "message": "网页接口"
+    },
+    "requiresApiKey": {
+        "message": "• 需要 API 密钥"
+    },
+    "lang_auto": {
+        "message": "自动检测"
+    },
+    "lang_en": {
+        "message": "英语"
+    },
+    "lang_es": {
+        "message": "西班牙语"
+    },
+    "lang_fr": {
+        "message": "法语"
+    },
+    "lang_de": {
+        "message": "德语"
+    },
+    "lang_it": {
+        "message": "意大利语"
+    },
+    "lang_pt": {
+        "message": "葡萄牙语"
+    },
+    "lang_pt_br": {
+        "message": "葡萄牙语（巴西）"
+    },
+    "lang_ru": {
+        "message": "俄语"
+    },
+    "lang_zh_cn": {
+        "message": "中文（简体）"
+    },
+    "lang_zh_tw": {
+        "message": "中文（繁体）"
+    },
+    "lang_ja": {
+        "message": "日语"
+    },
+    "lang_ko": {
+        "message": "韩语"
+    },
+    "lang_ar": {
+        "message": "阿拉伯语"
+    },
+    "lang_hi": {
+        "message": "印地语"
+    },
+    "lang_nl": {
+        "message": "荷兰语"
+    },
+    "lang_pl": {
+        "message": "波兰语"
+    },
+    "lang_tr": {
+        "message": "土耳其语"
+    },
+    "lang_vi": {
+        "message": "越南语"
+    },
+    "lang_th": {
+        "message": "泰语"
+    },
+    "lang_uk": {
+        "message": "乌克兰语"
+    },
+    "lang_cs": {
+        "message": "捷克语"
+    },
+    "lang_el": {
+        "message": "希腊语"
+    },
+    "lang_he": {
+        "message": "希伯来语"
+    },
+    "lang_sv": {
+        "message": "瑞典语"
+    },
+    "lang_da": {
+        "message": "丹麦语"
+    },
+    "lang_fi": {
+        "message": "芬兰语"
+    },
+    "lang_nb": {
+        "message": "挪威语"
+    },
+    "lang_hu": {
+        "message": "匈牙利语"
+    },
+    "lang_ro": {
+        "message": "罗马尼亚语"
+    },
+    "lang_sk": {
+        "message": "斯洛伐克语"
+    },
+    "lang_bg": {
+        "message": "保加利亚语"
+    },
+    "lang_id": {
+        "message": "印尼语"
+    },
+    "lang_variant_simple": {
+        "message": "简体 (zh-CN)"
+    },
+    "lang_variant_traditional": {
+        "message": "繁体 (zh-TW)"
+    },
+    "lang_variant_portugal": {
+        "message": "葡萄牙 (pt-PT)"
+    },
+    "lang_variant_brazil": {
+        "message": "巴西 (pt-BR)"
+    },
+    "lang_variant_us": {
+        "message": "美国 (en-US)"
+    },
+    "lang_variant_uk": {
+        "message": "英国 (en-GB)"
+    }
+}

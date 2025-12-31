@@ -13,8 +13,9 @@ export default defineConfig({
         },
     }),
     manifest: {
-        name: 'Bar Translator',
-        description: 'Quick translations from the Chrome address bar',
+        name: '__MSG_extName__',
+        description: '__MSG_extDescription__',
+        default_locale: 'en',
         permissions: ['storage', 'clipboardWrite', 'offscreen'],
         icons: {
             16: '/icons/icon-16.png',

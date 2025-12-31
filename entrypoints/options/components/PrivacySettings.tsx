@@ -1,5 +1,6 @@
 import { migrateApiKeys } from '@/utils/storage';
 import { setTelemetryEnabled } from '@/utils/telemetry';
+import { t } from '@/utils/i18n';
 
 interface PrivacySettingsProps {
     readonly preferences: import('@/src/types').UserPreferences;
@@ -23,15 +24,15 @@ export function PrivacySettings({ preferences, updatePreferences }: PrivacySetti
 
     return (
         <div class="section">
-            <div class="section-title">Privacy & Storage</div>
+            <div class="section-title">{t('sectionPrivacy')}</div>
 
             {/* API Key Storage */}
             <div class="setting-row">
                 <div class="setting-info">
                     <div class="setting-label">
-                        API Key Storage
+                        {t('labelStorage')}
                         <span
-                            title="Synced storage is unencrypted. API keys may be visible to other extensions or if your Google account is compromised. Use Local storage for better security."
+                            title={t('storageDesc')}
                             style="margin-left: 6px; cursor: help; font-size: 12px;"
                         >
                             ℹ️
@@ -39,8 +40,8 @@ export function PrivacySettings({ preferences, updatePreferences }: PrivacySetti
                     </div>
                     <div class="setting-hint">
                         {preferences.storageType === 'sync'
-                            ? '⚠️ Keys sync across devices (less secure)'
-                            : '🔒 Keys stored locally only (more secure)'}
+                            ? t('storageSyncWarning')
+                            : t('storageLocalHint')}
                     </div>
                 </div>
                 <select
@@ -48,17 +49,17 @@ export function PrivacySettings({ preferences, updatePreferences }: PrivacySetti
                     value={preferences.storageType}
                     onChange={(e) => handleStorageTypeChange(e.currentTarget.value as 'sync' | 'local')}
                 >
-                    <option value="local">Local only</option>
-                    <option value="sync">Sync across devices</option>
+                    <option value="local">{t('storageLocal')}</option>
+                    <option value="sync">{t('storageSync')}</option>
                 </select>
             </div>
 
             {/* Telemetry */}
             <div class="setting-row">
                 <div class="setting-info">
-                    <div class="setting-label">Usage Analytics</div>
+                    <div class="setting-label">{t('labelTelemetry')}</div>
                     <div class="setting-hint">
-                        Help improve Bar Translator with anonymous usage data
+                        {t('telemetryDesc')}
                     </div>
                 </div>
                 <label class="toggle-switch">

@@ -1,0 +1,287 @@
+{
+    "extName": {
+        "message": "Bar Translator"
+    },
+    "extDescription": {
+        "message": "Chrome のアドレスバーから素早く翻訳"
+    },
+    "loading": {
+        "message": "読み込み中..."
+    },
+    "sectionDefaultLanguages": {
+        "message": "デフォルト言語"
+    },
+    "labelSource": {
+        "message": "翻訳元"
+    },
+    "labelTarget": {
+        "message": "翻訳先"
+    },
+    "sectionRegionalDialects": {
+        "message": "地域の方言"
+    },
+    "regionalDialectsDesc": {
+        "message": "短縮コード入力時（例：'zh' → 'zh-TW'）に使用する特定のバリアントを選択します。"
+    },
+    "optionDefault": {
+        "message": "デフォルト ($1)",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "sectionTranslationServices": {
+        "message": "翻訳サービス"
+    },
+    "servicesDesc": {
+        "message": "最初に有効なサービスが優先されます。その他はフォールバックとして使用されます（ドラッグして並べ替え）。"
+    },
+    "availableServices": {
+        "message": "利用可能なサービス（+をクリックして有効化）："
+    },
+    "primary": {
+        "message": "優先"
+    },
+    "free": {
+        "message": "無料"
+    },
+    "keyRequired": {
+        "message": "キーが必要"
+    },
+    "keyNeeded": {
+        "message": "キーが必要"
+    },
+    "makePreferred": {
+        "message": "優先に設定"
+    },
+    "apiKeyLabel": {
+        "message": "APIキー"
+    },
+    "enterApiKey": {
+        "message": "$1 APIキーを入力",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "show": {
+        "message": "表示"
+    },
+    "hide": {
+        "message": "非表示"
+    },
+    "validateKey": {
+        "message": "キーを検証"
+    },
+    "reValidate": {
+        "message": "再検証"
+    },
+    "checking": {
+        "message": "確認中..."
+    },
+    "validated": {
+        "message": "✓ 検証済み"
+    },
+    "valid": {
+        "message": "✓ 有効"
+    },
+    "retry": {
+        "message": "再試行"
+    },
+    "invalidApiKey": {
+        "message": "無効なAPIキー"
+    },
+    "apiKeyRequired": {
+        "message": "APIキーが必要です"
+    },
+    "enableFallback": {
+        "message": "フォールバックを有効化"
+    },
+    "fallbackDesc": {
+        "message": "優先サービスが失敗した場合に他のサービスを試行"
+    },
+    "dragToReorder": {
+        "message": "ドラッグして優先順位を変更（上 = 最初に試行）"
+    },
+    "noFallbackAvailable": {
+        "message": "利用可能なフォールバックサービスがありません。APIキーを追加してサービスを有効にしてください。"
+    },
+    "noServicesEnabled": {
+        "message": "有効なサービスがありません。翻訳を使用するには少なくとも1つのサービスを有効にしてください。"
+    },
+    "sectionPrivacy": {
+        "message": "プライバシーとストレージ"
+    },
+    "labelStorage": {
+        "message": "APIキーの保存先"
+    },
+    "storageDesc": {
+        "message": "同期ストレージは暗号化されていません。APIキーは他の拡張機能から見える可能性があり、Googleアカウントが侵害された場合に漏洩する可能性があります。より安全なローカルストレージを使用してください。"
+    },
+    "storageSync": {
+        "message": "デバイス間で同期"
+    },
+    "storageLocal": {
+        "message": "ローカルのみ"
+    },
+    "storageSyncWarning": {
+        "message": "⚠️ キーはデバイス間で同期されます（セキュリティ低）"
+    },
+    "storageLocalHint": {
+        "message": "🔒 キーはローカルにのみ保存されます（より安全）"
+    },
+    "labelTelemetry": {
+        "message": "利用状況分析"
+    },
+    "telemetryDesc": {
+        "message": "匿名の利用データで Bar Translator の改善にご協力ください"
+    },
+    "footerUsage": {
+        "message": "アドレスバーに <code>t hello</code> と入力して翻訳"
+    },
+    "omniboxSuggestion": {
+        "message": "<match>[言語] テキスト</match> と入力して翻訳（例：<match>en こんにちは</match>）"
+    },
+    "omniboxTranslating": {
+        "message": "<dim>翻訳中...</dim>"
+    },
+    "omniboxCopied": {
+        "message": "<match>コピーしました：</match> $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "noResults": {
+        "message": "結果なし"
+    },
+    "serviceTypeApi": {
+        "message": "公式API"
+    },
+    "serviceTypeWeb": {
+        "message": "Webインターフェース"
+    },
+    "requiresApiKey": {
+        "message": "• APIキーが必要"
+    },
+    "lang_auto": {
+        "message": "自動検出"
+    },
+    "lang_en": {
+        "message": "英語"
+    },
+    "lang_es": {
+        "message": "スペイン語"
+    },
+    "lang_fr": {
+        "message": "フランス語"
+    },
+    "lang_de": {
+        "message": "ドイツ語"
+    },
+    "lang_it": {
+        "message": "イタリア語"
+    },
+    "lang_pt": {
+        "message": "ポルトガル語"
+    },
+    "lang_pt_br": {
+        "message": "ポルトガル語（ブラジル）"
+    },
+    "lang_ru": {
+        "message": "ロシア語"
+    },
+    "lang_zh_cn": {
+        "message": "中国語（簡体字）"
+    },
+    "lang_zh_tw": {
+        "message": "中国語（繁体字）"
+    },
+    "lang_ja": {
+        "message": "日本語"
+    },
+    "lang_ko": {
+        "message": "韓国語"
+    },
+    "lang_ar": {
+        "message": "アラビア語"
+    },
+    "lang_hi": {
+        "message": "ヒンディー語"
+    },
+    "lang_nl": {
+        "message": "オランダ語"
+    },
+    "lang_pl": {
+        "message": "ポーランド語"
+    },
+    "lang_tr": {
+        "message": "トルコ語"
+    },
+    "lang_vi": {
+        "message": "ベトナム語"
+    },
+    "lang_th": {
+        "message": "タイ語"
+    },
+    "lang_uk": {
+        "message": "ウクライナ語"
+    },
+    "lang_cs": {
+        "message": "チェコ語"
+    },
+    "lang_el": {
+        "message": "ギリシャ語"
+    },
+    "lang_he": {
+        "message": "ヘブライ語"
+    },
+    "lang_sv": {
+        "message": "スウェーデン語"
+    },
+    "lang_da": {
+        "message": "デンマーク語"
+    },
+    "lang_fi": {
+        "message": "フィンランド語"
+    },
+    "lang_nb": {
+        "message": "ノルウェー語"
+    },
+    "lang_hu": {
+        "message": "ハンガリー語"
+    },
+    "lang_ro": {
+        "message": "ルーマニア語"
+    },
+    "lang_sk": {
+        "message": "スロバキア語"
+    },
+    "lang_bg": {
+        "message": "ブルガリア語"
+    },
+    "lang_id": {
+        "message": "インドネシア語"
+    },
+    "lang_variant_simple": {
+        "message": "簡体字 (zh-CN)"
+    },
+    "lang_variant_traditional": {
+        "message": "繁体字 (zh-TW)"
+    },
+    "lang_variant_portugal": {
+        "message": "ポルトガル (pt-PT)"
+    },
+    "lang_variant_brazil": {
+        "message": "ブラジル (pt-BR)"
+    },
+    "lang_variant_us": {
+        "message": "米国 (en-US)"
+    },
+    "lang_variant_uk": {
+        "message": "英国 (en-GB)"
+    }
+}

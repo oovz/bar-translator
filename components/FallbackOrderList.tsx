@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef } from 'preact/hooks';
+import { t } from '@/utils/i18n';
 import Sortable from 'sortablejs';
 import type { ServiceId, TranslationService } from '@/src/types';
 
@@ -99,7 +100,7 @@ export function FallbackOrderList({
 
     const getServiceType = (id: ServiceId): string => {
         const service = services.find((s) => s.id === id);
-        return service?.type === 'api' ? 'API' : 'Scraper';
+        return service?.type === 'api' ? t('serviceTypeApi') : t('serviceTypeWeb');
     };
 
     return (
@@ -116,10 +117,10 @@ export function FallbackOrderList({
                         onChange={(e) => onToggleFallback(e.currentTarget.checked)}
                         style="width: 1.25rem; height: 1.25rem; cursor: pointer;"
                     />
-                    <span style="font-weight: 500;">Enable Fallback</span>
+                    <span style="font-weight: 500;">{t('enableFallback')}</span>
                 </label>
                 <span style="color: var(--text-secondary); font-size: 0.875rem;">
-                    Try other services if primary fails
+                    {t('fallbackDesc')}
                 </span>
             </div>
 
@@ -127,7 +128,7 @@ export function FallbackOrderList({
             {fallbackEnabled && (
                 <div class="fallback-order-section">
                     <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.75rem;">
-                        Drag to reorder fallback priority (top = first to try)
+                        {t('dragToReorder')}
                     </p>
                     <ul
                         ref={listRef}
@@ -168,7 +169,7 @@ export function FallbackOrderList({
                     </ul>
                     {fallbackOrder.length === 0 && (
                         <p style="color: var(--text-secondary); font-style: italic; text-align: center; padding: 1rem;">
-                            No fallback services available. Add API keys to enable more services.
+                            {t('noFallbackAvailable')}
                         </p>
                     )}
                 </div>

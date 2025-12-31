@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState } from 'preact/hooks';
+import { t } from '@/utils/i18n';
 import Sortable from 'sortablejs';
 import { getServiceDefinition } from '@/services/base';
 import { DeepLTranslationService } from '@/services/deepl';
@@ -35,7 +36,7 @@ export function ServiceList({
     const disabledServices = services.filter(s => !enabledServices.includes(s.id)).map(s => s.id);
 
     const getApiKeyForService = (serviceId: ServiceId) => {
-        if (serviceId === 'google-scraper' || serviceId === 'lingva') return null;
+        if (serviceId === 'google-web' || serviceId === 'lingva') return null;
         if (serviceId === 'google-cloud') return (apiKeys as any).googleCloud;
         return (apiKeys as any)[serviceId];
     };
@@ -82,10 +83,10 @@ export function ServiceList({
                 const service = new DeepLTranslationService(def);
                 const result = await service.validateApiKey(key);
                 valid = result.valid;
-                if (!valid) error = result.error || 'Invalid API key';
+                if (!valid) error = t('invalidApiKey');
             } else {
                 valid = key.length > 0;
-                if (!valid) error = 'API key required';
+                if (!valid) error = t('apiKeyRequired');
                 await new Promise(r => setTimeout(r, 500));
             }
 
@@ -154,13 +155,13 @@ export function ServiceList({
         let buttonClass = 'btn btn-sm btn-primary';
 
         if (state === 'validating') {
-            buttonText = '...';
+            buttonText = t('checking'); // ... or 'Checking...'
         } else if (state === 'valid' && !keyChanged) {
-            buttonText = '✓ Valid';
+            buttonText = t('valid'); // '✓ Valid'
             buttonDisabled = true;
             buttonClass = 'btn btn-sm btn-success';
         } else if (state === 'error' && !keyChanged) {
-            buttonText = 'Retry';
+            buttonText = t('retry');
         }
 
         return (
@@ -169,7 +170,7 @@ export function ServiceList({
                     <input
                         type={showKeys[serviceId] ? 'text' : 'password'}
                         class="input"
-                        placeholder={`Enter ${svc.name} API Key`}
+                        placeholder={t('enterApiKey', [svc.name])}
                         value={apiKey}
                         onInput={(e) => handleApiKeyChange(serviceId, e.currentTarget.value)}
                         disabled={state === 'validating'}
@@ -181,7 +182,7 @@ export function ServiceList({
                             [serviceId]: !prev[serviceId]
                         }))}
                     >
-                        {showKeys[serviceId] ? 'Hide' : 'Show'}
+                        {showKeys[serviceId] ? t('hide') : t('show')}
                     </button>
                     <button
                         class={buttonClass}
@@ -202,9 +203,9 @@ export function ServiceList({
 
     return (
         <div class="section">
-            <div class="section-title">Translation Services</div>
+            <div class="section-title">{t('sectionTranslationServices')}</div>
             <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">
-                First enabled service = primary. Others are fallbacks (drag to reorder).
+                {t('servicesDesc')}
             </div>
 
             <ul class="service-list" ref={serviceListRef}>
@@ -221,11 +222,11 @@ export function ServiceList({
                                 <span class="service-index">{idx + 1}</span>
                                 <div class="service-info">
                                     <span class="service-name">{svc.name}</span>
-                                    {idx === 0 && <span class="badge badge-primary">PRIMARY</span>}
+                                    {idx === 0 && <span class="badge badge-primary">{t('primary')}</span>}
                                     {ready ? (
                                         <span class="badge badge-success">✓</span>
                                     ) : svc.requiresApiKey ? (
-                                        <span class="badge badge-warning">Key needed</span>
+                                        <span class="badge badge-warning">{t('keyNeeded')}</span>
                                     ) : null}
                                 </div>
                                 <div class="service-actions">
@@ -255,7 +256,7 @@ export function ServiceList({
             {disabledServices.length > 0 && (
                 <div style="margin-top: 12px;">
                     <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 6px;">
-                        Available services (click + to enable):
+                        {t('availableServices')}
                     </div>
                     <ul class="service-list disabled-list">
                         {disabledServices.map(serviceId => {
@@ -269,9 +270,9 @@ export function ServiceList({
                                         <div class="service-info" style="flex: 1;">
                                             <span class="service-name">{svc.name}</span>
                                             {svc.requiresApiKey ? (
-                                                <span class="badge badge-muted">Key required</span>
+                                                <span class="badge badge-muted">{t('keyRequired')}</span>
                                             ) : (
-                                                <span class="badge badge-success">Free</span>
+                                                <span class="badge badge-success">{t('free')}</span>
                                             )}
                                         </div>
                                         <div class="service-actions">
@@ -302,7 +303,7 @@ export function ServiceList({
 
             {enabledServices.length === 0 && (
                 <div style="padding: 12px; background: rgba(245,158,11,0.1); border-radius: 4px; font-size: 11px; color: var(--warning-color);">
-                    No services enabled. Enable at least one service to use translations.
+                    {t('noServicesEnabled')}
                 </div>
             )}
         </div>

@@ -16,7 +16,7 @@ test.describe('Options Page', () => {
         await page.goto(`chrome-extension://${extensionId}/options.html`);
 
         // Check title
-        await expect(page).toHaveTitle(/Bar Translate/i);
+        await expect(page).toHaveTitle(/Bar Translator Settings/i);
 
         // Header should be gone (refactoring requirement)
         await expect(page.locator('h1', { hasText: 'Bar Translate Settings' })).not.toBeVisible();

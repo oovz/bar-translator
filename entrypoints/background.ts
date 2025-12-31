@@ -10,6 +10,7 @@
 import {
     translateWithFallback,
 } from '@/services/index';
+import { t } from '@/utils/i18n';
 import {
     getPreferences,
     getApiKeys,
@@ -45,7 +46,7 @@ export default defineBackground(() => {
 
     // Set default suggestion
     browser.omnibox.setDefaultSuggestion({
-        description: 'Type <match>[lang] text</match> to translate (e.g., <match>fr Hello</match>)',
+        description: t('omniboxSuggestion'),
     });
 
     // ---------------------------------------------------------------------------
@@ -61,7 +62,7 @@ export default defineBackground(() => {
         // Show loading state immediately
         if (!isTranslating) {
             browser.omnibox.setDefaultSuggestion({
-                description: '<dim>Translating...</dim>',
+                description: t('omniboxTranslating'),
             });
         }
 
@@ -85,6 +86,7 @@ export default defineBackground(() => {
                 const parsed: ParsedOmniboxInput = parseOmniboxInput(text, {
                     defaultTargetLang: preferences.defaultTargetLang,
                     defaultSourceLang: preferences.defaultSourceLang,
+                    languageOverrides: preferences.languageOverrides,
                 });
 
                 console.log('[Background] Parsed input:', parsed);
@@ -179,6 +181,7 @@ export default defineBackground(() => {
                 const parsed = parseOmniboxInput(text, {
                     defaultTargetLang: preferences.defaultTargetLang,
                     defaultSourceLang: preferences.defaultSourceLang,
+                    languageOverrides: preferences.languageOverrides,
                 });
 
                 if (!parsed.isLanguageQuery) {
@@ -199,13 +202,13 @@ export default defineBackground(() => {
                 const success = await copyToClipboard(translationToCopy);
                 if (success) {
                     browser.omnibox.setDefaultSuggestion({
-                        description: `<match>Copied:</match> ${translationToCopy}`,
+                        description: t('omniboxCopied', [translationToCopy]),
                     });
 
                     // Reset after delay
                     setTimeout(() => {
                         browser.omnibox.setDefaultSuggestion({
-                            description: 'Type <match>[lang] text</match> to translate',
+                            description: t('omniboxSuggestion'),
                         });
                     }, 3000);
                 }

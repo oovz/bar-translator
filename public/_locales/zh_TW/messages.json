@@ -1,0 +1,287 @@
+{
+    "extName": {
+        "message": "Bar Translator"
+    },
+    "extDescription": {
+        "message": "在 Chrome 網址列快速翻譯"
+    },
+    "loading": {
+        "message": "載入中..."
+    },
+    "sectionDefaultLanguages": {
+        "message": "預設語言"
+    },
+    "labelSource": {
+        "message": "來源"
+    },
+    "labelTarget": {
+        "message": "目標"
+    },
+    "sectionRegionalDialects": {
+        "message": "地區偏好"
+    },
+    "regionalDialectsDesc": {
+        "message": "選擇輸入簡短代碼時使用的特定變體（例如：'zh' → 'zh-TW'）。"
+    },
+    "optionDefault": {
+        "message": "預設 ($1)",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "sectionTranslationServices": {
+        "message": "翻譯服務"
+    },
+    "servicesDesc": {
+        "message": "第一個啟用的服務為首選服務。其他的為備用服務（拖曳以重新排序）。"
+    },
+    "availableServices": {
+        "message": "可用服務（點擊 + 啟用）："
+    },
+    "primary": {
+        "message": "首選"
+    },
+    "free": {
+        "message": "免費"
+    },
+    "keyRequired": {
+        "message": "需要金鑰"
+    },
+    "keyNeeded": {
+        "message": "需要金鑰"
+    },
+    "makePreferred": {
+        "message": "設為首選"
+    },
+    "apiKeyLabel": {
+        "message": "API 金鑰"
+    },
+    "enterApiKey": {
+        "message": "輸入 $1 API 金鑰",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "show": {
+        "message": "顯示"
+    },
+    "hide": {
+        "message": "隱藏"
+    },
+    "validateKey": {
+        "message": "驗證金鑰"
+    },
+    "reValidate": {
+        "message": "重新驗證"
+    },
+    "checking": {
+        "message": "檢查中..."
+    },
+    "validated": {
+        "message": "✓ 已驗證"
+    },
+    "valid": {
+        "message": "✓ 有效"
+    },
+    "retry": {
+        "message": "重試"
+    },
+    "invalidApiKey": {
+        "message": "API 金鑰無效"
+    },
+    "apiKeyRequired": {
+        "message": "需要 API 金鑰"
+    },
+    "enableFallback": {
+        "message": "啟用備用服務"
+    },
+    "fallbackDesc": {
+        "message": "如果首選服務失敗，嘗試其他服務"
+    },
+    "dragToReorder": {
+        "message": "拖曳以重新排序優先級（頂部 = 首先嘗試）"
+    },
+    "noFallbackAvailable": {
+        "message": "沒有可用的備用服務。新增 API 金鑰以啟用更多服務。"
+    },
+    "noServicesEnabled": {
+        "message": "未啟用任何服務。請啟用至少一個服務以使用翻譯。"
+    },
+    "sectionPrivacy": {
+        "message": "隱私與儲存"
+    },
+    "labelStorage": {
+        "message": "API 金鑰儲存"
+    },
+    "storageDesc": {
+        "message": "同步儲存未加密。API 金鑰可能對其他擴充功能可見，或者如果您的 Google 帳戶遭到入侵，金鑰可能會洩露。使用本地儲存以獲得更好的安全性。"
+    },
+    "storageSync": {
+        "message": "跨裝置同步"
+    },
+    "storageLocal": {
+        "message": "僅本地"
+    },
+    "storageSyncWarning": {
+        "message": "⚠️ 金鑰將在裝置間同步（安全性較低）"
+    },
+    "storageLocalHint": {
+        "message": "🔒 金鑰僅儲存在本地（更安全）"
+    },
+    "labelTelemetry": {
+        "message": "使用分析"
+    },
+    "telemetryDesc": {
+        "message": "透過匿名使用數據幫助改進 Bar Translator"
+    },
+    "footerUsage": {
+        "message": "在網址列輸入 <code>t hello</code> 進行翻譯"
+    },
+    "omniboxSuggestion": {
+        "message": "輸入 <match>[語言] 文本</match> 進行翻譯（例如：<match>zh Hello</match>）"
+    },
+    "omniboxTranslating": {
+        "message": "<dim>翻譯中...</dim>"
+    },
+    "omniboxCopied": {
+        "message": "<match>已複製：</match> $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "noResults": {
+        "message": "無結果"
+    },
+    "serviceTypeApi": {
+        "message": "官方 API"
+    },
+    "serviceTypeWeb": {
+        "message": "網頁介面"
+    },
+    "requiresApiKey": {
+        "message": "• 需要 API 金鑰"
+    },
+    "lang_auto": {
+        "message": "自動檢測"
+    },
+    "lang_en": {
+        "message": "英語"
+    },
+    "lang_es": {
+        "message": "西班牙語"
+    },
+    "lang_fr": {
+        "message": "法語"
+    },
+    "lang_de": {
+        "message": "德語"
+    },
+    "lang_it": {
+        "message": "義大利語"
+    },
+    "lang_pt": {
+        "message": "葡萄牙語"
+    },
+    "lang_pt_br": {
+        "message": "葡萄牙語（巴西）"
+    },
+    "lang_ru": {
+        "message": "俄語"
+    },
+    "lang_zh_cn": {
+        "message": "中文（簡體）"
+    },
+    "lang_zh_tw": {
+        "message": "中文（繁體）"
+    },
+    "lang_ja": {
+        "message": "日語"
+    },
+    "lang_ko": {
+        "message": "韓語"
+    },
+    "lang_ar": {
+        "message": "阿拉伯語"
+    },
+    "lang_hi": {
+        "message": "印地語"
+    },
+    "lang_nl": {
+        "message": "荷蘭語"
+    },
+    "lang_pl": {
+        "message": "波蘭語"
+    },
+    "lang_tr": {
+        "message": "土耳其語"
+    },
+    "lang_vi": {
+        "message": "越南語"
+    },
+    "lang_th": {
+        "message": "泰語"
+    },
+    "lang_uk": {
+        "message": "烏克蘭語"
+    },
+    "lang_cs": {
+        "message": "捷克語"
+    },
+    "lang_el": {
+        "message": "希臘語"
+    },
+    "lang_he": {
+        "message": "希伯來語"
+    },
+    "lang_sv": {
+        "message": "瑞典語"
+    },
+    "lang_da": {
+        "message": "丹麥語"
+    },
+    "lang_fi": {
+        "message": "芬蘭語"
+    },
+    "lang_nb": {
+        "message": "挪威語"
+    },
+    "lang_hu": {
+        "message": "匈牙利語"
+    },
+    "lang_ro": {
+        "message": "羅馬尼亞語"
+    },
+    "lang_sk": {
+        "message": "斯洛伐克語"
+    },
+    "lang_bg": {
+        "message": "保加利亞語"
+    },
+    "lang_id": {
+        "message": "印尼語"
+    },
+    "lang_variant_simple": {
+        "message": "簡體 (zh-CN)"
+    },
+    "lang_variant_traditional": {
+        "message": "繁體 (zh-TW)"
+    },
+    "lang_variant_portugal": {
+        "message": "葡萄牙 (pt-PT)"
+    },
+    "lang_variant_brazil": {
+        "message": "巴西 (pt-BR)"
+    },
+    "lang_variant_us": {
+        "message": "美國 (en-US)"
+    },
+    "lang_variant_uk": {
+        "message": "英國 (en-GB)"
+    }
+}

@@ -1,5 +1,5 @@
-
 import { useState, useRef, useEffect } from 'preact/hooks';
+import { t } from '@/utils/i18n';
 import type { LanguageInfo } from '@/src/types';
 
 interface ComboboxProps {
@@ -63,7 +63,7 @@ export function Combobox({ value, options, onChange, placeholder }: ComboboxProp
                 <div class="combobox-dropdown">
                     {displayedOptions.length === 0 ? (
                         <div class="combobox-option" style={{ color: 'var(--text-secondary)', cursor: 'default' }}>
-                            No results
+                            {t('noResults')}
                         </div>
                     ) : (
                         displayedOptions.map(opt => (

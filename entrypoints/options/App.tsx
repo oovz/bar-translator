@@ -5,6 +5,16 @@ import { getSourceLanguages, getTargetLanguages, OVERRIDABLE_LANGUAGES, fromUser
 import { ServiceList } from './components/ServiceList';
 import { PrivacySettings } from './components/PrivacySettings';
 import { Combobox } from './components/Combobox';
+import { t } from '@/utils/i18n';
+
+const VARIANT_KEY_MAP: Record<string, string> = {
+    'zh-CN': 'lang_variant_simple',
+    'zh-TW': 'lang_variant_traditional',
+    'pt-PT': 'lang_variant_portugal',
+    'pt-BR': 'lang_variant_brazil',
+    'en-US': 'lang_variant_us',
+    'en-GB': 'lang_variant_uk',
+};
 
 export default function App() {
     const {
@@ -28,10 +38,15 @@ export default function App() {
         }
     }, [loading]);
 
+    // Set document title
+    useEffect(() => {
+        document.title = t('extName') + ' ' + t('settings');
+    }, []);
+
     if (loading) {
         return (
             <div style="padding: 40px; text-align: center; color: var(--text-secondary);">
-                Loading...
+                {t('loading')}
             </div>
         );
     }
@@ -40,10 +55,10 @@ export default function App() {
         <div>
             {/* Languages */}
             <div class="section">
-                <div class="section-title">Default Languages</div>
+                <div class="section-title">{t('sectionDefaultLanguages')}</div>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Source</label>
+                        <label>{t('labelSource')}</label>
                         <Combobox
                             value={preferences.defaultSourceLang}
                             options={sourceLanguages}
@@ -51,7 +66,7 @@ export default function App() {
                         />
                     </div>
                     <div class="form-group">
-                        <label>Target</label>
+                        <label>{t('labelTarget')}</label>
                         <Combobox
                             value={preferences.defaultTargetLang}
                             options={targetLanguages}
@@ -63,14 +78,14 @@ export default function App() {
 
             {/* Regional Dialects */}
             <div class="section">
-                <div class="section-title">Regional Dialects</div>
+                <div class="section-title">{t('sectionRegionalDialects')}</div>
                 <div style="margin-bottom: 16px; color: var(--text-secondary); font-size: 13px;">
-                    Choose which specific variant to use when typing short codes (e.g., 'zh' → 'zh-TW').
+                    {t('regionalDialectsDesc')}
                 </div>
                 <div class="form-row">
                     {Object.entries(OVERRIDABLE_LANGUAGES).map(([isoCode, config]) => (
                         <div class="form-group" key={isoCode}>
-                            <label>{config.name} ({isoCode})</label>
+                            <label>{t(`lang_${isoCode}`)} ({isoCode})</label>
                             <select
                                 class="select"
                                 value={preferences.languageOverrides?.[isoCode] || ''}
@@ -84,10 +99,10 @@ export default function App() {
                                     updatePreferences({ languageOverrides: newOverrides });
                                 }}
                             >
-                                <option value="">Default ({fromUserInput(isoCode)})</option>
+                                <option value="">{t('optionDefault', [fromUserInput(isoCode)])}</option>
                                 {config.options.map(opt => (
                                     <option key={opt.code} value={opt.code}>
-                                        {opt.name}
+                                        {t(VARIANT_KEY_MAP[opt.code] || opt.name)}
                                     </option>
                                 ))}
                             </select>
@@ -113,9 +128,7 @@ export default function App() {
             />
 
             {/* Footer */}
-            <div class="footer">
-                Type <code>t hello</code> in address bar to translate
-            </div>
+            <div class="footer" dangerouslySetInnerHTML={{ __html: t('footerUsage') }} />
         </div>
     );
 }

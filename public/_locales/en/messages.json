@@ -1,0 +1,295 @@
+{
+    "extName": {
+        "message": "Bar Translator",
+        "description": "Extension name"
+    },
+    "extDescription": {
+        "message": "Quick translations from the Chrome address bar",
+        "description": "Extension description"
+    },
+    "loading": {
+        "message": "Loading..."
+    },
+    "settings": {
+        "message": "Settings"
+    },
+    "sectionDefaultLanguages": {
+        "message": "Default Languages"
+    },
+    "labelSource": {
+        "message": "Source"
+    },
+    "labelTarget": {
+        "message": "Target"
+    },
+    "sectionRegionalDialects": {
+        "message": "Regional Dialects"
+    },
+    "regionalDialectsDesc": {
+        "message": "Choose which specific variant to use when typing short codes (e.g., 'zh' → 'zh-TW')."
+    },
+    "optionDefault": {
+        "message": "Default ($1)",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "sectionTranslationServices": {
+        "message": "Translation Services"
+    },
+    "servicesDesc": {
+        "message": "First enabled service = primary. Others are fallbacks (drag to reorder)."
+    },
+    "availableServices": {
+        "message": "Available services (click + to enable):"
+    },
+    "primary": {
+        "message": "PRIMARY"
+    },
+    "free": {
+        "message": "Free"
+    },
+    "keyRequired": {
+        "message": "Key required"
+    },
+    "keyNeeded": {
+        "message": "Key needed"
+    },
+    "makePreferred": {
+        "message": "Make Preferred"
+    },
+    "apiKeyLabel": {
+        "message": "API Key"
+    },
+    "enterApiKey": {
+        "message": "Enter $1 API Key",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "show": {
+        "message": "Show"
+    },
+    "hide": {
+        "message": "Hide"
+    },
+    "validateKey": {
+        "message": "Validate Key"
+    },
+    "reValidate": {
+        "message": "Re-validate"
+    },
+    "checking": {
+        "message": "Checking..."
+    },
+    "validated": {
+        "message": "✓ Validated"
+    },
+    "valid": {
+        "message": "✓ Valid"
+    },
+    "retry": {
+        "message": "Retry"
+    },
+    "invalidApiKey": {
+        "message": "Invalid API key"
+    },
+    "apiKeyRequired": {
+        "message": "API key required"
+    },
+    "enableFallback": {
+        "message": "Enable Fallback"
+    },
+    "fallbackDesc": {
+        "message": "Try other services if primary fails"
+    },
+    "dragToReorder": {
+        "message": "Drag to reorder fallback priority (top = first to try)"
+    },
+    "noFallbackAvailable": {
+        "message": "No fallback services available. Add API keys to enable more services."
+    },
+    "noServicesEnabled": {
+        "message": "No services enabled. Enable at least one service to use translations."
+    },
+    "sectionPrivacy": {
+        "message": "Privacy & Storage"
+    },
+    "labelStorage": {
+        "message": "API Key Storage"
+    },
+    "storageDesc": {
+        "message": "Synced storage is unencrypted. API keys may be visible to other extensions or if your Google account is compromised. Use Local storage for better security."
+    },
+    "storageSync": {
+        "message": "Sync across devices"
+    },
+    "storageLocal": {
+        "message": "Local only"
+    },
+    "storageSyncWarning": {
+        "message": "⚠️ Keys sync across devices (less secure)"
+    },
+    "storageLocalHint": {
+        "message": "🔒 Keys stored locally only (more secure)"
+    },
+    "labelTelemetry": {
+        "message": "Usage Analytics"
+    },
+    "telemetryDesc": {
+        "message": "Help improve Bar Translator with anonymous usage data"
+    },
+    "footerUsage": {
+        "message": "Type <code>t hello</code> in address bar to translate"
+    },
+    "omniboxSuggestion": {
+        "message": "Type <match>[lang] text</match> to translate (e.g., <match>fr Hello</match>)"
+    },
+    "omniboxTranslating": {
+        "message": "<dim>Translating...</dim>"
+    },
+    "omniboxCopied": {
+        "message": "<match>Copied:</match> $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "noResults": {
+        "message": "No results"
+    },
+    "serviceTypeApi": {
+        "message": "Official API"
+    },
+    "serviceTypeWeb": {
+        "message": "Web Interface"
+    },
+    "requiresApiKey": {
+        "message": "• Requires API Key"
+    },
+    "lang_auto": {
+        "message": "Auto-detect"
+    },
+    "lang_en": {
+        "message": "English"
+    },
+    "lang_es": {
+        "message": "Spanish"
+    },
+    "lang_fr": {
+        "message": "French"
+    },
+    "lang_de": {
+        "message": "German"
+    },
+    "lang_it": {
+        "message": "Italian"
+    },
+    "lang_pt": {
+        "message": "Portuguese"
+    },
+    "lang_pt_br": {
+        "message": "Portuguese (Brazil)"
+    },
+    "lang_ru": {
+        "message": "Russian"
+    },
+    "lang_zh": {
+        "message": "Chinese"
+    },
+    "lang_zh_cn": {
+        "message": "Chinese (Simplified)"
+    },
+    "lang_zh_tw": {
+        "message": "Chinese (Traditional)"
+    },
+    "lang_ja": {
+        "message": "Japanese"
+    },
+    "lang_ko": {
+        "message": "Korean"
+    },
+    "lang_ar": {
+        "message": "Arabic"
+    },
+    "lang_hi": {
+        "message": "Hindi"
+    },
+    "lang_nl": {
+        "message": "Dutch"
+    },
+    "lang_pl": {
+        "message": "Polish"
+    },
+    "lang_tr": {
+        "message": "Turkish"
+    },
+    "lang_vi": {
+        "message": "Vietnamese"
+    },
+    "lang_th": {
+        "message": "Thai"
+    },
+    "lang_uk": {
+        "message": "Ukrainian"
+    },
+    "lang_cs": {
+        "message": "Czech"
+    },
+    "lang_el": {
+        "message": "Greek"
+    },
+    "lang_he": {
+        "message": "Hebrew"
+    },
+    "lang_sv": {
+        "message": "Swedish"
+    },
+    "lang_da": {
+        "message": "Danish"
+    },
+    "lang_fi": {
+        "message": "Finnish"
+    },
+    "lang_nb": {
+        "message": "Norwegian"
+    },
+    "lang_hu": {
+        "message": "Hungarian"
+    },
+    "lang_ro": {
+        "message": "Romanian"
+    },
+    "lang_sk": {
+        "message": "Slovak"
+    },
+    "lang_bg": {
+        "message": "Bulgarian"
+    },
+    "lang_id": {
+        "message": "Indonesian"
+    },
+    "lang_variant_simple": {
+        "message": "Simplified (zh-CN)"
+    },
+    "lang_variant_traditional": {
+        "message": "Traditional (zh-TW)"
+    },
+    "lang_variant_portugal": {
+        "message": "Portugal (pt-PT)"
+    },
+    "lang_variant_brazil": {
+        "message": "Brazil (pt-BR)"
+    },
+    "lang_variant_us": {
+        "message": "US (en-US)"
+    },
+    "lang_variant_uk": {
+        "message": "UK (en-GB)"
+    }
+}

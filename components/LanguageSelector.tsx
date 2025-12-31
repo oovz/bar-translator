@@ -1,5 +1,4 @@
-// import { h } from 'preact'; // Removed unused import
-import { getSourceLanguages, getTargetLanguages } from '@/utils/languages';
+import { getSourceLanguages, getTargetLanguages, getLanguageName } from '@/utils/languages';
 import type { LanguageInfo } from '@/src/types';
 
 interface LanguageSelectorProps {
@@ -30,11 +29,14 @@ export function LanguageSelector({
                 onChange={(e) => onChange(e.currentTarget.value)}
                 disabled={disabled}
             >
-                {languages.map((lang) => (
-                    <option key={lang.code} value={lang.code}>
-                        {lang.name} {lang.nativeName && lang.nativeName !== lang.name ? `(${lang.nativeName})` : ''}
-                    </option>
-                ))}
+                {languages.map((lang) => {
+                    const displayName = getLanguageName(lang.code);
+                    return (
+                        <option key={lang.code} value={lang.code}>
+                            {displayName} {lang.nativeName && lang.nativeName !== displayName ? `(${lang.nativeName})` : ''}
+                        </option>
+                    );
+                })}
             </select>
         </div>
     );

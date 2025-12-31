@@ -1,0 +1,287 @@
+{
+    "extName": {
+        "message": "Bar Translator"
+    },
+    "extDescription": {
+        "message": "Chrome 주소 표시줄에서 빠른 번역"
+    },
+    "loading": {
+        "message": "로딩 중..."
+    },
+    "sectionDefaultLanguages": {
+        "message": "기본 언어"
+    },
+    "labelSource": {
+        "message": "출발 언어"
+    },
+    "labelTarget": {
+        "message": "도착 언어"
+    },
+    "sectionRegionalDialects": {
+        "message": "지역 방언"
+    },
+    "regionalDialectsDesc": {
+        "message": "단축 코드 입력 시(예: 'zh' → 'zh-TW') 사용할 특정 변형을 선택하세요."
+    },
+    "optionDefault": {
+        "message": "기본 ($1)",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "sectionTranslationServices": {
+        "message": "번역 서비스"
+    },
+    "servicesDesc": {
+        "message": "첫 번째 활성화된 서비스가 기본으로 사용됩니다. 나머지는 예비용입니다 (드래그하여 순서 변경)."
+    },
+    "availableServices": {
+        "message": "사용 가능한 서비스 (+ 클릭하여 활성화):"
+    },
+    "primary": {
+        "message": "기본"
+    },
+    "free": {
+        "message": "무료"
+    },
+    "keyRequired": {
+        "message": "키 필요"
+    },
+    "keyNeeded": {
+        "message": "키 필요"
+    },
+    "makePreferred": {
+        "message": "기본으로 설정"
+    },
+    "apiKeyLabel": {
+        "message": "API 키"
+    },
+    "enterApiKey": {
+        "message": "$1 API 키 입력",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "show": {
+        "message": "표시"
+    },
+    "hide": {
+        "message": "숨기기"
+    },
+    "validateKey": {
+        "message": "키 확인"
+    },
+    "reValidate": {
+        "message": "재확인"
+    },
+    "checking": {
+        "message": "확인 중..."
+    },
+    "validated": {
+        "message": "✓ 확인됨"
+    },
+    "valid": {
+        "message": "✓ 유효함"
+    },
+    "retry": {
+        "message": "재시도"
+    },
+    "invalidApiKey": {
+        "message": "유효하지 않은 API 키"
+    },
+    "apiKeyRequired": {
+        "message": "API 키가 필요합니다"
+    },
+    "enableFallback": {
+        "message": "예비 서비스 활성화"
+    },
+    "fallbackDesc": {
+        "message": "기본 서비스 실패 시 다른 서비스 시도"
+    },
+    "dragToReorder": {
+        "message": "드래그하여 우선순위 변경 (위쪽 = 먼저 시도)"
+    },
+    "noFallbackAvailable": {
+        "message": "사용 가능한 예비 서비스가 없습니다. 더 많은 서비스를 활성화하려면 API 키를 추가하세요."
+    },
+    "noServicesEnabled": {
+        "message": "활성화된 서비스가 없습니다. 번역을 사용하려면 최소 하나의 서비스를 활성화하세요."
+    },
+    "sectionPrivacy": {
+        "message": "개인정보 및 저장소"
+    },
+    "labelStorage": {
+        "message": "API 키 저장소"
+    },
+    "storageDesc": {
+        "message": "동기화 저장소는 암호화되지 않습니다. API 키가 다른 확장 프로그램에 노출되거나 Google 계정이 침해될 경우 유출될 수 있습니다. 더 나은 보안을 위해 로컬 저장소를 사용하세요."
+    },
+    "storageSync": {
+        "message": "기기 간 동기화"
+    },
+    "storageLocal": {
+        "message": "로컬 전용"
+    },
+    "storageSyncWarning": {
+        "message": "⚠️ 키가 기기 간에 동기화됩니다 (보안 낮음)"
+    },
+    "storageLocalHint": {
+        "message": "🔒 키가 로컬에만 저장됩니다 (더 안전함)"
+    },
+    "labelTelemetry": {
+        "message": "사용 통계"
+    },
+    "telemetryDesc": {
+        "message": "익명 사용 데이터를 통해 Bar Translator 개선에 도움을 주세요"
+    },
+    "footerUsage": {
+        "message": "주소 표시줄에 <code>t hello</code> 입력하여 번역"
+    },
+    "omniboxSuggestion": {
+        "message": "<match>[언어] 텍스트</match> 입력하여 번역 (예: <match>ko Hello</match>)"
+    },
+    "omniboxTranslating": {
+        "message": "<dim>번역 중...</dim>"
+    },
+    "omniboxCopied": {
+        "message": "<match>복사됨:</match> $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "noResults": {
+        "message": "결과 없음"
+    },
+    "serviceTypeApi": {
+        "message": "공식 API"
+    },
+    "serviceTypeWeb": {
+        "message": "웹 인터페이스"
+    },
+    "requiresApiKey": {
+        "message": "• API 키 필요"
+    },
+    "lang_auto": {
+        "message": "자동 감지"
+    },
+    "lang_en": {
+        "message": "영어"
+    },
+    "lang_es": {
+        "message": "스페인어"
+    },
+    "lang_fr": {
+        "message": "프랑스어"
+    },
+    "lang_de": {
+        "message": "독일어"
+    },
+    "lang_it": {
+        "message": "이탈리아어"
+    },
+    "lang_pt": {
+        "message": "포르투갈어"
+    },
+    "lang_pt_br": {
+        "message": "포르투갈어 (브라질)"
+    },
+    "lang_ru": {
+        "message": "러시아어"
+    },
+    "lang_zh_cn": {
+        "message": "중국어 (간체)"
+    },
+    "lang_zh_tw": {
+        "message": "중국어 (번체)"
+    },
+    "lang_ja": {
+        "message": "일본어"
+    },
+    "lang_ko": {
+        "message": "한국어"
+    },
+    "lang_ar": {
+        "message": "아랍어"
+    },
+    "lang_hi": {
+        "message": "힌디어"
+    },
+    "lang_nl": {
+        "message": "네덜란드어"
+    },
+    "lang_pl": {
+        "message": "폴란드어"
+    },
+    "lang_tr": {
+        "message": "튀르키예어"
+    },
+    "lang_vi": {
+        "message": "베트남어"
+    },
+    "lang_th": {
+        "message": "태국어"
+    },
+    "lang_uk": {
+        "message": "우크라이나어"
+    },
+    "lang_cs": {
+        "message": "체코어"
+    },
+    "lang_el": {
+        "message": "그리스어"
+    },
+    "lang_he": {
+        "message": "히브리어"
+    },
+    "lang_sv": {
+        "message": "스웨덴어"
+    },
+    "lang_da": {
+        "message": "덴마크어"
+    },
+    "lang_fi": {
+        "message": "핀란드어"
+    },
+    "lang_nb": {
+        "message": "노르웨이어"
+    },
+    "lang_hu": {
+        "message": "헝가리어"
+    },
+    "lang_ro": {
+        "message": "루마니아어"
+    },
+    "lang_sk": {
+        "message": "슬로바키아어"
+    },
+    "lang_bg": {
+        "message": "불가리아어"
+    },
+    "lang_id": {
+        "message": "인도네시아어"
+    },
+    "lang_variant_simple": {
+        "message": "간체 (zh-CN)"
+    },
+    "lang_variant_traditional": {
+        "message": "번체 (zh-TW)"
+    },
+    "lang_variant_portugal": {
+        "message": "포르투갈 (pt-PT)"
+    },
+    "lang_variant_brazil": {
+        "message": "브라질 (pt-BR)"
+    },
+    "lang_variant_us": {
+        "message": "미국 (en-US)"
+    },
+    "lang_variant_uk": {
+        "message": "영국 (en-GB)"
+    }
+}

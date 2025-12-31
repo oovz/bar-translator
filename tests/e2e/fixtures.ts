@@ -25,7 +25,9 @@ export const test = base.extend<{
             args: [
                 `--disable-extensions-except=${pathToExtension}`,
                 `--load-extension=${pathToExtension}`,
+                '--lang=en-US',
             ],
+            locale: 'en-US',
         });
 
         await use(context);
