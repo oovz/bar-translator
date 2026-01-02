@@ -73,6 +73,12 @@ Bar Translator supports a wide range of translation services to ensure reliable 
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Testing**: [Vitest](https://vitest.dev/) (Unit) & [Playwright](https://playwright.dev/) (E2E)
 
+## Privacy
+
+> 1. **Data Processing**: Your translation requests are sent directly to your chosen translation service provider (e.g., Google or DeepL). Apart from the translation provider, translation content is not sent to any third party.
+> 2. **Data Storage**: API keys and settings are stored locally in your browser or synced across your devices via Chrome Sync.
+> 3. **Anonymous Statistics**: Anonymous technical usage data (such as provider errors) is collected to improve the extension. This data does not contain any personally identifiable information or translation text, and you can disable this feature at any time in the settings.
+
 ## 📄 License
 
 MIT © 2025 [oovz](https://github.com/oovz)
