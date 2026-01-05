@@ -1,8 +1,22 @@
+<img src="public/icons/icon-128.png" width="64"/>
+
 # Bar Translator
 
 Quick translations directly from your browser's address bar (Omnibox).
 
 Bar Translator is a simple, lightweight browser extension built with [WXT](https://wxt.dev/) that lets you translate text without leaving your current tab. Just type `t` followed by your text in the address bar.
+
+## Downloads
+<table cellspacing="0" cellpadding="0">
+  <tr>
+    <td valign="center">
+      <a align="center" href="https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno">
+        <img src="https://user-images.githubusercontent.com/22908993/166417152-f870bfbd-1770-4c28-b69d-a7303aebc9a6.png" alt="Chrome Web Store" />
+        <p align="center">Chrome Web Store</p>
+      </a>
+    </td>
+  </tr>
+</table>
 
 ## ✨ Features
 
