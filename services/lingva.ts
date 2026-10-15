@@ -58,7 +58,7 @@ export class LingvaTranslationService extends BaseTranslationService {
 
             if (!data.translation) {
                 throw new TranslationError(
-                    'SCRAPING_FAILED',
+                    'WEB_REQUEST_FAILED',
                     'Could not get translation from Lingva response',
                     { serviceId: this.service.id }
                 );

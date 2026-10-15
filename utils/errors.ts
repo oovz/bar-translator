@@ -60,7 +60,7 @@ export class TranslationError extends Error {
                 return 'Unsupported language code.';
             case 'TEXT_TOO_LONG':
                 return 'Text is too long for translation.';
-            case 'SCRAPING_FAILED':
+            case 'WEB_REQUEST_FAILED':
                 return 'Translation failed. Try an API-based service.';
             case 'AUTH_METHOD_DEPRECATED':
                 return 'Authentication method outdated. Please update the extension.';

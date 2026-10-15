@@ -13,6 +13,7 @@ export const test = base.extend<{
     context: BrowserContext;
     extensionId: string;
 }>({
+    // eslint-disable-next-line no-empty-pattern -- Playwright requires fixture dependencies to use object destructuring.
     context: async ({ }, use) => {
         const pathToExtension = path.join(
             process.cwd(),

@@ -4,7 +4,7 @@
  * @module tests/unit/omnibox-parser.test
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
     parseOmniboxInput,
     formatSuggestionDescription,
@@ -14,7 +14,7 @@ import {
 } from '@/utils/omnibox-parser';
 
 // Mock browser global for i18n
-(global as any).browser = {
+vi.stubGlobal('browser', {
     i18n: {
         getMessage: (key: string) => {
             const messages: Record<string, string> = {
@@ -24,7 +24,7 @@ import {
             return messages[key] || key;
         },
     },
-};
+});
 
 describe('parseOmniboxInput', () => {
     describe('empty input', () => {

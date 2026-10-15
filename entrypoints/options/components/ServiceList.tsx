@@ -3,7 +3,7 @@ import { t } from '@/utils/i18n';
 import Sortable from 'sortablejs';
 import { getServiceDefinition } from '@/services/base';
 import { DeepLTranslationService } from '@/services/deepl';
-import type { ServiceId } from '@/src/types';
+import { SERVICE_TO_STORAGE_KEY, type ServiceId, type TranslationService } from '@/src/types';
 
 interface ServiceListProps {
     readonly services: ReturnType<typeof import('@/services/base').getAllServiceDefinitions>;
@@ -36,9 +36,8 @@ export function ServiceList({
     const disabledServices = services.filter(s => !enabledServices.includes(s.id)).map(s => s.id);
 
     const getApiKeyForService = (serviceId: ServiceId) => {
-        if (serviceId === 'google-web' || serviceId === 'lingva') return null;
-        if (serviceId === 'google-cloud') return (apiKeys as any).googleCloud;
-        return (apiKeys as any)[serviceId];
+        const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
+        return storageKey === null ? null : apiKeys[storageKey];
     };
 
     const isServiceEnabled = (serviceId: ServiceId): boolean => preferences.fallbackOrder.includes(serviceId);
@@ -144,7 +143,7 @@ export function ServiceList({
         };
     }, [preferences.fallbackOrder.length]);
 
-    const renderApiKeyInput = (serviceId: ServiceId, svc: any) => {
+    const renderApiKeyInput = (serviceId: ServiceId, svc: TranslationService) => {
         const creds = getApiKeyForService(serviceId);
         const apiKey = creds?.key || '';
         const state = validationState[serviceId] || 'idle';

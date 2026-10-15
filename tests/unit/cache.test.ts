@@ -57,12 +57,12 @@ describe('TranslationCache', () => {
     describe('set and get', () => {
         it('stores and retrieves entries', () => {
             const key = 'test:key';
-            cache.set(key, 'Bonjour', 'google-scraper');
+            cache.set(key, 'Bonjour', 'google-web');
 
             const entry = cache.get(key);
             expect(entry).not.toBeNull();
             expect(entry?.result).toBe('Bonjour');
-            expect(entry?.serviceId).toBe('google-scraper');
+            expect(entry?.serviceId).toBe('google-web');
         });
 
         it('returns null for missing keys', () => {

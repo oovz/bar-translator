@@ -68,6 +68,19 @@ Bar Translator supports a wide range of translation services to ensure reliable 
    ```
    *Note: This will automatically launch a browser instance with the extension pre-loaded.*
 
+### Verification
+
+Run the local checks after installing dependencies:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
+```
+
+The build produces the Chrome extension in `.output/chrome-mv3/`.
+
 ## 📖 Usage
 
 1. Focus the address bar (Ctrl+L or Cmd+L).

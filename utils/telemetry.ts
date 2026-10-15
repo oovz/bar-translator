@@ -87,7 +87,7 @@ export async function setTelemetryEnabled(enabled: boolean): Promise<void> {
  */
 export function trackEvent(
     event: string,
-    properties?: Record<string, any>
+    properties?: Record<string, unknown>
 ): void {
     if (!telemetryEnabled) {
         return;
@@ -106,7 +106,6 @@ export function trackEvent(
                 ...properties,
             },
             // In Service Worker (background), we must send instantly as there is no loop/window to handle batching guarantees
-            // @ts-ignore - send_instantly is a valid option in posthog-js
             { send_instantly: !isUI }
         );
     } catch (error) {

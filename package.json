@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "wxt prepare && tsc --noEmit"
   },
   "keywords": [
     "chrome-extension",
@@ -30,6 +30,7 @@
     "wxt": "0.20.13"
   },
   "devDependencies": {
+    "@eslint/js": "9.39.2",
     "@playwright/test": "~1.57.0",
     "@preact/preset-vite": "^2.10.2",
     "@testing-library/dom": "^10.4.1",

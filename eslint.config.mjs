@@ -1,13 +1,14 @@
 import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import { defineConfig } from 'eslint/config';
+import tseslint from '@typescript-eslint/eslint-plugin';
 import globals from 'globals';
 
-export default tseslint.config(
+export default defineConfig(
     { ignores: ['dist', '.wxt', '.output', 'coverage'] },
+    js.configs.recommended,
     {
         extends: [
-            js.configs.recommended,
-            ...tseslint.configs.recommended,
+            tseslint.configs['flat/recommended'],
         ],
         files: ['**/*.{ts,tsx}'],
         languageOptions: {
@@ -15,7 +16,7 @@ export default tseslint.config(
             globals: globals.browser,
         },
         rules: {
-            // Basic rules
+            '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
         },
     },
 );

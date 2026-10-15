@@ -43,7 +43,7 @@ async function copyToClipboard(text: string): Promise<void> {
     try {
         await navigator.clipboard.writeText(text);
         console.log('[Offscreen] Text copied to clipboard');
-    } catch (error) {
+    } catch {
         // Fallback to execCommand for older browsers
         const textArea = document.createElement('textarea');
         textArea.value = text;

@@ -26,7 +26,7 @@ const mockDeepLTranslate = vi.fn();
 
 const mockGoogleHandler: TranslationServiceHandler = {
     service: {
-        id: 'google-scraper',
+        id: 'google-web',
         name: 'Google',
         requiresApiKey: false,
         type: 'api',
@@ -59,11 +59,12 @@ describe('Translation Orchestration', () => {
     };
 
     const defaultPrefs: UserPreferences = {
-        preferredServiceId: 'google-scraper',
-        fallbackOrder: ['google-scraper', 'deepl'],
+        preferredServiceId: 'google-web',
+        fallbackOrder: ['google-web', 'deepl'],
         fallbackEnabled: true,
         defaultTargetLang: 'es',
         defaultSourceLang: 'auto',
+        languageOverrides: {},
         storageType: 'local',
         telemetryEnabled: false,
         distinctId: 'test-id',
@@ -89,17 +90,17 @@ describe('Translation Orchestration', () => {
         mockGoogleTranslate.mockResolvedValue({
             translation: 'Hola',
             detectedSourceLang: 'en',
-            serviceId: 'google-scraper',
+            serviceId: 'google-web',
         });
 
         const result = await translateWithFallback(
             defaultParams,
-            { ...defaultPrefs, fallbackOrder: ['google-scraper'] },
+            { ...defaultPrefs, fallbackOrder: ['google-web'] },
             {}
         );
 
         expect(result.translation).toBe('Hola');
-        expect(result.serviceId).toBe('google-scraper');
+        expect(result.serviceId).toBe('google-web');
         expect(result.usedFallback).toBe(false);
         expect(mockGoogleTranslate).toHaveBeenCalled();
         expect(mockDeepLTranslate).not.toHaveBeenCalled();
@@ -115,7 +116,7 @@ describe('Translation Orchestration', () => {
 
         const result = await translateWithFallback(
             defaultParams,
-            { ...defaultPrefs, fallbackOrder: ['google-scraper', 'deepl'] },
+            { ...defaultPrefs, fallbackOrder: ['google-web', 'deepl'] },
             validApiKeys
         );
 
@@ -131,18 +132,18 @@ describe('Translation Orchestration', () => {
         mockGoogleTranslate.mockResolvedValue({
             translation: 'Success',
             detectedSourceLang: 'en',
-            serviceId: 'google-scraper',
+            serviceId: 'google-web',
         });
 
         // DeepL requires key but none provided
         const result = await translateWithFallback(
             defaultParams,
-            { ...defaultPrefs, fallbackOrder: ['deepl', 'google-scraper'] },
+            { ...defaultPrefs, fallbackOrder: ['deepl', 'google-web'] },
             {} // No keys
         );
 
         // Should skip DeepL and use Google
-        expect(result.serviceId).toBe('google-scraper');
+        expect(result.serviceId).toBe('google-web');
         expect(mockDeepLTranslate).not.toHaveBeenCalled();
         expect(mockGoogleTranslate).toHaveBeenCalled();
     });
@@ -164,7 +165,7 @@ describe('Translation Orchestration', () => {
         await expect(
             translateWithFallback(
                 defaultParams,
-                { ...defaultPrefs, fallbackOrder: ['google-scraper', 'deepl'] },
+                { ...defaultPrefs, fallbackOrder: ['google-web', 'deepl'] },
                 validApiKeys
             )
         ).rejects.toThrow('Fail 2'); // Should throw last error
@@ -186,7 +187,7 @@ describe('Translation Orchestration', () => {
         await expect(
             translateWithFallback(
                 defaultParams,
-                { ...defaultPrefs, fallbackOrder: ['google-scraper'] },
+                { ...defaultPrefs, fallbackOrder: ['google-web'] },
                 {}
             )
         ).rejects.toThrow('String error');
