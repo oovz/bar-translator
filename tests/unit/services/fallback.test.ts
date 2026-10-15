@@ -8,6 +8,7 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { translateWithFallback, registerService } from '@/services/index';
+import { TranslationError } from '@/utils/errors';
 import type {
     UserPreferences,
     StoredApiKeys,
@@ -144,6 +145,26 @@ describe('Translation Orchestration', () => {
         expect(result.serviceId).toBe('google-web');
         expect(mockDeepLTranslate).not.toHaveBeenCalled();
         expect(mockGoogleTranslate).toHaveBeenCalled();
+    });
+
+    it('attempts each selected provider once even when the selection repeats it', async () => {
+        mockGoogleTranslate.mockRejectedValue(new Error('Primary failed'));
+        mockDeepLTranslate.mockResolvedValue({ translation: 'Hola', serviceId: 'deepl' });
+        const result = await translateWithFallback(
+            defaultParams,
+            { ...defaultPrefs, fallbackOrder: ['google-web', 'google-web', 'deepl'] },
+            validApiKeys
+        );
+        expect(result.translation).toBe('Hola');
+        expect(mockGoogleTranslate).toHaveBeenCalledTimes(1);
+        expect(mockDeepLTranslate).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['INVALID_LANGUAGE', 'TEXT_TOO_LONG'] as const)('stops on terminal input error %s', async code => {
+        const error = new TranslationError(code, 'Invalid input');
+        mockGoogleTranslate.mockRejectedValue(error);
+        await expect(translateWithFallback(defaultParams, defaultPrefs, validApiKeys)).rejects.toBe(error);
+        expect(mockDeepLTranslate).not.toHaveBeenCalled();
     });
 
     it('throws if no services are enabled', async () => {

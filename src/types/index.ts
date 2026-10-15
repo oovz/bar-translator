@@ -374,6 +374,7 @@ export interface LanguageInfo {
  * Error codes for translation failures.
  */
 export type TranslationErrorCode =
+  | 'TIMEOUT' // Advance to the next allowed service within the total budget
   | 'NETWORK_ERROR' // Retry with backoff
   | 'INVALID_API_KEY' // Don't retry, notify user
   | 'QUOTA_EXCEEDED' // Skip service, notify user

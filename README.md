@@ -39,6 +39,8 @@ Bar Translator offers these translation providers:
 
 In settings, enable the providers you allow to receive your text and drag them into order. The first available provider is tried first; later enabled providers may receive the same text if an earlier attempt fails. Disable every provider to pause translation. This choice persists when settings or the browser reopen.
 
+Each provider attempt has a four-second deadline, including reading its response. The complete sequence has a ten-second budget, so later attempts receive only the remaining time. Attempts run sequentially, with each selected provider attempted once. A timeout aborts the active request and advances to the next available provider within the budget. Terminal failure shows an error and preserves the clipboard. Editing or abandoning the input cancels its pending work; cancellation cannot reverse text already received by a provider or any resulting billing.
+
 DeepL's **Test** button checks the key with the authenticated [usage endpoint](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits). Enable DeepL separately when you want to use it. Google Web and Lingva need no keys. Public web endpoints can be unavailable or change their response format.
 
 ## 🚀 Getting Started

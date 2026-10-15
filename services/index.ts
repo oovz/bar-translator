@@ -92,6 +92,42 @@ export async function isServiceAvailable(
     return credential?.validated === true;
 }
 
+const ATTEMPT_TIMEOUT_MS = 4000;
+const TOTAL_TIMEOUT_MS = 10000;
+
+async function translateAttempt(
+    handler: TranslationServiceHandler,
+    params: TranslateParams,
+    deadline: number
+): Promise<TranslateResult> {
+    params.signal?.throwIfAborted();
+    const controller = new AbortController();
+    const signal = params.signal
+        ? AbortSignal.any([params.signal, controller.signal])
+        : controller.signal;
+    let rejectAborted!: (reason: unknown) => void;
+    const aborted = new Promise<never>((_resolve, reject) => { rejectAborted = reject; });
+    const onAbort = () => rejectAborted(signal.reason);
+    signal.addEventListener('abort', onAbort, { once: true });
+    const timeout = () => {
+        controller.abort(new TranslationError('TIMEOUT', 'Translation timed out. Please try again.', {
+            serviceId: handler.service.id,
+        }));
+    };
+    const timer = setTimeout(timeout, deadline - performance.now());
+
+    try {
+        // Settle even if the provider ignores cancellation; abort also stops fetch/body reads.
+        const result = await Promise.race([handler.translate({ ...params, signal }), aborted]);
+        if (performance.now() >= deadline) timeout();
+        signal.throwIfAborted();
+        return result;
+    } finally {
+        clearTimeout(timer);
+        signal.removeEventListener('abort', onAbort);
+    }
+}
+
 /**
  * Translate with fallback support.
  *
@@ -104,8 +140,9 @@ export async function translateWithFallback(
     apiKeys: StoredApiKeys
 ): Promise<TranslateResultWithMeta> {
     params.signal?.throwIfAborted();
+    const deadline = performance.now() + TOTAL_TIMEOUT_MS;
     // fallbackOrder IS the complete list of enabled services
-    const enabledServices = preferences.fallbackOrder;
+    const enabledServices = [...new Set(preferences.fallbackOrder)];
 
     console.log('[Translate] Starting translation request:', {
         text: params.text.substring(0, 50) + (params.text.length > 50 ? '...' : ''),
@@ -143,6 +180,10 @@ export async function translateWithFallback(
 
     for (let i = 0; i < availableServices.length; i++) {
         params.signal?.throwIfAborted();
+        const remainingMs = deadline - performance.now();
+        if (remainingMs <= 0) {
+            throw new TranslationError('TIMEOUT', 'Translation timed out. Please try again.');
+        }
         const serviceId = availableServices[i];
         const handler = serviceRegistry.get(serviceId);
         if (!handler) {
@@ -166,11 +207,11 @@ export async function translateWithFallback(
                 hasApiKey: !!apiKey,
             });
 
-            const result = await handler.translate({
+            const result = await translateAttempt(handler, {
                 ...params,
                 apiKey,
                 tier,
-            });
+            }, Math.min(deadline, performance.now() + ATTEMPT_TIMEOUT_MS));
 
             params.signal?.throwIfAborted();
             console.log(`[Translate] SUCCESS from ${serviceId}:`, {

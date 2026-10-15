@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_PREFERENCES, type UserPreferences } from '@/src/types';
+import { DEFAULT_PREFERENCES, type StoredApiKeys, type UserPreferences } from '@/src/types';
 import messages from '@/public/_locales/en/messages.json';
 
 function event<Args extends unknown[]>() {
@@ -22,6 +22,7 @@ function googleResponse(translation: string) {
 }
 
 let preferences: UserPreferences;
+let apiKeys: StoredApiKeys;
 let omnibox: {
     onInputStarted: ReturnType<typeof event<[]>>;
     onInputChanged: ReturnType<typeof event<[string, () => void]>>;
@@ -43,6 +44,7 @@ beforeEach(async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
     preferences = { ...DEFAULT_PREFERENCES, languageOverrides: {}, telemetryEnabled: false, distinctId: 'test' };
+    apiKeys = {};
     omnibox = {
         onInputStarted: event<[]>(),
         onInputChanged: event<[string, () => void]>(),
@@ -61,7 +63,7 @@ beforeEach(async () => {
         notifications: { create: notify },
         storage: {
             sync: { get: vi.fn(async () => ({ preferences })), set: vi.fn() },
-            local: { get: vi.fn(async () => ({})) },
+            local: { get: vi.fn(async () => ({ apiKeys_local: apiKeys })) },
             onChanged: storageChanged,
         },
         runtime: {
@@ -158,6 +160,196 @@ describe('allowed translation providers', () => {
             'lingva.ml', 'translate.google.com',
         ]);
         expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+    });
+});
+
+describe('bounded sequential fallback', () => {
+    it('stops after primary success when other allowed providers remain', async () => {
+        preferences = { ...preferences, fallbackOrder: ['google-web', 'lingva'] };
+        fetchMock.mockResolvedValueOnce(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(description()).toContain('Bonjour');
+        await vi.advanceTimersByTimeAsync(20000);
+        expect(description()).toContain('Bonjour');
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+    });
+
+    it('awaits the current fallback on Enter after an eligible primary failure', async () => {
+        preferences = { ...preferences, fallbackOrder: ['lingva', 'google-web'] };
+        const fallback = deferred<Response>();
+        fetchMock.mockResolvedValueOnce(new Response('', { status: 503 }))
+            .mockReturnValueOnce(fallback.promise);
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        await vi.advanceTimersByTimeAsync(3000);
+        expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
+            'lingva.ml', 'translate.google.com',
+        ]);
+        expect(writeText).not.toHaveBeenCalled();
+        fallback.resolve(googleResponse('Bonjour'));
+        await submitted;
+        await vi.advanceTimersByTimeAsync(20000);
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it('includes a stalled response body in the provider deadline', async () => {
+        preferences = { ...preferences, fallbackOrder: ['google-web', 'lingva'] };
+        const body = deferred<string>();
+        const response = googleResponse('');
+        vi.spyOn(response, 'text').mockReturnValue(body.promise);
+        fetchMock.mockResolvedValueOnce(response)
+            .mockResolvedValueOnce(new Response(JSON.stringify({ translation: 'Bonjour' })));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        await vi.advanceTimersByTimeAsync(4000);
+        expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+        expect(description()).toContain('Bonjour');
+        body.resolve('<div class="result-container">Late body</div>');
+        await vi.advanceTimersByTimeAsync(0);
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+    });
+
+    it.each(['clear', 'cancel', 'restart'])('stops a pending fallback after %s', async action => {
+        preferences = { ...preferences, fallbackOrder: ['google-web', 'lingva', 'deepl'] };
+        apiKeys = { deepl: { key: 'fixture:fx', validated: true, tier: 'free' } };
+        const fallback = deferred<Response>();
+        fetchMock.mockResolvedValueOnce(new Response('', { status: 503 }))
+            .mockReturnValueOnce(fallback.promise);
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        if (action === 'clear') await change('');
+        if (action === 'cancel') await omnibox.onInputCancelled.fire();
+        if (action === 'restart') await omnibox.onInputStarted.fire();
+        expect(fetchMock.mock.calls[1][1]?.signal?.aborted).toBe(true);
+        await vi.advanceTimersByTimeAsync(20000);
+        fallback.reject(new Error('Late failure'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
+            'translate.google.com', 'lingva.ml',
+        ]);
+        expect(description()).toBe(messages.omniboxSuggestion.message);
+        expect(writeText).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
+        expect(notify).not.toHaveBeenCalled();
+    });
+
+    it('skips missing credentials and sends text only to the next allowed provider', async () => {
+        preferences = { ...preferences, fallbackOrder: ['deepl', 'lingva'] };
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ translation: 'Bonjour' })));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(description()).toContain('Bonjour');
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        await vi.advanceTimersByTimeAsync(20000);
+        expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual(['lingva.ml']);
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+    });
+
+    it('shows unavailable credentials without making a request or changing the clipboard', async () => {
+        preferences = { ...preferences, fallbackOrder: ['deepl'] };
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        await vi.advanceTimersByTimeAsync(20000);
+        expect(description()).toContain('Check API key configuration');
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(writeText).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
+        expect(notify).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows the final failure after each allowed provider fails once', async () => {
+        preferences = { ...preferences, fallbackOrder: ['lingva', 'google-web'] };
+        fetchMock.mockResolvedValueOnce(new Response('', { status: 503 }))
+            .mockRejectedValueOnce(new Error('Offline'));
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        await vi.advanceTimersByTimeAsync(20000);
+        expect(description()).toContain('Error: Offline');
+        expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
+            'lingva.ml', 'translate.google.com',
+        ]);
+        expect(writeText).not.toHaveBeenCalled();
+        expect(execCommand).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
+        expect(notify).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects a response completed beyond the deadline before the timer callback runs', async () => {
+        const clock = vi.spyOn(performance, 'now').mockReturnValue(0);
+        const response = deferred<Response>();
+        fetchMock.mockReturnValue(response.promise);
+        const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        await vi.advanceTimersByTimeAsync(0);
+        clock.mockReturnValue(11000);
+        response.resolve(googleResponse('Too late'));
+        await submitted;
+        expect(description()).toContain('Translation timed out');
+        expect(writeText).not.toHaveBeenCalled();
+        expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('limits all attempts to ten seconds and preserves the clipboard on submission timeout', async () => {
+        preferences = { ...preferences, fallbackOrder: ['google-web', 'lingva', 'deepl'] };
+        apiKeys = { deepl: { key: 'fixture:fx', validated: true, tier: 'free' } };
+        fetchMock.mockImplementation(() => new Promise(() => {}));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        await vi.advanceTimersByTimeAsync(3999);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        await vi.advanceTimersByTimeAsync(4000);
+        expect(fetchMock.mock.calls[1][1]?.signal?.aborted).toBe(true);
+        expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
+            'translate.google.com', 'lingva.ml', 'api-free.deepl.com',
+        ]);
+        await vi.advanceTimersByTimeAsync(1999);
+        expect(notify).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(1);
+        expect(fetchMock.mock.calls[2][1]?.signal?.aborted).toBe(true);
+        expect(description()).toContain('Translation timed out');
+        await submitted;
+        expect(notify).toHaveBeenCalledWith('translation-error', expect.objectContaining({
+            message: messages.omniboxTranslationFailed.message,
+        }));
+        expect(writeText).not.toHaveBeenCalled();
+        expect(execCommand).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
+        await vi.advanceTimersByTimeAsync(20000);
+        expect(fetchMock).toHaveBeenCalledTimes(3);
+    });
+
+    it('aborts a hung primary after four seconds and copies the allowed fallback', async () => {
+        preferences = { ...preferences, fallbackOrder: ['google-web', 'lingva'] };
+        const primary = deferred<Response>();
+        fetchMock.mockReturnValueOnce(primary.promise)
+            .mockResolvedValueOnce(new Response(JSON.stringify({ translation: 'Bonjour' })));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        const primarySignal = fetchMock.mock.calls[0][1]?.signal;
+        await vi.advanceTimersByTimeAsync(3999);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        await vi.advanceTimersByTimeAsync(1);
+        expect(primarySignal?.aborted).toBe(true);
+        expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
+            'translate.google.com', 'lingva.ml',
+        ]);
+        expect(description()).toContain('Bonjour');
+        primary.resolve(googleResponse('Late primary'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(description()).toContain('Bonjour');
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+        expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 });
 

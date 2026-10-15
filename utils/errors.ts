@@ -46,6 +46,8 @@ export class TranslationError extends Error {
      */
     getUserMessage(): string {
         switch (this.code) {
+            case 'TIMEOUT':
+                return 'Translation timed out. Please try again.';
             case 'NETWORK_ERROR':
                 return 'Network error. Please check your connection.';
             case 'INVALID_API_KEY':
