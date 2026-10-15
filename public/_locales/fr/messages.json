@@ -134,11 +134,8 @@
     "storageLocalHint": {
         "message": "🔒 Clés stockées localement uniquement (plus sécurisé)"
     },
-    "labelTelemetry": {
-        "message": "Analyses d'utilisation"
-    },
-    "telemetryDesc": {
-        "message": "Aidez à améliorer Bar Translator avec des données d'utilisation anonymes"
+    "privacyDesc": {
+        "message": "Bar Translator ne collecte aucune statistique d’utilisation. Le texte est envoyé aux fournisseurs de traduction activés dans l’ordre choisi. Les clés API sont envoyées à leur fournisseur pour la traduction et la validation."
     },
     "footerUsage": {
         "message": "Tapez <code>t bonjour</code> dans la barre d'adresse pour traduire"

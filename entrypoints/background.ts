@@ -11,7 +11,6 @@ import {
     escapeXml,
 } from '@/utils/omnibox-parser';
 import { copyToClipboard } from '@/utils/clipboard';
-import { initTelemetry, trackEvent, TelemetryEvents } from '@/utils/telemetry';
 import type { UserPreferences, TranslateResultWithMeta } from '@/src/types';
 
 const DEBOUNCE_DELAY = 300;
@@ -39,7 +38,9 @@ export default defineBackground(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
     let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 
-    initTelemetry();
+    void getPreferences().catch(() => {
+        console.error('[Background] Could not load preferences');
+    });
 
     function showPrompt() {
         browser.omnibox.setDefaultSuggestion({ description: t('omniboxSuggestion') });
@@ -77,27 +78,7 @@ export default defineBackground(() => {
         if (interaction.request?.context !== context || interaction.request.failed) {
             interaction.request?.controller.abort();
             const controller = new AbortController();
-            const startTime = Date.now();
-            trackEvent(TelemetryEvents.TRANSLATION_REQUESTED, {
-                sourceLang: params.sourceLang, targetLang: params.targetLang,
-                textLength: params.text.length, enabledServices: preferences.fallbackOrder,
-            });
-            const result = translateWithFallback({ ...params, signal: controller.signal }, preferences, apiKeys)
-                .then(result => {
-                    trackEvent(TelemetryEvents.TRANSLATION_SUCCEEDED, {
-                        serviceId: result.serviceId, usedFallback: result.usedFallback,
-                        latency_ms: Date.now() - startTime,
-                    });
-                    return result;
-                }).catch(error => {
-                    if (!controller.signal.aborted) {
-                        trackEvent(TelemetryEvents.TRANSLATION_FAILED, {
-                            error: error instanceof Error ? error.message : String(error),
-                            latency_ms: Date.now() - startTime,
-                        });
-                    }
-                    throw error;
-                });
+            const result = translateWithFallback({ ...params, signal: controller.signal }, preferences, apiKeys);
             interaction.request = { context, controller, result };
         }
         const request = interaction.request;

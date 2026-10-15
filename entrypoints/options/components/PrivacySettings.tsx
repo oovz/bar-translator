@@ -1,5 +1,4 @@
 import { migrateApiKeys } from '@/utils/storage';
-import { setTelemetryEnabled } from '@/utils/telemetry';
 import { t } from '@/utils/i18n';
 
 interface PrivacySettingsProps {
@@ -15,11 +14,6 @@ export function PrivacySettings({ preferences, updatePreferences }: PrivacySetti
         // Migrate API keys to new storage
         await migrateApiKeys(oldType, newType);
         await updatePreferences({ storageType: newType });
-    };
-
-    const handleTelemetryChange = (enabled: boolean) => {
-        setTelemetryEnabled(enabled);
-        updatePreferences({ telemetryEnabled: enabled });
     };
 
     return (
@@ -54,23 +48,7 @@ export function PrivacySettings({ preferences, updatePreferences }: PrivacySetti
                 </select>
             </div>
 
-            {/* Telemetry */}
-            <div class="setting-row">
-                <div class="setting-info">
-                    <div class="setting-label">{t('labelTelemetry')}</div>
-                    <div class="setting-hint">
-                        {t('telemetryDesc')}
-                    </div>
-                </div>
-                <label class="toggle-switch">
-                    <input
-                        type="checkbox"
-                        checked={preferences.telemetryEnabled}
-                        onChange={(e) => handleTelemetryChange(e.currentTarget.checked)}
-                    />
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
+            <div class="setting-hint">{t('privacyDesc')}</div>
         </div>
     );
 }

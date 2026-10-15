@@ -132,11 +132,8 @@
     "storageLocalHint": {
         "message": "🔒 키가 로컬에만 저장됩니다 (더 안전함)"
     },
-    "labelTelemetry": {
-        "message": "사용 통계"
-    },
-    "telemetryDesc": {
-        "message": "익명 사용 데이터를 통해 Bar Translator 개선에 도움을 주세요"
+    "privacyDesc": {
+        "message": "Bar Translator는 사용 분석 데이터를 수집하지 않습니다. 텍스트는 선택한 순서대로 활성화된 번역 제공업체에 전송됩니다. API 키는 번역과 검증을 위해 해당 제공업체에 전송됩니다."
     },
     "footerUsage": {
         "message": "주소 표시줄에 <code>t hello</code> 입력하여 번역"

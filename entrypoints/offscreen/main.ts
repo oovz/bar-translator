@@ -23,9 +23,9 @@ chrome.runtime.onMessage.addListener(
                 .then(() => {
                     sendResponse({ success: true });
                 })
-                .catch((error) => {
-                    console.error('[Offscreen] Clipboard write failed:', error);
-                    sendResponse({ success: false, error: String(error) });
+                .catch(() => {
+                    console.error('[Offscreen] Clipboard write failed');
+                    sendResponse({ success: false, error: 'Clipboard copy failed' });
                 });
 
             // Return true to indicate we'll respond asynchronously
@@ -34,15 +34,12 @@ chrome.runtime.onMessage.addListener(
     }
 );
 
-console.log('[Offscreen] Document loaded and ready');
-
 /**
  * Write text to clipboard using the Clipboard API.
  */
 async function copyToClipboard(text: string): Promise<void> {
     try {
         await navigator.clipboard.writeText(text);
-        console.log('[Offscreen] Text copied to clipboard');
     } catch {
         // Offscreen documents cannot be focused, so use DOM copy if the Clipboard API rejects.
         const textArea = document.createElement('textarea');
@@ -56,7 +53,6 @@ async function copyToClipboard(text: string): Promise<void> {
             if (!document.execCommand('copy')) {
                 throw new Error('Clipboard copy failed');
             }
-            console.log('[Offscreen] Text copied via execCommand');
         } finally {
             document.body.removeChild(textArea);
         }

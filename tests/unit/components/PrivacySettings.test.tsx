@@ -3,15 +3,10 @@ import { render, fireEvent } from '@testing-library/preact';
 import { PrivacySettings } from '@/entrypoints/options/components/PrivacySettings';
 import { DEFAULT_PREFERENCES } from '@/src/types';
 import * as storageUtils from '@/utils/storage';
-import * as telemetryUtils from '@/utils/telemetry';
 
 // Mock utils
 vi.mock('@/utils/storage', () => ({
     migrateApiKeys: vi.fn(),
-}));
-
-vi.mock('@/utils/telemetry', () => ({
-    setTelemetryEnabled: vi.fn(),
 }));
 
 describe('PrivacySettings Component', () => {
@@ -28,12 +23,11 @@ describe('PrivacySettings Component', () => {
         expect(select?.value).toBe('local');
     });
 
-    it('renders telemetry toggle', () => {
+    it('explains privacy without an analytics control', () => {
         const { getByText, container } = render(<PrivacySettings {...mockProps} />);
-        expect(getByText('labelTelemetry')).toBeTruthy();
+        expect(getByText('privacyDesc')).toBeTruthy();
         const checkbox = container.querySelector('input[type="checkbox"]');
-        expect(checkbox).toBeTruthy();
-        expect((checkbox as HTMLInputElement).checked).toBe(true);
+        expect(checkbox).toBeNull();
     });
 
     it('changing storage type triggers migration and update', async () => {
@@ -50,20 +44,6 @@ describe('PrivacySettings Component', () => {
             expect(mockProps.updatePreferences).toHaveBeenCalledWith({ storageType: 'sync' });
         } else {
             throw new Error('Select element not found');
-        }
-    });
-
-    it('changing telemetry toggle calls utils', () => {
-        const { container } = render(<PrivacySettings {...mockProps} />);
-        const checkbox = container.querySelector('input[type="checkbox"]');
-
-        if (checkbox) {
-            fireEvent.click(checkbox);
-
-            expect(telemetryUtils.setTelemetryEnabled).toHaveBeenCalledWith(false);
-            expect(mockProps.updatePreferences).toHaveBeenCalledWith({ telemetryEnabled: false });
-        } else {
-            throw new Error('Checkbox element not found');
         }
     });
 

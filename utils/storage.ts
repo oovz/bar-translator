@@ -31,37 +31,26 @@ const LOCAL_API_KEYS_KEY = 'apiKeys_local';
 // Preferences (always sync storage)
 // =============================================================================
 
-
-
 /**
  * Get user preferences with defaults applied.
- * Handles auto-generation of distinctId if missing.
  */
 export async function getPreferences(): Promise<UserPreferences> {
-    try {
-        // Original implementation used chrome.storage.sync directly
-        const result = await chrome.storage.sync.get(SYNC_STORAGE_KEYS.PREFERENCES);
-        const stored = result[SYNC_STORAGE_KEYS.PREFERENCES] as
-            | Partial<UserPreferences>
-            | undefined;
-
-        const prefs = { ...DEFAULT_PREFERENCES, ...stored };
-        // Stored selections may contain unsupported providers or malformed values.
-        prefs.fallbackOrder = Array.isArray(prefs.fallbackOrder)
-            ? [...new Set(prefs.fallbackOrder.filter(id => SERVICE_IDS.some(supported => supported === id)))]
-            : [];
-
-        // Auto-generate distinctId if missing
-        if (!prefs.distinctId) {
-            prefs.distinctId = crypto.randomUUID();
-            await setPreferences(prefs); // Save the newly generated ID
-        }
-
-        return prefs;
-    } catch (error) {
-        console.error('Failed to get preferences:', error);
-        return DEFAULT_PREFERENCES;
+    const result = await chrome.storage.sync.get(SYNC_STORAGE_KEYS.PREFERENCES);
+    const stored = result[SYNC_STORAGE_KEYS.PREFERENCES] as Partial<UserPreferences> | undefined;
+    const cleaned = { ...stored };
+    const hasAnalytics = 'telemetryEnabled' in cleaned || 'distinctId' in cleaned;
+    delete (cleaned as Record<string, unknown>).telemetryEnabled;
+    delete (cleaned as Record<string, unknown>).distinctId;
+    if (hasAnalytics) {
+        await chrome.storage.sync.set({ [SYNC_STORAGE_KEYS.PREFERENCES]: cleaned });
     }
+    const prefs = { ...DEFAULT_PREFERENCES, ...cleaned };
+    // Stored selections may contain unsupported providers or malformed values.
+    prefs.fallbackOrder = Array.isArray(prefs.fallbackOrder)
+        ? [...new Set(prefs.fallbackOrder.filter(id => SERVICE_IDS.some(supported => supported === id)))]
+        : [];
+
+    return prefs;
 }
 
 /**
@@ -184,8 +173,6 @@ export async function migrateApiKeys(
 
     // Clear old location
     await fromStorage.remove(fromKey);
-
-    console.log(`[Storage] Migrated API keys from ${fromType} to ${toType}`);
 }
 
 // =============================================================================

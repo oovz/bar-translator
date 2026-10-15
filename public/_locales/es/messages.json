@@ -132,11 +132,8 @@
     "storageLocalHint": {
         "message": "🔒 Claves almacenadas solo localmente (más seguro)"
     },
-    "labelTelemetry": {
-        "message": "Análisis de uso"
-    },
-    "telemetryDesc": {
-        "message": "Ayude a mejorar Bar Translator con datos de uso anónimos"
+    "privacyDesc": {
+        "message": "Bar Translator no recopila estadísticas de uso. El texto se envía a los proveedores de traducción habilitados en el orden elegido. Las claves API se envían a su proveedor para traducir y validarlas."
     },
     "footerUsage": {
         "message": "Escriba <code>t hola</code> en la barra de direcciones para traducir"

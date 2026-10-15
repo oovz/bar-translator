@@ -27,7 +27,7 @@ Bar Translator is a simple, lightweight browser extension built with [WXT](https
 - **Service Fallback**: Support for multiple translation providers with automatic fallback logic.
 - **Chrome Sync Support**: Your settings and API keys can be synced across all your Chrome instances using your Google account.
 - **Clipboard Sync**: Press **Enter** to instantly copy the translation result to your clipboard.
-- **Privacy First**: Telemetry is strictly limited to anonymous success/failure events and can be completely disabled in the options.
+- **Privacy First**: The extension collects no usage analytics. Text goes to your enabled translation providers in the order you choose.
 
 ## 🌍 Supported Services
 
@@ -108,7 +108,8 @@ Submitted translation and copy failures use Chrome notifications. Their visibili
 
 > 1. **Data Processing**: Your translation requests are sent directly to your chosen translation service provider (e.g., Google or DeepL). Apart from the translation provider, translation content is not sent to any third party.
 > 2. **Data Storage**: API keys and settings are stored locally in your browser or synced across your devices via Chrome Sync.
-> 3. **Anonymous Statistics**: Anonymous technical usage data (such as provider errors) is collected to improve the extension. This data does not contain any personally identifiable information or translation text, and you can disable this feature at any time in the settings.
+> 3. **Usage Analytics**: The extension collects no usage analytics and creates no analytics identity. Translation text, translated results, credentials, and provider response bodies are excluded from production logs. The maintainer uses Chrome Web Store reporting outside the extension.
+> 4. **Provider Requests**: Enabled fallback providers may receive the same text after an earlier attempt fails. API keys are sent to their corresponding provider for translation and explicit key validation.
 
 ## 📄 License
 

@@ -65,8 +65,6 @@ describe('Translation Orchestration', () => {
         defaultSourceLang: 'auto',
         languageOverrides: {},
         storageType: 'local',
-        telemetryEnabled: false,
-        distinctId: 'test-id',
     };
 
     const validApiKeys: StoredApiKeys = {

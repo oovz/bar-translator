@@ -57,10 +57,10 @@ describe('Preferences', () => {
 
             const prefs = await getPreferences();
 
-            expect(prefs).toMatchObject({
-                ...DEFAULT_PREFERENCES,
-                distinctId: expect.any(String),
-            });
+            expect(prefs).toEqual(DEFAULT_PREFERENCES);
+            expect(prefs).not.toHaveProperty('distinctId');
+            expect(prefs).not.toHaveProperty('telemetryEnabled');
+            expect(mockStorageSync.set).not.toHaveBeenCalled();
             expect(prefs.storageType).toBe('local'); // Default should be local now
         });
 
@@ -80,9 +80,56 @@ describe('Preferences', () => {
             expect(prefs.storageType).toBe('sync');
         });
 
+        it('removes stored analytics fields while preserving translation settings and credentials', async () => {
+            const preferences = {
+                ...DEFAULT_PREFERENCES,
+                defaultTargetLang: 'fr',
+                fallbackOrder: [],
+                languageOverrides: { zh: 'zh-TW' },
+                telemetryEnabled: true,
+                distinctId: 'obsolete-identity',
+            };
+            const apiKeys = { deepl: { key: 'preserved-key', validated: true } };
+            const synced = { preferences, apiKeys, unrelated: 'keep' };
+            mockStorageSync.get.mockImplementation(async key => ({ [key]: synced[key as keyof typeof synced] }));
+            mockStorageSync.set.mockImplementation(async items => Object.assign(synced, items));
+
+            const prefs = await getPreferences();
+
+            expect(prefs).toEqual({
+                ...DEFAULT_PREFERENCES, defaultTargetLang: 'fr', fallbackOrder: [],
+                languageOverrides: { zh: 'zh-TW' },
+            });
+            expect(synced.preferences).toEqual(prefs);
+            expect(synced.apiKeys).toEqual(apiKeys);
+            expect(synced.unrelated).toBe('keep');
+            expect(mockStorageLocal.remove).not.toHaveBeenCalled();
+            expect(mockStorageSync.remove).not.toHaveBeenCalled();
+            mockStorageSync.set.mockClear();
+            expect(await getPreferences()).toEqual(prefs);
+            expect(mockStorageSync.set).not.toHaveBeenCalled();
+        });
+
+        it('reports a cleanup write failure and leaves the stored configuration recoverable', async () => {
+            const preferences = {
+                ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'], storageType: 'sync',
+                distinctId: 'obsolete-identity',
+            };
+            mockStorageSync.get.mockResolvedValue({ preferences });
+            mockStorageSync.set.mockRejectedValueOnce(new Error('Storage unavailable'));
+
+            await expect(getPreferences()).rejects.toThrow('Storage unavailable');
+            expect(preferences).toEqual({
+                ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'], storageType: 'sync',
+                distinctId: 'obsolete-identity',
+            });
+            expect(mockStorageSync.remove).not.toHaveBeenCalled();
+            expect(mockStorageLocal.remove).not.toHaveBeenCalled();
+        });
+
         it('keeps the ordered supported selection and removes unsupported or duplicate recipients', async () => {
             mockStorageSync.get.mockResolvedValue({ preferences: {
-                ...DEFAULT_PREFERENCES, distinctId: 'test',
+                ...DEFAULT_PREFERENCES,
                 fallbackOrder: ['microsoft', 'lingva', 'google-cloud', 'deepl', 'lingva', 'google-web'],
             } });
             expect((await getPreferences()).fallbackOrder).toEqual(['lingva', 'deepl', 'google-web']);
@@ -90,7 +137,7 @@ describe('Preferences', () => {
 
         it.each([[], ['microsoft'], null])('preserves a disabled selection when stored as %j', async fallbackOrder => {
             mockStorageSync.get.mockResolvedValue({ preferences: {
-                ...DEFAULT_PREFERENCES, distinctId: 'test', fallbackOrder,
+                ...DEFAULT_PREFERENCES, fallbackOrder,
             } });
             expect((await getPreferences()).fallbackOrder).toEqual([]);
         });

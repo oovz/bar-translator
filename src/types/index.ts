@@ -203,12 +203,6 @@ export interface UserPreferences {
    * Map of 2-letter ISO code (e.g., 'zh') to specific BCP 47 code (e.g., 'zh-TW').
    */
   languageOverrides: Record<string, string>;
-
-  /** Whether to send anonymous usage analytics via PostHog */
-  telemetryEnabled: boolean;
-
-  /** Anonymous stable ID for telemetry */
-  distinctId: string;
 }
 
 /**
@@ -220,8 +214,6 @@ export const DEFAULT_PREFERENCES: Readonly<UserPreferences> = {
   defaultSourceLang: 'auto',
   storageType: 'local',
   languageOverrides: {},
-  telemetryEnabled: true,
-  distinctId: '', // Generated on first use
 } as const;
 
 // =============================================================================

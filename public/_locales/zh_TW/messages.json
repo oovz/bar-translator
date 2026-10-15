@@ -132,11 +132,8 @@
     "storageLocalHint": {
         "message": "🔒 金鑰僅儲存在本地（更安全）"
     },
-    "labelTelemetry": {
-        "message": "使用分析"
-    },
-    "telemetryDesc": {
-        "message": "透過匿名使用數據幫助改進 Bar Translator"
+    "privacyDesc": {
+        "message": "Bar Translator 不收集使用分析資料。文字會依您選擇的順序傳送給已啟用的翻譯服務。API 金鑰會傳送給對應的服務，用於翻譯和驗證。"
     },
     "footerUsage": {
         "message": "在網址列輸入 <code>t hello</code> 進行翻譯"

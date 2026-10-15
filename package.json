@@ -24,7 +24,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "posthog-js": "^1.311.0",
     "preact": "10.28.0",
     "sortablejs": "^1.15.6",
     "wxt": "0.20.13"

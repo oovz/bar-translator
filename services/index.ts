@@ -144,15 +144,7 @@ export async function translateWithFallback(
     // fallbackOrder IS the complete list of enabled services
     const enabledServices = [...new Set(preferences.fallbackOrder)];
 
-    console.log('[Translate] Starting translation request:', {
-        text: params.text.substring(0, 50) + (params.text.length > 50 ? '...' : ''),
-        sourceLang: params.sourceLang,
-        targetLang: params.targetLang,
-        enabledServices: enabledServices,
-    });
-
     if (enabledServices.length === 0) {
-        console.error('[Translate] No services enabled!');
         throw new TranslationError(
             'ALL_SERVICES_FAILED',
             'No translation services enabled. Enable at least one service in settings.'
@@ -163,14 +155,12 @@ export async function translateWithFallback(
     const availableServices: ServiceId[] = [];
     for (const id of enabledServices) {
         const isAvail = await isServiceAvailable(id, apiKeys);
-        console.log(`[Translate] Service ${id}: registered=${isServiceRegistered(id)}, available=${isAvail}`);
         if (isAvail) {
             availableServices.push(id);
         }
     }
 
     if (availableServices.length === 0) {
-        console.error('[Translate] No available services (all need API keys?)');
         throw new TranslationError(
             'ALL_SERVICES_FAILED',
             'No translation services available. Check API key configuration.'
@@ -187,25 +177,16 @@ export async function translateWithFallback(
         const serviceId = availableServices[i];
         const handler = serviceRegistry.get(serviceId);
         if (!handler) {
-            console.warn(`[Translate] Service ${serviceId} not registered, skipping`);
             continue;
         }
 
         const isFallback = i > 0;
-        console.log(`[Translate] Trying service: ${serviceId}${isFallback ? ' (fallback)' : ' (primary)'}`);
 
         try {
             // Get API key if needed
             const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
             const apiKey = storageKey ? apiKeys[storageKey]?.key : undefined;
             const tier = storageKey ? apiKeys[storageKey]?.tier : undefined;
-
-            console.log(`[Translate] Sending to ${serviceId}:`, {
-                text: params.text,
-                sourceLang: params.sourceLang,
-                targetLang: params.targetLang,
-                hasApiKey: !!apiKey,
-            });
 
             const result = await translateAttempt(handler, {
                 ...params,
@@ -214,10 +195,6 @@ export async function translateWithFallback(
             }, Math.min(deadline, performance.now() + ATTEMPT_TIMEOUT_MS));
 
             params.signal?.throwIfAborted();
-            console.log(`[Translate] SUCCESS from ${serviceId}:`, {
-                translation: result.translation.substring(0, 100) + (result.translation.length > 100 ? '...' : ''),
-                detectedLang: result.detectedSourceLang,
-            });
 
             return {
                 ...result,
@@ -226,7 +203,6 @@ export async function translateWithFallback(
             };
         } catch (error) {
             params.signal?.throwIfAborted();
-            console.error(`[Translate] FAILED from ${serviceId}:`, error);
 
             if (error instanceof TranslationError) {
                 lastError = error;
@@ -235,8 +211,6 @@ export async function translateWithFallback(
                 if (!error.shouldTriggerFallback()) {
                     throw error;
                 }
-
-                console.warn(`[Translate] ${serviceId} failed, trying next service...`);
             } else {
                 lastError = new TranslationError(
                     'SERVICE_UNAVAILABLE',

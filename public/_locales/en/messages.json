@@ -137,11 +137,8 @@
     "storageLocalHint": {
         "message": "🔒 Keys stored locally only (more secure)"
     },
-    "labelTelemetry": {
-        "message": "Usage Analytics"
-    },
-    "telemetryDesc": {
-        "message": "Help improve Bar Translator with anonymous usage data"
+    "privacyDesc": {
+        "message": "Bar Translator collects no usage analytics. Text is sent to the enabled translation providers in your chosen order. API keys are sent to their provider for translation and validation."
     },
     "footerUsage": {
         "message": "Type <code>t hello</code> in address bar to translate"

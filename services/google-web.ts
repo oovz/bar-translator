@@ -139,9 +139,6 @@ export class GoogleTranslationWebService extends BaseTranslationService {
             }
         }
 
-        // Log HTML for debugging (in dev mode the extension can see console)
-        console.warn('[GoogleWeb] Could not parse translation from HTML. First 500 chars:', html.substring(0, 500));
-
         return null;
     }
 

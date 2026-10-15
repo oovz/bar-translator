@@ -43,7 +43,7 @@ beforeEach(async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
-    preferences = { ...DEFAULT_PREFERENCES, languageOverrides: {}, telemetryEnabled: false, distinctId: 'test' };
+    preferences = { ...DEFAULT_PREFERENCES, languageOverrides: {} };
     apiKeys = {};
     omnibox = {
         onInputStarted: event<[]>(),
@@ -110,6 +110,31 @@ function description() {
 }
 
 describe('allowed translation providers', () => {
+    it('sends only provider requests and keeps text, results, keys, and errors out of diagnostics', async () => {
+        expect(fetchMock).not.toHaveBeenCalled();
+        preferences = { ...preferences, fallbackOrder: ['deepl', 'google-web'] };
+        apiKeys = { deepl: { key: 'private-credential:fx', validated: true } };
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ translations: [{
+            text: 'private-result', detected_source_language: 'EN',
+        }] })));
+        await change('fr private-input');
+        await vi.advanceTimersByTimeAsync(300);
+        await omnibox.onInputEntered.fire('fr private-input', 'currentTab');
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('private-result');
+
+        fetchMock.mockRejectedValueOnce(new Error('private-input private-credential:fx'))
+            .mockResolvedValueOnce(new Response('<p>private-response-body</p>'));
+        await change('fr private-failure');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(description()).toContain('Error');
+        expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
+            'api-free.deepl.com', 'api-free.deepl.com', 'translate.google.com',
+        ]);
+
+        const logs = [console.log, console.warn, console.error].flatMap(log => vi.mocked(log).mock.calls);
+        expect(JSON.stringify(logs)).not.toMatch(/private-/);
+    });
+
     it('keeps disable-all after a background restart and resumes only after explicit re-enabling', async () => {
         preferences = { ...preferences, fallbackOrder: [] };
         await change('fr Hello');

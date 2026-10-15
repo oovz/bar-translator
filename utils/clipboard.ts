@@ -60,10 +60,10 @@ export async function copyToClipboard(text: string, signal?: AbortSignal): Promi
             return true;
         }
 
-        console.error('[Clipboard] Copy failed:', response?.error);
+        console.error('[Clipboard] Copy failed');
         return false;
-    } catch (error) {
-        console.error('[Clipboard] Error:', error);
+    } catch {
+        console.error('[Clipboard] Copy failed');
         return false;
     }
 }

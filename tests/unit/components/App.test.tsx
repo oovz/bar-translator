@@ -3,11 +3,17 @@ import { fireEvent, render, waitFor, within } from '@testing-library/preact';
 import App from '@/entrypoints/options/App';
 import { DEFAULT_PREFERENCES, type StoredApiKeys, type UserPreferences } from '@/src/types';
 
+declare const jsdom: { window: Window };
+
 let storedPreferences: UserPreferences;
 let storedKeys: StoredApiKeys;
 
 beforeEach(() => {
-    storedPreferences = { ...DEFAULT_PREFERENCES, distinctId: 'test', fallbackOrder: [] };
+    Object.defineProperty(window, 'localStorage', { configurable: true, value: jsdom.window.localStorage });
+    Object.defineProperty(window, 'sessionStorage', { configurable: true, value: jsdom.window.sessionStorage });
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    storedPreferences = { ...DEFAULT_PREFERENCES, fallbackOrder: [] };
     storedKeys = { deepl: { key: 'test-key:fx', validated: false, tier: 'free' } };
     vi.mocked(chrome.storage.sync.get).mockImplementation(async () => ({ preferences: storedPreferences }));
     vi.mocked(chrome.storage.sync.set).mockImplementation(async items => {
@@ -24,6 +30,27 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('provider settings', () => {
+    it('clears obsolete analytics browser storage and preserves unrelated data when settings open', async () => {
+        const token = 'phc_yI0ofU7zKrbDyBlCEwGTfsT5EkfcGnmmUE2XRewGg3h';
+        const keys = [
+            `ph_${token}_posthog`, `__ph_opt_in_out_${token}`,
+            `ph_${token}_window_id`, `ph_${token}_primary_window_exists`,
+        ];
+        for (const storage of [window.localStorage, window.sessionStorage]) {
+            for (const key of keys) storage.setItem(key, 'obsolete-identity');
+            storage.setItem('unrelated', 'preserved');
+        }
+
+        const view = render(<App />);
+        await view.findByText('privacyDesc');
+
+        for (const storage of [window.localStorage, window.sessionStorage]) {
+            for (const key of keys) expect(storage.getItem(key)).toBeNull();
+            expect(storage.getItem('unrelated')).toBe('preserved');
+            storage.clear();
+        }
+    });
+
     it('preserves disable-all across settings visits and allows re-enabling a provider', async () => {
         const first = render(<App />);
         await first.findByText('noServicesEnabled');

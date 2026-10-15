@@ -34,6 +34,15 @@ export default function App() {
     // Set document title
     useEffect(() => {
         document.title = t('extName') + ' ' + t('settings');
+        // Remove data left by the retired analytics client from this extension's origin.
+        const token = 'phc_yI0ofU7zKrbDyBlCEwGTfsT5EkfcGnmmUE2XRewGg3h';
+        const keys = [
+            `ph_${token}_posthog`, `__ph_opt_in_out_${token}`,
+            `ph_${token}_window_id`, `ph_${token}_primary_window_exists`,
+        ];
+        for (const storage of [window.localStorage, window.sessionStorage]) {
+            for (const key of keys) storage.removeItem(key);
+        }
     }, []);
 
     if (loading) {
