@@ -150,10 +150,7 @@
         "message": "Type <match>[lang] text</match> to translate (e.g., <match>fr Hello</match>)"
     },
     "omniboxTranslating": {
-        "message": "<dim>Translating...</dim>"
-    },
-    "omniboxTranslationFailed": {
-        "message": "Could not translate the submitted text. Please try again."
+        "message": "<dim>Translating... Wait for the result before pressing Enter.</dim>"
     },
     "omniboxCopyFailed": {
         "message": "Could not copy the translation. Please try again."

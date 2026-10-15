@@ -11,15 +11,14 @@ import {
     escapeXml,
 } from '@/utils/omnibox-parser';
 import { copyToClipboard } from '@/utils/clipboard';
-import type { UserPreferences, TranslateResultWithMeta } from '@/src/types';
+import type { UserPreferences, StoredApiKeys } from '@/src/types';
 
 const DEBOUNCE_DELAY = 300;
 
 interface TranslationRequest {
     context: string;
     controller: AbortController;
-    result: Promise<TranslateResultWithMeta>;
-    failed?: boolean;
+    translation?: string;
 }
 
 interface Interaction {
@@ -32,9 +31,22 @@ function languageContext(preferences: Partial<UserPreferences> = {}) {
     return [preferences.defaultSourceLang, preferences.defaultTargetLang, preferences.languageOverrides];
 }
 
+function translationContext(input: string, preferences: UserPreferences, apiKeys: StoredApiKeys) {
+    const parsed = parseOmniboxInput(input, preferences);
+    if (parsed.isLanguageQuery) return;
+    const params = {
+        text: parsed.text,
+        sourceLang: parsed.sourceLang || 'auto',
+        targetLang: parsed.targetLang || preferences.defaultTargetLang,
+    };
+    return {
+        params,
+        identity: JSON.stringify([params, languageContext(preferences), preferences.fallbackOrder, apiKeys]),
+    };
+}
+
 export default defineBackground(() => {
     let current: Interaction | undefined;
-    let preparationVersion = 0;
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
     let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -57,42 +69,6 @@ export default defineBackground(() => {
         return current === interaction && interaction.request === request && !request.controller.signal.aborted;
     }
 
-    async function translate(interaction: Interaction) {
-        const version = ++preparationVersion;
-        const preferences = await getPreferences();
-        const apiKeys = await getApiKeys();
-        if (current !== interaction || version !== preparationVersion) return;
-
-        const parsed = parseOmniboxInput(interaction.input, preferences);
-        if (parsed.isLanguageQuery) {
-            showPrompt();
-            return;
-        }
-
-        const params = {
-            text: parsed.text,
-            sourceLang: parsed.sourceLang || 'auto',
-            targetLang: parsed.targetLang || preferences.defaultTargetLang,
-        };
-        const context = JSON.stringify([params, languageContext(preferences), preferences.fallbackOrder, apiKeys]);
-        if (interaction.request?.context !== context || interaction.request.failed) {
-            interaction.request?.controller.abort();
-            const controller = new AbortController();
-            const result = translateWithFallback({ ...params, signal: controller.signal }, preferences, apiKeys);
-            interaction.request = { context, controller, result };
-        }
-        const request = interaction.request;
-        try {
-            const result = await request.result;
-            if (isCurrent(interaction, request)) {
-                return { translation: result.translation, targetLang: params.targetLang, request };
-            }
-        } catch (error) {
-            request.failed = true;
-            if (isCurrent(interaction, request)) throw error;
-        }
-    }
-
     function showError(error: unknown) {
         browser.omnibox.setDefaultSuggestion({
             description: formatErrorDescription(error instanceof Error ? error.message : String(error)),
@@ -101,10 +77,26 @@ export default defineBackground(() => {
 
     async function preview(interaction: Interaction) {
         try {
-            const result = await translate(interaction);
-            if (result && !interaction.committed && isCurrent(interaction, result.request)) {
+            const preferences = await getPreferences();
+            const apiKeys = await getApiKeys();
+            if (current !== interaction) return;
+            const context = translationContext(interaction.input, preferences, apiKeys);
+            if (!context) {
+                showPrompt();
+                return;
+            }
+            const request: TranslationRequest = {
+                context: context.identity,
+                controller: new AbortController(),
+            };
+            interaction.request = request;
+            const result = await translateWithFallback({
+                ...context.params, signal: request.controller.signal,
+            }, preferences, apiKeys);
+            if (!interaction.committed && isCurrent(interaction, request)) {
+                request.translation = result.translation;
                 browser.omnibox.setDefaultSuggestion({
-                    description: formatSuggestionDescription(result.translation, result.targetLang),
+                    description: formatSuggestionDescription(result.translation, context.params.targetLang),
                 });
             }
         } catch (error) {
@@ -137,22 +129,28 @@ export default defineBackground(() => {
 
     browser.omnibox.onInputEntered.addListener(async input => {
         clearTimeout(debounceTimer);
-        if (current?.input !== input) {
-            invalidate();
-            current = { input, committed: false };
-        }
         const interaction = current;
-        if (interaction.committed) return;
+        if (interaction?.committed) return;
+        const request = interaction?.request;
+        const translation = request?.translation;
+        if (!interaction || interaction.input !== input || !request || translation === undefined) {
+            invalidate();
+            return;
+        }
         interaction.committed = true;
-        let failureMessage = t('omniboxTranslationFailed');
         try {
-            const result = await translate(interaction);
-            if (!result || !isCurrent(interaction, result.request)) return;
-            failureMessage = t('omniboxCopyFailed');
-            const copied = await copyToClipboard(result.translation, result.request.controller.signal);
-            if (!isCurrent(interaction, result.request)) return;
+            const preferences = await getPreferences();
+            const apiKeys = await getApiKeys();
+            if (!isCurrent(interaction, request)) return;
+            if (translationContext(input, preferences, apiKeys)?.identity !== request.context) {
+                invalidate();
+                showPrompt();
+                return;
+            }
+            const copied = await copyToClipboard(translation, request.controller.signal);
+            if (!isCurrent(interaction, request)) return;
             if (!copied) throw new Error(t('omniboxCopyFailed'));
-            browser.omnibox.setDefaultSuggestion({ description: t('omniboxCopied', [escapeXml(result.translation)]) });
+            browser.omnibox.setDefaultSuggestion({ description: t('omniboxCopied', [escapeXml(translation)]) });
             feedbackTimer = setTimeout(showPrompt, 3000);
         } catch (error) {
             if (current === interaction) {
@@ -163,7 +161,7 @@ export default defineBackground(() => {
                         type: 'basic',
                         iconUrl: 'icons/icon-128.png',
                         title: t('extName'),
-                        message: failureMessage,
+                        message: t('omniboxCopyFailed'),
                     });
                 } catch {
                     console.error('[Background] Could not display failure notification');

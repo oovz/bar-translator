@@ -145,10 +145,7 @@
         "message": "<match>[언어] 텍스트</match> 입력하여 번역 (예: <match>ko Hello</match>)"
     },
     "omniboxTranslating": {
-        "message": "<dim>번역 중...</dim>"
-    },
-    "omniboxTranslationFailed": {
-        "message": "입력한 텍스트를 번역하지 못했습니다. 다시 시도해 주세요."
+        "message": "<dim>번역 중... 결과가 표시된 후 Enter 키를 누르세요.</dim>"
     },
     "omniboxCopyFailed": {
         "message": "번역을 복사하지 못했습니다. 다시 시도해 주세요."

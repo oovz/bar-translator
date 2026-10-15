@@ -145,10 +145,7 @@
         "message": "輸入 <match>[語言] 文本</match> 進行翻譯（例如：<match>zh Hello</match>）"
     },
     "omniboxTranslating": {
-        "message": "<dim>翻譯中...</dim>"
-    },
-    "omniboxTranslationFailed": {
-        "message": "無法翻譯提交的文字，請再試一次。"
+        "message": "<dim>正在翻譯... 請等待結果後再按 Enter。</dim>"
     },
     "omniboxCopyFailed": {
         "message": "無法複製翻譯，請再試一次。"

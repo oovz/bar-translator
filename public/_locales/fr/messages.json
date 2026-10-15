@@ -147,10 +147,7 @@
         "message": "Tapez <match>[lang] texte</match> pour traduire (ex: <match>en Bonjour</match>)"
     },
     "omniboxTranslating": {
-        "message": "<dim>Traduction en cours...</dim>"
-    },
-    "omniboxTranslationFailed": {
-        "message": "Impossible de traduire le texte envoyé. Réessayez."
+        "message": "<dim>Traduction en cours... Attendez le résultat avant d’appuyer sur Entrée.</dim>"
     },
     "omniboxCopyFailed": {
         "message": "Impossible de copier la traduction. Réessayez."

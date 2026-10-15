@@ -145,10 +145,7 @@
         "message": "<match>[言語] テキスト</match> と入力して翻訳（例：<match>en こんにちは</match>）"
     },
     "omniboxTranslating": {
-        "message": "<dim>翻訳中...</dim>"
-    },
-    "omniboxTranslationFailed": {
-        "message": "入力したテキストを翻訳できませんでした。もう一度お試しください。"
+        "message": "<dim>翻訳中... 結果が表示されてから Enter キーを押してください。</dim>"
     },
     "omniboxCopyFailed": {
         "message": "翻訳をコピーできませんでした。もう一度お試しください。"

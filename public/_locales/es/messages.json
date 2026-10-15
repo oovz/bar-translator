@@ -145,10 +145,7 @@
         "message": "Escriba <match>[idioma] texto</match> para traducir (ej: <match>fr Hola</match>)"
     },
     "omniboxTranslating": {
-        "message": "<dim>Traduciendo...</dim>"
-    },
-    "omniboxTranslationFailed": {
-        "message": "No se pudo traducir el texto enviado. Inténtalo de nuevo."
+        "message": "<dim>Traduciendo... Espera el resultado antes de pulsar Intro.</dim>"
     },
     "omniboxCopyFailed": {
         "message": "No se pudo copiar la traducción. Inténtalo de nuevo."

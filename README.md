@@ -91,11 +91,11 @@ The build produces the Chrome extension in `.output/chrome-mv3/`.
 2. Type `t` followed by a space.
 3. (Optional) Prefix with a target language code (e.g., `fr`, `es`, `ja`).
 4. Type the text you want to translate.
-5. After the preview appears, press Enter to copy it. Enter also works while a translation is pending.
+5. Wait for the translation preview, then press Enter to copy it.
 
-Translation previews start after a 300 ms typing pause. Enter reuses a matching successful preview or pending request and otherwise translates the submitted input. Clearing the input or ending the interaction invalidates pending previews.
+Translation previews start after a 300 ms typing pause. The address bar shows loading text while translation is pending. Enter copies a completed translation that matches the current input and settings. Pressing Enter before a result is ready leaves the clipboard unchanged and ends the interaction, cancelling pending work. Clearing the input or ending the interaction also invalidates pending previews.
 
-Submitted translation and copy failures use Chrome notifications. Their visibility depends on your browser and OS notification settings.
+Translation failures appear in the address bar. Copy failures also use Chrome notifications, whose visibility depends on browser and OS notification settings.
 
 **Example:**
 - `t Hello world` -> Translates to your default target language.

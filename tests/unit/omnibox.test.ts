@@ -217,23 +217,23 @@ describe('bounded sequential fallback', () => {
         expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
     });
 
-    it('awaits the current fallback on Enter after an eligible primary failure', async () => {
+    it('keeps loading through fallback and cancels copying when Enter arrives before completion', async () => {
         preferences = { ...preferences, fallbackOrder: ['lingva', 'google-web'] };
         const fallback = deferred<Response>();
         fetchMock.mockResolvedValueOnce(new Response('', { status: 503 }))
             .mockReturnValueOnce(fallback.promise);
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
-        const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
-        await vi.advanceTimersByTimeAsync(3000);
+        expect(description()).toBe(messages.omniboxTranslating.message);
         expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
             'lingva.ml', 'translate.google.com',
         ]);
-        expect(writeText).not.toHaveBeenCalled();
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(fetchMock.mock.calls[1][1]?.signal?.aborted).toBe(true);
         fallback.resolve(googleResponse('Bonjour'));
-        await submitted;
         await vi.advanceTimersByTimeAsync(20000);
-        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+        expect(writeText).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
@@ -295,21 +295,23 @@ describe('bounded sequential fallback', () => {
 
     it('shows unavailable credentials without making a request or changing the clipboard', async () => {
         preferences = { ...preferences, fallbackOrder: ['deepl'] };
-        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        await change('fr Hello');
         await vi.advanceTimersByTimeAsync(20000);
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(description()).toContain('Check API key configuration');
         expect(fetchMock).not.toHaveBeenCalled();
         expect(writeText).not.toHaveBeenCalled();
         expect(sendMessage).not.toHaveBeenCalled();
-        expect(notify).toHaveBeenCalledTimes(1);
+        expect(notify).not.toHaveBeenCalled();
     });
 
     it('shows the final failure after each allowed provider fails once', async () => {
         preferences = { ...preferences, fallbackOrder: ['lingva', 'google-web'] };
         fetchMock.mockResolvedValueOnce(new Response('', { status: 503 }))
             .mockRejectedValueOnce(new Error('Offline'));
-        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        await change('fr Hello');
         await vi.advanceTimersByTimeAsync(20000);
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(description()).toContain('Error: Offline');
         expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
             'lingva.ml', 'translate.google.com',
@@ -317,31 +319,31 @@ describe('bounded sequential fallback', () => {
         expect(writeText).not.toHaveBeenCalled();
         expect(execCommand).not.toHaveBeenCalled();
         expect(sendMessage).not.toHaveBeenCalled();
-        expect(notify).toHaveBeenCalledTimes(1);
+        expect(notify).not.toHaveBeenCalled();
     });
 
     it('rejects a response completed beyond the deadline before the timer callback runs', async () => {
         const clock = vi.spyOn(performance, 'now').mockReturnValue(0);
         const response = deferred<Response>();
         fetchMock.mockReturnValue(response.promise);
-        const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
-        await vi.advanceTimersByTimeAsync(0);
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
         clock.mockReturnValue(11000);
         response.resolve(googleResponse('Too late'));
-        await submitted;
+        await vi.advanceTimersByTimeAsync(0);
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(description()).toContain('Translation timed out');
         expect(writeText).not.toHaveBeenCalled();
         expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
-    it('limits all attempts to ten seconds and preserves the clipboard on submission timeout', async () => {
+    it('limits all preview attempts to ten seconds and preserves the clipboard on timeout', async () => {
         preferences = { ...preferences, fallbackOrder: ['google-web', 'lingva', 'deepl'] };
         apiKeys = { deepl: { key: 'fixture:fx', validated: true, tier: 'free' } };
         fetchMock.mockImplementation(() => new Promise(() => {}));
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
-        const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         await vi.advanceTimersByTimeAsync(3999);
         expect(fetchMock).toHaveBeenCalledTimes(1);
         await vi.advanceTimersByTimeAsync(1);
@@ -357,10 +359,8 @@ describe('bounded sequential fallback', () => {
         await vi.advanceTimersByTimeAsync(1);
         expect(fetchMock.mock.calls[2][1]?.signal?.aborted).toBe(true);
         expect(description()).toContain('Translation timed out');
-        await submitted;
-        expect(notify).toHaveBeenCalledWith('translation-error', expect.objectContaining({
-            message: messages.omniboxTranslationFailed.message,
-        }));
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(notify).not.toHaveBeenCalled();
         expect(writeText).not.toHaveBeenCalled();
         expect(execCommand).not.toHaveBeenCalled();
         expect(sendMessage).not.toHaveBeenCalled();
@@ -413,65 +413,62 @@ describe('current omnibox translation', () => {
     });
 });
 
-describe('submitted translation ownership', () => {
-    it('keeps submitted work when an older preview finishes reading settings later', async () => {
+describe('copying completed previews', () => {
+    it('discards preview preparation that finishes reading settings after Enter', async () => {
         const keys = deferred<Record<string, unknown>>();
-        const submittedResponse = deferred<Response>();
         vi.mocked(chrome.storage.local.get).mockImplementationOnce(() => keys.promise);
-        preferences = { ...preferences, defaultTargetLang: 'fr' };
-        fetchMock.mockReturnValue(submittedResponse.promise);
         await change('Hello');
         await vi.advanceTimersByTimeAsync(300);
-        preferences = { ...preferences, defaultTargetLang: 'es' };
-        const submitted = omnibox.onInputEntered.fire('Hello', 'currentTab');
-        await vi.advanceTimersByTimeAsync(0);
+        expect(description()).toBe(messages.omniboxTranslating.message);
+        await omnibox.onInputEntered.fire('Hello', 'currentTab');
         keys.resolve({});
-        await vi.advanceTimersByTimeAsync(0);
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(new URL(String(fetchMock.mock.lastCall?.[0])).searchParams.get('tl')).toBe('es');
-        submittedResponse.resolve(googleResponse('Hola'));
-        await submitted;
-        expect(writeText).toHaveBeenCalledExactlyOnceWith('Hola');
+        await vi.advanceTimersByTimeAsync(20000);
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(writeText).not.toHaveBeenCalled();
     });
 
-    it('translates submitted input before the pause and cancels the scheduled preview', async () => {
+    it('preserves the clipboard and cancels the scheduled preview on Enter before the pause', async () => {
         fetchMock.mockResolvedValue(googleResponse('Bonjour'));
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(299);
-        expect(fetchMock).not.toHaveBeenCalled();
+        expect(description()).toBe(messages.omniboxTranslating.message);
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
-        await vi.advanceTimersByTimeAsync(300);
-        expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
-        expect(description()).toContain('Copied:');
+        await vi.advanceTimersByTimeAsync(20000);
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(writeText).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
         expect(notify).not.toHaveBeenCalled();
     });
 
-    it('waits for the matching pending preview without another provider request', async () => {
+    it('keeps the clipboard unchanged when Enter is pressed while the preview is loading', async () => {
         const pending = deferred<Response>();
         fetchMock.mockReturnValue(pending.promise);
         await change('fr Hello');
+        expect(description()).toBe(messages.omniboxTranslating.message);
         await vi.advanceTimersByTimeAsync(300);
+        expect(description()).toBe(messages.omniboxTranslating.message);
         const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
-        await vi.advanceTimersByTimeAsync(0);
-        expect(writeText).not.toHaveBeenCalled();
         pending.resolve(googleResponse('Bonjour'));
         await submitted;
+        await vi.advanceTimersByTimeAsync(20000);
         expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
-        expect(description()).toContain('Copied:');
+        expect(writeText).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
+        expect(execCommand).not.toHaveBeenCalled();
+        expect(notify).not.toHaveBeenCalled();
     });
 
-    it('translates a different submitted input instead of copying the completed preview', async () => {
-        fetchMock.mockResolvedValueOnce(googleResponse('Bonjour')).mockResolvedValueOnce(googleResponse('Au revoir'));
+    it('preserves the clipboard when Enter input differs from the completed preview', async () => {
+        fetchMock.mockResolvedValueOnce(googleResponse('Bonjour'));
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
         await omnibox.onInputEntered.fire('fr Goodbye', 'currentTab');
-        expect(writeText).toHaveBeenCalledExactlyOnceWith('Au revoir');
-        expect(new URL(String(fetchMock.mock.lastCall?.[0])).searchParams.get('q')).toBe('Goodbye');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(writeText).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
     });
 
-    it.each(['pending', 'complete'])('refreshes a %s translation when language defaults change before Enter', async state => {
+    it.each(['pending', 'complete'])('rejects a %s translation when language defaults change before Enter', async state => {
         const older = deferred<Response>();
         fetchMock.mockReturnValueOnce(older.promise).mockResolvedValueOnce(googleResponse('Hola'));
         preferences = { ...preferences, defaultTargetLang: 'fr' };
@@ -486,8 +483,20 @@ describe('submitted translation ownership', () => {
         await omnibox.onInputEntered.fire('Hello', 'currentTab');
         older.resolve(googleResponse('Bonjour'));
         await vi.advanceTimersByTimeAsync(0);
-        expect(writeText).toHaveBeenCalledExactlyOnceWith('Hola');
-        expect(new URL(String(fetchMock.mock.lastCall?.[0])).searchParams.get('tl')).toBe('es');
+        expect(writeText).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['providers', 'credentials'])('rejects a ready preview after %s change before the storage event arrives', async setting => {
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        if (setting === 'providers') preferences = { ...preferences, fallbackOrder: [] };
+        else apiKeys = { deepl: { key: 'replacement:fx', validated: true } };
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(writeText).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
     });
 
     it('preserves explicit source syntax, automatic source detection, and regional overrides', async () => {
@@ -505,14 +514,16 @@ describe('submitted translation ownership', () => {
         expect(url.searchParams.get('tl')).toBe('zh-TW');
     });
 
-    it('deduplicates Enter while submission is pending', async () => {
-        const pending = deferred<Response>();
-        fetchMock.mockReturnValue(pending.promise);
+    it('copies a completed preview once when Enter repeats during clipboard preparation', async () => {
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
         await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        const copy = deferred<void>();
+        writeText.mockReturnValue(copy.promise);
         const first = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
-        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         await vi.advanceTimersByTimeAsync(0);
-        pending.resolve(googleResponse('Bonjour'));
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        copy.resolve();
         await first;
         expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
@@ -536,26 +547,36 @@ describe('interaction invalidation', () => {
         expect(writeText).not.toHaveBeenCalled();
     });
 
-    it('clears completed work when an interaction ends and the next input is identical', async () => {
+    it('requires a fresh completed preview after an interaction ends with identical input', async () => {
         fetchMock.mockResolvedValueOnce(googleResponse('Bonjour')).mockResolvedValueOnce(googleResponse('Salut'));
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
         await omnibox.onInputCancelled.fire();
         await omnibox.onInputStarted.fire();
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
-        expect(fetchMock).toHaveBeenCalledTimes(2);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(writeText).not.toHaveBeenCalled();
+        await omnibox.onInputStarted.fire();
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(writeText).toHaveBeenCalledExactlyOnceWith('Salut');
     });
 
-    it('does not copy an abandoned submission after a new interaction starts', async () => {
-        const pending = deferred<Response>();
-        fetchMock.mockReturnValue(pending.promise);
+    it('does not copy a ready preview after a new interaction starts during settings validation', async () => {
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        const keys = deferred<Record<string, unknown>>();
+        vi.mocked(chrome.storage.local.get).mockImplementationOnce(() => keys.promise);
         const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         await vi.advanceTimersByTimeAsync(0);
         await omnibox.onInputStarted.fire();
-        pending.resolve(googleResponse('Bonjour'));
+        keys.resolve({});
         await submitted;
+        expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(writeText).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
         expect(description()).toBe(messages.omniboxSuggestion.message);
     });
 
@@ -591,6 +612,8 @@ describe('interaction invalidation', () => {
 
     it('does not let old copy feedback reset a new preview', async () => {
         fetchMock.mockResolvedValueOnce(googleResponse('Bonjour')).mockResolvedValueOnce(googleResponse('Au revoir'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         await omnibox.onInputStarted.fire();
         await change('fr Goodbye');
@@ -613,6 +636,8 @@ describe('copy confirmation and failure feedback', () => {
         const contexts = deferred<chrome.runtime.ExtensionContext[]>();
         vi.mocked(chrome.runtime.getContexts).mockImplementationOnce(() => contexts.promise);
         fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
         const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         await vi.advanceTimersByTimeAsync(0);
         await omnibox.onInputStarted.fire();
@@ -623,33 +648,35 @@ describe('copy confirmation and failure feedback', () => {
         expect(notify).not.toHaveBeenCalled();
     });
 
-    it('translates the submitted input after a failed preview', async () => {
-        fetchMock.mockRejectedValueOnce(new Error('Temporary failure')).mockResolvedValueOnce(googleResponse('Bonjour'));
+    it('does not retry or copy a failed preview on Enter', async () => {
+        fetchMock.mockRejectedValueOnce(new Error('Temporary failure'));
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
         expect(description()).toContain('Temporary failure');
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
-        expect(fetchMock).toHaveBeenCalledTimes(2);
-        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(writeText).not.toHaveBeenCalled();
+        expect(notify).not.toHaveBeenCalled();
     });
 
     it('shows translation failure and leaves the clipboard unchanged', async () => {
         fetchMock.mockRejectedValue(new Error('Provider unavailable'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(description()).toContain('Error:');
         expect(description()).toContain('Provider unavailable');
         expect(writeText).not.toHaveBeenCalled();
         expect(sendMessage).not.toHaveBeenCalled();
-        expect(notify).toHaveBeenCalledWith('translation-error', expect.objectContaining({
-            message: messages.omniboxTranslationFailed.message,
-        }));
+        expect(notify).not.toHaveBeenCalled();
     });
 
-    it('replaces a completed preview with failure feedback for a new submitted input', async () => {
+    it('replaces a completed preview with failure feedback when the input changes', async () => {
         fetchMock.mockResolvedValueOnce(googleResponse('Bonjour')).mockRejectedValueOnce(new Error('Provider unavailable'));
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
         await change('fr Goodbye');
+        await vi.advanceTimersByTimeAsync(300);
         await omnibox.onInputEntered.fire('fr Goodbye', 'currentTab');
         expect(description()).toContain('Provider unavailable');
         expect(writeText).not.toHaveBeenCalled();
@@ -659,6 +686,8 @@ describe('copy confirmation and failure feedback', () => {
         fetchMock.mockResolvedValue(googleResponse('Bonjour'));
         const copy = deferred<void>();
         writeText.mockReturnValue(copy.promise);
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
         const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         await vi.advanceTimersByTimeAsync(0);
         expect(description()).not.toContain('Copied:');
@@ -672,6 +701,8 @@ describe('copy confirmation and failure feedback', () => {
         fetchMock.mockResolvedValue(googleResponse('Bonjour'));
         writeText.mockRejectedValue(new Error('Document is not focused'));
         execCommand.mockReturnValue(true);
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(execCommand).toHaveBeenCalledExactlyOnceWith('copy');
         expect(description()).toContain('Copied:');
@@ -683,6 +714,8 @@ describe('copy confirmation and failure feedback', () => {
         writeText.mockRejectedValue(new Error('Document is not focused'));
         if (failure === 'false') execCommand.mockReturnValue(false);
         else execCommand.mockImplementation(() => { throw new Error('Copy denied'); });
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(description()).toContain(messages.omniboxCopyFailed.message);
         expect(description()).not.toContain('Copied:');
@@ -695,6 +728,8 @@ describe('copy confirmation and failure feedback', () => {
     it('shows message failure as a copy failure', async () => {
         fetchMock.mockResolvedValue(googleResponse('Bonjour'));
         sendMessage.mockRejectedValue(new Error('Offscreen unavailable'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(description()).toContain(messages.omniboxCopyFailed.message);
         expect(writeText).not.toHaveBeenCalled();
@@ -702,6 +737,8 @@ describe('copy confirmation and failure feedback', () => {
 
     it('escapes copied text in the success suggestion', async () => {
         fetchMock.mockResolvedValue(googleResponse('&lt;Bonjour&gt; &amp; salut'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(writeText).toHaveBeenCalledExactlyOnceWith('<Bonjour> & salut');
         expect(description()).toContain('&lt;Bonjour&gt; &amp; salut');
@@ -719,6 +756,8 @@ describe('translation after credential storage changes', () => {
         if (outcome === 'success') await switchCredentialStorage('sync');
         else await expect(switchCredentialStorage('sync')).rejects.toThrow();
         fetchMock.mockResolvedValue(new Response(JSON.stringify({ translations: [{ text: 'Bonjour', detected_source_language: 'EN' }] })));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
         expect(fetchMock).toHaveBeenCalledWith('https://api-free.deepl.com/v2/translate', expect.objectContaining({
@@ -726,14 +765,19 @@ describe('translation after credential storage changes', () => {
         }));
     });
 
-    it('invalidates submitted work when the device credential selection changes', async () => {
-        const response = deferred<Response>();
-        fetchMock.mockReturnValue(response.promise);
+    it('invalidates a ready copy when credential storage changes during settings validation', async () => {
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        const keys = deferred<Record<string, unknown>>();
+        vi.mocked(chrome.storage.local.get).mockImplementationOnce(() => keys.promise);
         const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         await vi.advanceTimersByTimeAsync(0);
         await storageChanged.fire({ credentialStorageType: { oldValue: 'local', newValue: 'sync' } }, 'local');
-        response.resolve(googleResponse('Bonjour'));
+        keys.resolve({});
         await submitted;
+        expect(fetchMock).toHaveBeenCalledTimes(1);
         expect(writeText).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
     });
 });
