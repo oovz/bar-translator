@@ -36,6 +36,7 @@ export class GoogleTranslationWebService extends BaseTranslationService {
         try {
             const response = await fetch(url.toString(), {
                 method: 'GET',
+                signal: params.signal,
                 headers: {
                     'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36'
                 }
@@ -69,6 +70,7 @@ export class GoogleTranslationWebService extends BaseTranslationService {
             };
 
         } catch (error) {
+            params.signal?.throwIfAborted();
             if (error instanceof TranslationError) throw error;
 
             throw new TranslationError(

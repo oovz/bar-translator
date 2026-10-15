@@ -147,6 +147,12 @@
     "omniboxTranslating": {
         "message": "<dim>翻訳中...</dim>"
     },
+    "omniboxTranslationFailed": {
+        "message": "入力したテキストを翻訳できませんでした。もう一度お試しください。"
+    },
+    "omniboxCopyFailed": {
+        "message": "翻訳をコピーできませんでした。もう一度お試しください。"
+    },
     "omniboxCopied": {
         "message": "<match>コピーしました：</match> $1",
         "placeholders": {

@@ -38,6 +38,7 @@ export class LingvaTranslationService extends BaseTranslationService {
         try {
             const response = await fetch(url, {
                 method: 'GET',
+                signal: params.signal,
                 headers: {
                     'Accept': 'application/json',
                 }
@@ -71,6 +72,7 @@ export class LingvaTranslationService extends BaseTranslationService {
             };
 
         } catch (error) {
+            params.signal?.throwIfAborted();
             if (error instanceof TranslationError) throw error;
 
             throw new TranslationError(

@@ -43,9 +43,11 @@ async function ensureOffscreenDocument(): Promise<void> {
  * @param text - Text to copy
  * @returns Promise that resolves when copy is complete
  */
-export async function copyToClipboard(text: string): Promise<boolean> {
+export async function copyToClipboard(text: string, signal?: AbortSignal): Promise<boolean> {
     try {
+        signal?.throwIfAborted();
         await ensureOffscreenDocument();
+        signal?.throwIfAborted();
 
         const message: CopyToClipboardMessage = {
             type: 'COPY_TO_CLIPBOARD',

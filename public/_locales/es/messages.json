@@ -147,6 +147,12 @@
     "omniboxTranslating": {
         "message": "<dim>Traduciendo...</dim>"
     },
+    "omniboxTranslationFailed": {
+        "message": "No se pudo traducir el texto enviado. Inténtalo de nuevo."
+    },
+    "omniboxCopyFailed": {
+        "message": "No se pudo copiar la traducción. Inténtalo de nuevo."
+    },
     "omniboxCopied": {
         "message": "<match>Copiado:</match> $1",
         "placeholders": {

@@ -147,7 +147,7 @@ export function formatErrorDescription(errorMessage: string): string {
 /**
  * Escape special characters for XML (omnibox description).
  */
-function escapeXml(str: string): string {
+export function escapeXml(str: string): string {
     return str
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')

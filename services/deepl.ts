@@ -56,6 +56,7 @@ export class DeepLTranslationService extends BaseTranslationService {
         try {
             const response = await fetch(endpoint, {
                 method: 'POST',
+                signal: params.signal,
                 headers: {
                     'Authorization': `DeepL-Auth-Key ${apiKey}`,
                     'Content-Type': 'application/x-www-form-urlencoded',
@@ -100,6 +101,7 @@ export class DeepLTranslationService extends BaseTranslationService {
             };
 
         } catch (error) {
+            params.signal?.throwIfAborted();
             if (error instanceof TranslationError) throw error;
 
             throw new TranslationError(

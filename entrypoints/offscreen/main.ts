@@ -44,7 +44,7 @@ async function copyToClipboard(text: string): Promise<void> {
         await navigator.clipboard.writeText(text);
         console.log('[Offscreen] Text copied to clipboard');
     } catch {
-        // Fallback to execCommand for older browsers
+        // Offscreen documents cannot be focused, so use DOM copy if the Clipboard API rejects.
         const textArea = document.createElement('textarea');
         textArea.value = text;
         textArea.style.position = 'fixed';
@@ -53,7 +53,9 @@ async function copyToClipboard(text: string): Promise<void> {
         textArea.select();
 
         try {
-            document.execCommand('copy');
+            if (!document.execCommand('copy')) {
+                throw new Error('Clipboard copy failed');
+            }
             console.log('[Offscreen] Text copied via execCommand');
         } finally {
             document.body.removeChild(textArea);

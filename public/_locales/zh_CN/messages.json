@@ -147,6 +147,12 @@
     "omniboxTranslating": {
         "message": "<dim>翻译中...</dim>"
     },
+    "omniboxTranslationFailed": {
+        "message": "无法翻译提交的文本，请重试。"
+    },
+    "omniboxCopyFailed": {
+        "message": "无法复制翻译，请重试。"
+    },
     "omniboxCopied": {
         "message": "<match>已复制：</match> $1",
         "placeholders": {

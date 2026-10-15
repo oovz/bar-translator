@@ -126,6 +126,7 @@ export async function translateWithFallback(
     preferences: UserPreferences,
     apiKeys: StoredApiKeys
 ): Promise<TranslateResultWithMeta> {
+    params.signal?.throwIfAborted();
     // fallbackOrder IS the complete list of enabled services
     const enabledServices = preferences.fallbackOrder;
 
@@ -164,6 +165,7 @@ export async function translateWithFallback(
     let lastError: TranslationError | null = null;
 
     for (let i = 0; i < availableServices.length; i++) {
+        params.signal?.throwIfAborted();
         const serviceId = availableServices[i];
         const handler = serviceRegistry.get(serviceId);
         if (!handler) {
@@ -193,6 +195,7 @@ export async function translateWithFallback(
                 tier,
             });
 
+            params.signal?.throwIfAborted();
             console.log(`[Translate] SUCCESS from ${serviceId}:`, {
                 translation: result.translation.substring(0, 100) + (result.translation.length > 100 ? '...' : ''),
                 detectedLang: result.detectedSourceLang,
@@ -204,6 +207,7 @@ export async function translateWithFallback(
                 cached: false,
             };
         } catch (error) {
+            params.signal?.throwIfAborted();
             console.error(`[Translate] FAILED from ${serviceId}:`, error);
 
             if (error instanceof TranslationError) {

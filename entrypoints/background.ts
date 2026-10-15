@@ -1,218 +1,218 @@
 /**
- * Bar Translate - Background Service Worker
- *
- * Main entry point for the Chrome extension's service worker.
- * Handles omnibox events and translation orchestration.
- *
- * @module entrypoints/background
+ * Omnibox interaction ownership, translation previews, and submitted copies.
  */
-
-import {
-    translateWithFallback,
-} from '@/services/index';
+import { translateWithFallback } from '@/services/index';
 import { t } from '@/utils/i18n';
-import {
-    getPreferences,
-    getApiKeys,
-} from '@/utils/storage';
+import { getPreferences, getApiKeys } from '@/utils/storage';
 import {
     parseOmniboxInput,
+    formatSuggestionDescription,
     formatErrorDescription,
+    escapeXml,
 } from '@/utils/omnibox-parser';
 import { copyToClipboard } from '@/utils/clipboard';
-import {
-    initTelemetry,
-    trackEvent,
-    TelemetryEvents,
-} from '@/utils/telemetry';
-import type { ParsedOmniboxInput } from '@/src/types';
+import { initTelemetry, trackEvent, TelemetryEvents } from '@/utils/telemetry';
+import type { UserPreferences, TranslateResultWithMeta } from '@/src/types';
 
-// Debounce timer for omnibox input
-let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-const DEBOUNCE_DELAY = 300; // ms - reduced for better UX
+const DEBOUNCE_DELAY = 300;
 
-// Keep track of the last translation result for "Enter" key handling
-let lastResult: string | null = null;
+interface TranslationRequest {
+    context: string;
+    controller: AbortController;
+    result: Promise<TranslateResultWithMeta>;
+    failed?: boolean;
+}
 
-// Loading state
-let isTranslating = false;
+interface Interaction {
+    input: string;
+    committed: boolean;
+    request?: TranslationRequest;
+}
+
+function languageContext(preferences: Partial<UserPreferences> = {}) {
+    return [preferences.defaultSourceLang, preferences.defaultTargetLang, preferences.languageOverrides];
+}
 
 export default defineBackground(() => {
-    console.log('[Background] Bar Translate extension initialized', { id: browser.runtime.id });
+    let current: Interaction | undefined;
+    let preparationVersion = 0;
+    let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+    let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 
-    // Initialize telemetry
     initTelemetry();
 
-    // Set default suggestion
-    browser.omnibox.setDefaultSuggestion({
-        description: t('omniboxSuggestion'),
-    });
+    function showPrompt() {
+        browser.omnibox.setDefaultSuggestion({ description: t('omniboxSuggestion') });
+    }
 
-    // ---------------------------------------------------------------------------
-    // Omnibox Input Changed
-    // ---------------------------------------------------------------------------
-    browser.omnibox.onInputChanged.addListener((text, _suggest) => {
-        if (debounceTimer) clearTimeout(debounceTimer);
+    function invalidate() {
+        clearTimeout(debounceTimer);
+        clearTimeout(feedbackTimer);
+        current?.request?.controller.abort();
+        current = undefined;
+    }
 
-        if (!text.trim()) {
+    function isCurrent(interaction: Interaction, request: TranslationRequest) {
+        return current === interaction && interaction.request === request && !request.controller.signal.aborted;
+    }
+
+    async function translate(interaction: Interaction) {
+        const version = ++preparationVersion;
+        const preferences = await getPreferences();
+        const apiKeys = await getApiKeys();
+        if (current !== interaction || version !== preparationVersion) return;
+
+        const parsed = parseOmniboxInput(interaction.input, preferences);
+        if (parsed.isLanguageQuery) {
+            showPrompt();
             return;
         }
 
-        // Show loading state immediately
-        if (!isTranslating) {
-            browser.omnibox.setDefaultSuggestion({
-                description: t('omniboxTranslating'),
-            });
-        }
-
-        debounceTimer = setTimeout(async () => {
-            isTranslating = true;
+        const params = {
+            text: parsed.text,
+            sourceLang: parsed.sourceLang || 'auto',
+            targetLang: parsed.targetLang || preferences.defaultTargetLang,
+        };
+        const context = JSON.stringify([params, languageContext(preferences), preferences.fallbackOrder, apiKeys]);
+        if (interaction.request?.context !== context || interaction.request.failed) {
+            interaction.request?.controller.abort();
+            const controller = new AbortController();
             const startTime = Date.now();
-
-            try {
-                console.log('[Background] Omnibox input:', text);
-
-                const preferences = await getPreferences();
-                const apiKeys = await getApiKeys();
-
-                console.log('[Background] Loaded preferences:', {
-                    fallbackOrder: preferences.fallbackOrder,
-                    defaultSourceLang: preferences.defaultSourceLang,
-                    defaultTargetLang: preferences.defaultTargetLang,
-                });
-
-                // Parse input
-                const parsed: ParsedOmniboxInput = parseOmniboxInput(text, {
-                    defaultTargetLang: preferences.defaultTargetLang,
-                    defaultSourceLang: preferences.defaultSourceLang,
-                    languageOverrides: preferences.languageOverrides,
-                });
-
-                console.log('[Background] Parsed input:', parsed);
-
-                if (parsed.isLanguageQuery) {
-                    // TODO: Maybe show help or language info?
-                    isTranslating = false;
-                    return;
-                }
-
-                // Track translation request
-                trackEvent(TelemetryEvents.TRANSLATION_REQUESTED, {
-                    sourceLang: parsed.sourceLang || 'auto',
-                    targetLang: parsed.targetLang,
-                    textLength: parsed.text.length,
-                    enabledServices: preferences.fallbackOrder,
-                });
-
-                // Always send to backend (no caching)
-                const result = await translateWithFallback(
-                    {
-                        text: parsed.text,
-                        sourceLang: parsed.sourceLang || 'auto',
-                        targetLang: parsed.targetLang || 'en',
-                    },
-                    preferences,
-                    apiKeys
-                );
-
-                const latency = Date.now() - startTime;
-
-                // Track success
-                trackEvent(TelemetryEvents.TRANSLATION_SUCCEEDED, {
-                    serviceId: result.serviceId,
-                    usedFallback: result.usedFallback,
-                    latency_ms: latency,
-                });
-
-                // Update last result
-                lastResult = result.translation;
-
-                // Format and suggest
-                const description = formatSuggestionDescription(
-                    result.translation,
-                    parsed.targetLang || preferences.defaultTargetLang
-                );
-
-                // Update the default suggestion to the result
-                browser.omnibox.setDefaultSuggestion({
-                    description: description,
-                });
-
-            } catch (error) {
-                console.error('[Background] Translation failed:', error);
-                const latency = Date.now() - startTime;
-
-                // Track failure
-                // Track failure
-                trackEvent(TelemetryEvents.TRANSLATION_FAILED, {
-                    error: error instanceof Error ? error.message : String(error),
-                    latency_ms: latency,
-                });
-
-                browser.omnibox.setDefaultSuggestion({
-                    description: formatErrorDescription(error instanceof Error ? error.message : String(error)),
-                });
-                lastResult = null;
-            } finally {
-                isTranslating = false;
-            }
-        }, DEBOUNCE_DELAY);
-    });
-
-    // ---------------------------------------------------------------------------
-    // Omnibox Input Entered
-    // ---------------------------------------------------------------------------
-    browser.omnibox.onInputEntered.addListener(async (text, disposition) => {
-        console.log('[Background] Input entered:', text, 'Disposition:', disposition);
-
-        try {
-            let translationToCopy = lastResult;
-
-            // Re-verify if needed (e.g. if user typed fast and hit enter before debounce)
-            if (!translationToCopy) {
-                // ... same re-fetch logic (omitted for brevity in replacement if unchanged, but I must provide full block)
-                // Wait, I should preserve re-fetch logic, and maybe track it too?
-                // For safety, I'll copy the existing re-fetch block logic.
-                const preferences = await getPreferences();
-                const apiKeys = await getApiKeys();
-                const parsed = parseOmniboxInput(text, {
-                    defaultTargetLang: preferences.defaultTargetLang,
-                    defaultSourceLang: preferences.defaultSourceLang,
-                    languageOverrides: preferences.languageOverrides,
-                });
-
-                if (!parsed.isLanguageQuery) {
-                    const result = await translateWithFallback(
-                        {
-                            text: parsed.text,
-                            sourceLang: parsed.sourceLang || 'auto',
-                            targetLang: parsed.targetLang || 'en',
-                        },
-                        preferences,
-                        apiKeys
-                    );
-                    translationToCopy = result.translation;
-                }
-            }
-
-            if (translationToCopy) {
-                const success = await copyToClipboard(translationToCopy);
-                if (success) {
-                    browser.omnibox.setDefaultSuggestion({
-                        description: t('omniboxCopied', [translationToCopy]),
+            trackEvent(TelemetryEvents.TRANSLATION_REQUESTED, {
+                sourceLang: params.sourceLang, targetLang: params.targetLang,
+                textLength: params.text.length, enabledServices: preferences.fallbackOrder,
+            });
+            const result = translateWithFallback({ ...params, signal: controller.signal }, preferences, apiKeys)
+                .then(result => {
+                    trackEvent(TelemetryEvents.TRANSLATION_SUCCEEDED, {
+                        serviceId: result.serviceId, usedFallback: result.usedFallback,
+                        latency_ms: Date.now() - startTime,
                     });
-
-                    // Reset after delay
-                    setTimeout(() => {
-                        browser.omnibox.setDefaultSuggestion({
-                            description: t('omniboxSuggestion'),
+                    return result;
+                }).catch(error => {
+                    if (!controller.signal.aborted) {
+                        trackEvent(TelemetryEvents.TRANSLATION_FAILED, {
+                            error: error instanceof Error ? error.message : String(error),
+                            latency_ms: Date.now() - startTime,
                         });
-                    }, 3000);
-                }
+                    }
+                    throw error;
+                });
+            interaction.request = { context, controller, result };
+        }
+        const request = interaction.request;
+        try {
+            const result = await request.result;
+            if (isCurrent(interaction, request)) {
+                return { translation: result.translation, targetLang: params.targetLang, request };
             }
         } catch (error) {
-            console.error('[Background] Enter handler failed:', error);
-            // Telemetry restricted: do not track generic errors
+            request.failed = true;
+            if (isCurrent(interaction, request)) throw error;
+        }
+    }
+
+    function showError(error: unknown) {
+        browser.omnibox.setDefaultSuggestion({
+            description: formatErrorDescription(error instanceof Error ? error.message : String(error)),
+        });
+    }
+
+    async function preview(interaction: Interaction) {
+        try {
+            const result = await translate(interaction);
+            if (result && !interaction.committed && isCurrent(interaction, result.request)) {
+                browser.omnibox.setDefaultSuggestion({
+                    description: formatSuggestionDescription(result.translation, result.targetLang),
+                });
+            }
+        } catch (error) {
+            if (current === interaction && !interaction.committed) showError(error);
+        }
+    }
+
+    function inputChanged(input: string) {
+        invalidate();
+        if (!input.trim()) {
+            showPrompt();
+            return;
+        }
+        const interaction: Interaction = { input, committed: false };
+        current = interaction;
+        browser.omnibox.setDefaultSuggestion({ description: t('omniboxTranslating') });
+        debounceTimer = setTimeout(() => { void preview(interaction); }, DEBOUNCE_DELAY);
+    }
+
+    showPrompt();
+    browser.omnibox.onInputStarted.addListener(() => {
+        invalidate();
+        showPrompt();
+    });
+    browser.omnibox.onInputCancelled.addListener(() => {
+        invalidate();
+        showPrompt();
+    });
+    browser.omnibox.onInputChanged.addListener(inputChanged);
+
+    browser.omnibox.onInputEntered.addListener(async input => {
+        clearTimeout(debounceTimer);
+        if (current?.input !== input) {
+            invalidate();
+            current = { input, committed: false };
+        }
+        const interaction = current;
+        if (interaction.committed) return;
+        interaction.committed = true;
+        let failureMessage = t('omniboxTranslationFailed');
+        try {
+            const result = await translate(interaction);
+            if (!result || !isCurrent(interaction, result.request)) return;
+            failureMessage = t('omniboxCopyFailed');
+            const copied = await copyToClipboard(result.translation, result.request.controller.signal);
+            if (!isCurrent(interaction, result.request)) return;
+            if (!copied) throw new Error(t('omniboxCopyFailed'));
+            browser.omnibox.setDefaultSuggestion({ description: t('omniboxCopied', [escapeXml(result.translation)]) });
+            feedbackTimer = setTimeout(showPrompt, 3000);
+        } catch (error) {
+            if (current === interaction) {
+                showError(error);
+                // Enter closes the omnibox, so submission failures also need visible feedback.
+                try {
+                    await browser.notifications.create('translation-error', {
+                        type: 'basic',
+                        iconUrl: 'icons/icon-128.png',
+                        title: t('extName'),
+                        message: failureMessage,
+                    });
+                } catch {
+                    console.error('[Background] Could not display failure notification');
+                }
+            }
+        } finally {
+            if (current === interaction) {
+                interaction.request?.controller.abort();
+                current = undefined;
+            }
+        }
+    });
+
+    browser.storage.onChanged.addListener((changes, area) => {
+        const preferenceChange = area === 'sync' ? changes.preferences : undefined;
+        const previousPreferences = preferenceChange?.oldValue as Partial<UserPreferences> | undefined;
+        const nextPreferences = preferenceChange?.newValue as Partial<UserPreferences> | undefined;
+        const contextChanged = preferenceChange && (
+            JSON.stringify(languageContext(previousPreferences)) !== JSON.stringify(languageContext(nextPreferences)) ||
+            JSON.stringify(previousPreferences?.fallbackOrder) !== JSON.stringify(nextPreferences?.fallbackOrder) ||
+            previousPreferences?.storageType !== nextPreferences?.storageType
+        );
+        const credentialsChanged = (area === 'sync' && changes.apiKeys) || (area === 'local' && changes.apiKeys_local);
+        if (current && (contextChanged || credentialsChanged)) {
+            if (current.committed) {
+                invalidate();
+                showPrompt();
+            } else {
+                inputChanged(current.input);
+            }
         }
     });
 });

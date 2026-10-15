@@ -150,6 +150,9 @@ export interface TranslationServiceHandler {
  * Parameters for a translation request.
  */
 export interface TranslateParams {
+  /** Cancellation of obsolete translation work */
+  readonly signal?: AbortSignal;
+
   /** Text to translate (1-5000 characters, varies by service) */
   readonly text: string;
 

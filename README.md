@@ -87,6 +87,9 @@ The build produces the Chrome extension in `.output/chrome-mv3/`.
 2. Type `t` followed by a space.
 3. (Optional) Prefix with a target language code (e.g., `fr`, `es`, `ja`).
 4. Type the text you want to translate.
+5. After the preview appears, press Enter to copy it. Enter also works while a translation is pending.
+
+Submitted translation and copy failures use Chrome notifications. Their visibility depends on your browser and OS notification settings.
 
 **Example:**
 - `t Hello world` -> Translates to your default target language.
