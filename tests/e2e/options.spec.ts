@@ -7,6 +7,16 @@
  */
 
 import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
+import type { UserPreferences } from '@/src/types';
+
+// Extension messages follow the browser's UI locale, which can differ from page locale.
+async function messages(page: Page) {
+    return page.evaluate(() => Object.fromEntries([
+        'sectionDefaultLanguages', 'sectionRegionalDialects', 'sectionTranslationServices',
+        'sectionPrivacy', 'lang_zh', 'primary', 'labelStorage', 'storageDesc',
+    ].map(key => [key, chrome.i18n.getMessage(key)])));
+}
 
 test.describe('Options Page', () => {
     test('loads and displays settings', async ({ context, extensionId }) => {
@@ -14,6 +24,7 @@ test.describe('Options Page', () => {
 
         await page.setViewportSize({ width: 1000, height: 800 });
         await page.goto(`chrome-extension://${extensionId}/options.html`);
+        const text = await messages(page);
 
         // Check title
         await expect(page).toHaveTitle(/Bar Translator Settings/i);
@@ -22,18 +33,19 @@ test.describe('Options Page', () => {
         await expect(page.locator('h1', { hasText: 'Bar Translate Settings' })).not.toBeVisible();
 
         // Check for sections
-        await expect(page.locator('.section-title', { hasText: 'Default Languages' })).toBeVisible();
-        await expect(page.locator('.section-title', { hasText: 'Regional Dialects' })).toBeVisible();
-        await expect(page.locator('.section-title', { hasText: 'Translation Services' })).toBeVisible();
-        await expect(page.locator('.section-title', { hasText: 'Privacy & Storage' })).toBeVisible();
+        await expect(page.locator('.section-title', { hasText: text.sectionDefaultLanguages })).toBeVisible();
+        await expect(page.locator('.section-title', { hasText: text.sectionRegionalDialects })).toBeVisible();
+        await expect(page.locator('.section-title', { hasText: text.sectionTranslationServices })).toBeVisible();
+        await expect(page.locator('.section-title', { hasText: text.sectionPrivacy })).toBeVisible();
     });
 
     test('persists language selection', async ({ context, extensionId }) => {
         const page = await context.newPage();
         await page.goto(`chrome-extension://${extensionId}/options.html`);
+        const text = await messages(page);
 
         // Locate Source Language Combobox within Default Languages section
-        const defaultLangsSection = page.locator('.section', { hasText: 'Default Languages' });
+        const defaultLangsSection = page.locator('.section', { hasText: text.sectionDefaultLanguages });
         // Source is the first form-group input
         const sourceInput = defaultLangsSection.locator('input').first();
 
@@ -42,61 +54,58 @@ test.describe('Options Page', () => {
         await sourceInput.fill('French');
 
         // Wait for and click the option
-        const frenchOption = page.locator('.combobox-option', { hasText: 'French' });
+        const frenchOption = page.locator('.combobox-option').filter({ has: page.getByText('French', { exact: true }) });
         await frenchOption.click();
 
-        await page.waitForTimeout(500); // Wait for storage save
+        await expect.poll(() => page.evaluate(async () => {
+            const { preferences } = await chrome.storage.sync.get<{ preferences: UserPreferences }>('preferences');
+            return preferences.defaultSourceLang;
+        })).toBe('fr');
 
         await page.reload();
 
-        const reloadedSourceInput = page.locator('.section', { hasText: 'Default Languages' }).locator('input').first();
+        const reloadedSourceInput = page.locator('.section', { hasText: text.sectionDefaultLanguages }).locator('input').first();
         await expect(reloadedSourceInput).toHaveValue('French');
     });
 
     test('persists regional dialect overrides', async ({ context, extensionId }) => {
         const page = await context.newPage();
         await page.goto(`chrome-extension://${extensionId}/options.html`);
+        const text = await messages(page);
 
-        const regionalSection = page.locator('.section', { hasText: 'Regional Dialects' });
+        const regionalSection = page.locator('.section', { hasText: text.sectionRegionalDialects });
         // Find Chinese (zh) select
-        const zhSelect = regionalSection.locator('.form-group', { hasText: 'Chinese (zh)' }).locator('select');
+        const zhSelect = regionalSection.locator('.form-group', { hasText: `${text.lang_zh} (zh)` }).locator('select');
 
         await zhSelect.scrollIntoViewIfNeeded();
         // Select 'zh-TW'
         await zhSelect.selectOption('zh-TW');
 
-        await page.waitForTimeout(500);
+        await expect.poll(() => page.evaluate(async () => {
+            const { preferences } = await chrome.storage.sync.get<{ preferences: UserPreferences }>('preferences');
+            return preferences.languageOverrides.zh;
+        })).toBe('zh-TW');
 
         await page.reload();
 
-        const reloadedZhSelect = page.locator('.section', { hasText: 'Regional Dialects' }).locator('.form-group', { hasText: 'Chinese (zh)' }).locator('select');
+        const reloadedZhSelect = page.locator('.section', { hasText: text.sectionRegionalDialects }).locator('.form-group', { hasText: `${text.lang_zh} (zh)` }).locator('select');
         await expect(reloadedZhSelect).toHaveValue('zh-TW');
     });
 
-    test('can toggle and reorder services', async ({ context, extensionId }) => {
+    test('can enable a translation provider', async ({ context, extensionId }) => {
         const page = await context.newPage();
         await page.goto(`chrome-extension://${extensionId}/options.html`);
+        const text = await messages(page);
 
         const serviceList = page.locator('.service-list').first();
         await expect(serviceList).toBeVisible();
 
         // Check primary badge on first item
-        await expect(serviceList.locator('li').first()).toContainText('PRIMARY');
+        await expect(serviceList.locator('li').first()).toContainText(text.primary);
         await expect(serviceList.locator('li').first()).toContainText('Google Translate (Web)');
 
-        // Enable DeepL (from disabled list)
-        // Note: This test might fail if DeepL is already enabled from previous run.
-        // Ideally we should reset state, but for now we handle conditionals in the next test.
-        // Here we just checking functionality if available.
-        const disabledList = page.locator('.service-list.disabled-list');
-        if (await disabledList.isVisible()) {
-            const enableDeepLBtn = disabledList.locator('li', { hasText: 'DeepL' }).locator('button[title="Enable service"]');
-            if (await enableDeepLBtn.isVisible()) {
-                await enableDeepLBtn.click();
-                // Verify DeepL moved to enabled list
-                await expect(serviceList.locator('li', { hasText: 'DeepL' })).toBeVisible();
-            }
-        }
+        await page.locator('[data-id="deepl"] [title="Enable service"]').click();
+        await expect(serviceList.locator('[data-id="deepl"]')).toBeVisible();
     });
 
     test('can enter API key for DeepL', async ({ context, extensionId }) => {
@@ -109,13 +118,7 @@ test.describe('Options Page', () => {
         const serviceList = page.locator('.service-list').first();
         const enabledDeepL = serviceList.locator('li', { hasText: 'DeepL' });
 
-        // If DeepL is not enabled, enable it
-        if (await enabledDeepL.count() === 0) {
-            const disabledList = page.locator('.service-list.disabled-list');
-            await expect(disabledList).toBeVisible();
-            const enableDeepLBtn = disabledList.locator('li', { hasText: 'DeepL' }).locator('button[title="Enable service"]');
-            await enableDeepLBtn.click();
-        }
+        await page.locator('[data-id="deepl"] [title="Enable service"]').click();
 
         // Now DeepL should be in the enabled list
         await expect(enabledDeepL).toBeVisible();
@@ -124,7 +127,7 @@ test.describe('Options Page', () => {
         const apiKeyBtn = enabledDeepL.locator('button', { hasText: 'API Key' });
         await apiKeyBtn.click();
 
-        const keyInput = enabledDeepL.locator('input[placeholder*="API Key"]');
+        const keyInput = enabledDeepL.locator('input');
         await expect(keyInput).toBeVisible();
 
         await keyInput.fill('test-api-key');
@@ -134,11 +137,12 @@ test.describe('Options Page', () => {
     test('shows security warning tooltip', async ({ context, extensionId }) => {
         const page = await context.newPage();
         await page.goto(`chrome-extension://${extensionId}/options.html`);
+        const text = await messages(page);
 
-        const label = page.locator('.setting-label', { hasText: 'API Key Storage' });
+        const label = page.locator('.setting-label', { hasText: text.labelStorage });
         await expect(label).toBeVisible();
         const tooltip = label.locator('span');
         await expect(tooltip).toBeVisible();
-        await expect(tooltip).toHaveAttribute('title', /Synced storage/);
+        await expect(tooltip).toHaveAttribute('title', text.storageDesc);
     });
 });

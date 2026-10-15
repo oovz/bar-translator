@@ -97,7 +97,10 @@ test('persists successive provider reorders', async ({ context, extensionId }) =
     await expect(enabled).toHaveCount(3);
 
     for (const id of ['deepl', 'lingva']) {
-        const handle = await page.locator(`[data-id="${id}"] .drag-handle`).boundingBox();
+        const dragHandle = page.locator(`[data-id="${id}"] .drag-handle`);
+        // Actionability waits for the preceding reorder animation to settle.
+        await dragHandle.hover();
+        const handle = await dragHandle.boundingBox();
         const preceding = await enabled.nth(1).boundingBox();
         expect(handle).toBeTruthy();
         expect(preceding).toBeTruthy();
@@ -107,6 +110,12 @@ test('persists successive provider reorders', async ({ context, extensionId }) =
         await expect(enabled.nth(1)).toHaveAttribute('data-id', id);
         await page.mouse.up();
         await expect(enabled.nth(1)).toHaveAttribute('data-id', id);
+        await expect.poll(() => page.evaluate(async () => {
+            const { preferences } = await chrome.storage.sync.get<{ preferences: { fallbackOrder: string[] } }>('preferences');
+            return preferences.fallbackOrder;
+        })).toEqual(id === 'deepl'
+            ? ['google-web', 'deepl', 'lingva']
+            : ['google-web', 'lingva', 'deepl']);
     }
 
     await page.reload();

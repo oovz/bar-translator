@@ -26,16 +26,16 @@ Bar Translator is a simple, lightweight browser extension built with [WXT](https
 - **Regional Dialect Support**: Configure preferred regional variants for languages (e.g., map 'zh' to 'zh-TW').
 - **Service Fallback**: Support for multiple translation providers with automatic fallback logic.
 - **Chrome Sync Support**: Translation settings sync across your Chrome instances. Each device independently chooses local or synced API keys.
-- **Clipboard Sync**: Press **Enter** to instantly copy the translation result to your clipboard.
+- **Clipboard Sync**: Press **Enter** to copy the matching translation result to your clipboard.
 - **Privacy First**: The extension collects no usage analytics. Text goes to your enabled translation providers in the order you choose.
 
 ## 🌍 Supported Services
 
 Bar Translator offers these translation providers:
 
-- **Google Translate**: Fast, reliable translation via web (no API key required).
-- **Lingva Translate**: Privacy-focused alternative frontend for Google Translate (no API key required).
-- **DeepL**: Industry-leading translation quality (requires Free or Pro API key).
+- **Google Translate**: Translation via its public web endpoint (no API key required).
+- **Lingva Translate**: Alternative frontend for Google Translate (no API key required).
+- **DeepL**: Translation via its official API (requires Free or Pro API key).
 
 In settings, enable the providers you allow to receive your text and drag them into order. The first available provider is tried first; later enabled providers may receive the same text if an earlier attempt fails. Disable every provider to pause translation. This choice persists when settings or the browser reopen.
 
@@ -93,11 +93,14 @@ The build produces the Chrome extension in `.output/chrome-mv3/`.
 4. Type the text you want to translate.
 5. After the preview appears, press Enter to copy it. Enter also works while a translation is pending.
 
+Translation previews start after a 300 ms typing pause. Enter reuses a matching successful preview or pending request and otherwise translates the submitted input. Clearing the input or ending the interaction invalidates pending previews.
+
 Submitted translation and copy failures use Chrome notifications. Their visibility depends on your browser and OS notification settings.
 
 **Example:**
 - `t Hello world` -> Translates to your default target language.
 - `t fr Hello world` -> Translates "Hello world" to French.
+- `t en>fr Hello world` -> Uses English as the explicit source and French as the target.
 
 ## 🛠️ Tech Stack
 

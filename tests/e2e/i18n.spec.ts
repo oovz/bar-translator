@@ -9,33 +9,28 @@
 import { test, expect } from './fixtures';
 
 test.describe('i18n Support', () => {
-    test('displays default English strings', async ({ context, extensionId }) => {
+    test('displays the active extension locale', async ({ context, extensionId }) => {
         const page = await context.newPage();
         await page.goto(`chrome-extension://${extensionId}/options.html`);
-
-        // Check page title translation
-        // Key: extName -> "Bar Translator", settings -> "Settings"
-        // App.tsx sets: t('extName') + ' ' + t('settings')
-        await expect(page).toHaveTitle(/Bar Translator Settings/i);
-
-        // Check section titles
-        // Key: sectionDefaultLanguages -> "Default Languages"
-        await expect(page.locator('.section-title', { hasText: 'Default Languages' })).toBeVisible();
-        // Key: sectionRegionalDialects -> "Regional Dialects"
-        await expect(page.locator('.section-title', { hasText: 'Regional Dialects' })).toBeVisible();
-
-        // Check labels
-        // Key: labelSource -> "Source"
-        await expect(page.locator('label', { hasText: 'Source' }).first()).toBeVisible();
-
-        // Check descriptions
-        // Key: regionalDialectsDesc -> "Choose which specific variant..."
-        await expect(page.locator('text=Choose which specific variant to use')).toBeVisible();
-
-        // Check footer usage instructions
-        // Key: footerUsage -> "Type ... to translate"
-        await expect(page.locator('.footer')).toContainText('Type');
-        await expect(page.locator('.footer')).toContainText('to translate');
+        const messages = await page.evaluate(() => Object.fromEntries([
+            'extName', 'settings', 'sectionDefaultLanguages', 'sectionRegionalDialects',
+            'sectionTranslationServices', 'sectionPrivacy', 'labelSource', 'regionalDialectsDesc',
+            'footerUsage',
+        ].map(key => [key, chrome.i18n.getMessage(key)])));
+        await expect(page).toHaveTitle(`${messages.extName} ${messages.settings}`);
+        await expect(page.locator('.section-title')).toHaveText([
+            messages.sectionDefaultLanguages, messages.sectionRegionalDialects,
+            messages.sectionTranslationServices, messages.sectionPrivacy,
+        ]);
+        await expect(page.locator('label', { hasText: messages.labelSource }).first()).toBeVisible();
+        await expect(page.getByText(messages.regionalDialectsDesc, { exact: true })).toBeVisible();
+        // Strip markup with the browser so localized emphasis remains meaningful.
+        const footer = await page.evaluate(html => {
+            const element = document.createElement('div');
+            element.innerHTML = html;
+            return element.textContent;
+        }, messages.footerUsage);
+        await expect(page.locator('.footer')).toHaveText(footer!);
     });
 
     test('replaces hardcoded strings with localized versions', async ({ context, extensionId }) => {
@@ -54,10 +49,4 @@ test.describe('i18n Support', () => {
         expect(content).not.toContain('sectionDefaultLanguages');
         expect(content).not.toContain('labelSource');
     });
-
-    // Note: Testing other languages (like French) is difficult because it requires
-    // launching Chrome with a specific locale, which persistentContext doesn't easily support
-    // without potentially conflicting with the machine's installed locales or requiring specific args.
-    // For now, we trust that if English works via browser.i18n.getMessage, other languages will work too
-    // provided the locale files exist (which we verified in build).
 });
