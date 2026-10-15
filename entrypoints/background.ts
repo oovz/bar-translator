@@ -61,8 +61,10 @@ export default defineBackground(() => {
     function invalidate() {
         clearTimeout(debounceTimer);
         clearTimeout(feedbackTimer);
-        current?.request?.controller.abort();
+        const interaction = current;
+        // Release ownership before abort callbacks can settle the old preview.
         current = undefined;
+        interaction?.request?.controller.abort();
     }
 
     function isCurrent(interaction: Interaction, request: TranslationRequest) {

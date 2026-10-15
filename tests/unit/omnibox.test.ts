@@ -456,6 +456,10 @@ describe('copying completed previews', () => {
         expect(sendMessage).not.toHaveBeenCalled();
         expect(execCommand).not.toHaveBeenCalled();
         expect(notify).not.toHaveBeenCalled();
+        expect(description()).toBe(messages.omniboxTranslating.message);
+        expect(omnibox.setDefaultSuggestion).not.toHaveBeenCalledWith(
+            expect.objectContaining({ description: expect.stringContaining('Error:') })
+        );
     });
 
     it('preserves the clipboard when Enter input differs from the completed preview', async () => {
