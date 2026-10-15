@@ -79,6 +79,21 @@ describe('Preferences', () => {
             expect(prefs.defaultTargetLang).toBe('fr');
             expect(prefs.storageType).toBe('sync');
         });
+
+        it('keeps the ordered supported selection and removes unsupported or duplicate recipients', async () => {
+            mockStorageSync.get.mockResolvedValue({ preferences: {
+                ...DEFAULT_PREFERENCES, distinctId: 'test',
+                fallbackOrder: ['microsoft', 'lingva', 'google-cloud', 'deepl', 'lingva', 'google-web'],
+            } });
+            expect((await getPreferences()).fallbackOrder).toEqual(['lingva', 'deepl', 'google-web']);
+        });
+
+        it.each([[], ['microsoft'], null])('preserves a disabled selection when stored as %j', async fallbackOrder => {
+            mockStorageSync.get.mockResolvedValue({ preferences: {
+                ...DEFAULT_PREFERENCES, distinctId: 'test', fallbackOrder,
+            } });
+            expect((await getPreferences()).fallbackOrder).toEqual([]);
+        });
     });
 });
 
@@ -138,6 +153,16 @@ describe('API Keys', () => {
     });
 
     describe('setApiKey', () => {
+        it('preserves stored credentials for hidden providers when updating DeepL', async () => {
+            const hidden = { key: 'stored-hidden-key', validated: true };
+            mockStorageLocal.get.mockResolvedValue({ apiKeys_local: { microsoft: hidden } });
+            await setApiKey('deepl', { key: 'new-key:fx', validated: false, tier: 'free' });
+            expect(mockStorageLocal.set).toHaveBeenCalledWith({ apiKeys_local: {
+                microsoft: hidden,
+                deepl: { key: 'new-key:fx', validated: false, tier: 'free' },
+            } });
+        });
+
         it('saves to local storage by default', async () => {
             mockStorageLocal.get.mockResolvedValue({ apiKeys_local: {} });
 

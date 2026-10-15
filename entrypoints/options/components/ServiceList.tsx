@@ -11,7 +11,7 @@ interface ServiceListProps {
     readonly apiKeys: import('@/src/types').StoredApiKeys;
     readonly updatePreferences: (prefs: Partial<import('@/src/types').UserPreferences>) => void;
     readonly saveApiKey: (serviceId: ServiceId, key: string) => void;
-    readonly updateKeyValidation: (serviceId: ServiceId, isValid: boolean) => Promise<void>;
+    readonly updateKeyValidation: (serviceId: ServiceId, key: string, isValid: boolean) => Promise<void>;
 }
 
 type ValidationState = 'idle' | 'validating' | 'valid' | 'error';
@@ -39,8 +39,6 @@ export function ServiceList({
         const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
         return storageKey === null ? null : apiKeys[storageKey];
     };
-
-    const isServiceEnabled = (serviceId: ServiceId): boolean => preferences.fallbackOrder.includes(serviceId);
 
     const isServiceReady = (serviceId: ServiceId): boolean => {
         const service = services.find(s => s.id === serviceId);
@@ -74,32 +72,16 @@ export function ServiceList({
         setValidationErrors(prev => ({ ...prev, [serviceId]: '' }));
 
         try {
-            let valid = false;
-            let error = '';
+            const service = new DeepLTranslationService(getServiceDefinition('deepl'));
+            const result = await service.validateApiKey(key);
+            await updateKeyValidation(serviceId, key, result.valid);
 
-            if (serviceId === 'deepl') {
-                const def = getServiceDefinition('deepl');
-                const service = new DeepLTranslationService(def);
-                const result = await service.validateApiKey(key);
-                valid = result.valid;
-                if (!valid) error = t('invalidApiKey');
-            } else {
-                valid = key.length > 0;
-                if (!valid) error = t('apiKeyRequired');
-                await new Promise(r => setTimeout(r, 500));
-            }
-
-            if (valid) {
-                await updateKeyValidation(serviceId, true);
+            if (result.valid) {
                 setValidationState(prev => ({ ...prev, [serviceId]: 'valid' }));
                 setKeyChangedSinceValidation(prev => ({ ...prev, [serviceId]: false }));
-                if (!isServiceEnabled(serviceId)) {
-                    toggleService(serviceId);
-                }
             } else {
                 setValidationState(prev => ({ ...prev, [serviceId]: 'error' }));
-                setValidationErrors(prev => ({ ...prev, [serviceId]: error }));
-                await updateKeyValidation(serviceId, false);
+                setValidationErrors(prev => ({ ...prev, [serviceId]: result.error || t('invalidApiKey') }));
             }
         } catch (e) {
             setValidationState(prev => ({ ...prev, [serviceId]: 'error' }));
@@ -127,7 +109,7 @@ export function ServiceList({
                 if (evt.oldIndex === undefined || evt.newIndex === undefined) return;
                 if (evt.oldIndex === evt.newIndex) return;
 
-                const enabledServices = preferences.fallbackOrder.filter(id => isServiceEnabled(id));
+                const enabledServices = [...preferences.fallbackOrder];
                 const [moved] = enabledServices.splice(evt.oldIndex, 1);
                 enabledServices.splice(evt.newIndex, 0, moved);
 
@@ -141,7 +123,7 @@ export function ServiceList({
                 sortableRef.current = null;
             }
         };
-    }, [preferences.fallbackOrder.length]);
+    }, [preferences.fallbackOrder]);
 
     const renderApiKeyInput = (serviceId: ServiceId, svc: TranslationService) => {
         const creds = getApiKeyForService(serviceId);

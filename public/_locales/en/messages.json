@@ -40,7 +40,7 @@
         "message": "Translation Services"
     },
     "servicesDesc": {
-        "message": "First enabled service = primary. Others are fallbacks (drag to reorder)."
+        "message": "Enable only providers you allow to receive your text. The first available provider is tried first; later enabled providers may receive the same text if it fails. Drag to reorder."
     },
     "availableServices": {
         "message": "Available services (click + to enable):"

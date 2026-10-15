@@ -13,26 +13,9 @@
 // Service Identifiers
 // =============================================================================
 
-/**
- * Valid translation service identifiers.
- * - google-scraper: Free, scrapes Google Translate (may be blocked in some regions)
- * - deepl: High quality, API key required, free tier available
- * - google-cloud: Official Google API, key required
- * - yandex: Russian service, good for CIS regions, key required
- * - microsoft: Azure Translator, 2M chars/month free, key required
- * - baidu: Chinese service, 1M chars/month free, key required
- * - youdao: Chinese service (有道翻译), key required
- * - lingva: Free proxy for Google Translate, works in restricted regions
- */
-export type ServiceId =
-  | 'google-web'
-  | 'deepl'
-  | 'google-cloud'
-  | 'yandex'
-  | 'microsoft'
-  | 'baidu'
-  | 'youdao'
-  | 'lingva';
+/** Implemented translation providers, in settings display order. */
+export const SERVICE_IDS = ['google-web', 'lingva', 'deepl'] as const;
+export type ServiceId = typeof SERVICE_IDS[number];
 
 /**
  * Translation service integration type.
@@ -203,14 +186,8 @@ export interface TranslateResultWithMeta extends TranslateResult {
  * Storage key: 'preferences'
  */
 export interface UserPreferences {
-  /** Preferred translation service (deprecated, use fallbackOrder[0]) */
-  preferredServiceId: ServiceId;
-
   /** Ordered list of enabled services (first = primary, rest = fallbacks) */
   fallbackOrder: ServiceId[];
-
-  /** Whether to attempt fallback on failure (deprecated, use fallbackOrder.length > 1) */
-  fallbackEnabled: boolean;
 
   /** Default target language (ISO 639-1) */
   defaultTargetLang: string;
@@ -238,9 +215,7 @@ export interface UserPreferences {
  * Default preferences for new installations.
  */
 export const DEFAULT_PREFERENCES: Readonly<UserPreferences> = {
-  preferredServiceId: 'google-web',
   fallbackOrder: ['google-web'],
-  fallbackEnabled: true,
   defaultTargetLang: 'en',
   defaultSourceLang: 'auto',
   storageType: 'local',
@@ -602,25 +577,13 @@ export function getDeepLEndpoint(apiKey: string): string {
  */
 export const SERVICE_TO_STORAGE_KEY: Record<ServiceId, keyof StoredApiKeys | null> = {
   'google-web': null,
+  'lingva': null,
   'deepl': 'deepl',
-  'google-cloud': 'googleCloud',
-  'yandex': 'yandex',
-  'microsoft': 'microsoft',
-  'baidu': 'baidu',
-  'youdao': 'youdao',
-  'lingva': null, // Free, no key
 } as const;
 
-/**
- * Service-specific text length limits.
- */
+/** Service-specific text length limits. */
 export const SERVICE_TEXT_LIMITS: Record<ServiceId, number> = {
   'google-web': 5000,
-  'deepl': 5000, // Free tier; Pro allows 10000
-  'google-cloud': 30000,
-  'yandex': 10000,
-  'microsoft': 50000, // Azure limit per request
-  'baidu': 6000,
-  'youdao': 5000,
   'lingva': 5000,
+  'deepl': 5000,
 } as const;

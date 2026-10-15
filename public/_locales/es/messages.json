@@ -35,7 +35,7 @@
         "message": "Servicios de traducción"
     },
     "servicesDesc": {
-        "message": "Primer servicio habilitado = principal. Los demás son de respaldo (arrastrar para reordenar)."
+        "message": "Activa solo los proveedores a los que permites enviar tu texto. Se intenta primero el primer proveedor disponible; si falla, los siguientes proveedores activados pueden recibir el mismo texto. Arrastra para reordenar."
     },
     "availableServices": {
         "message": "Servicios disponibles (clic en + para habilitar):"

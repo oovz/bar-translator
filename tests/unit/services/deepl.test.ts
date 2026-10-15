@@ -104,5 +104,18 @@ describe('DeepLTranslationService', () => {
             expect(result.valid).toBe(false);
             expect(result.error).toContain('Unauthorized');
         });
+
+        it('checks a Pro key against its usage endpoint without submitting translation text', async () => {
+            fetchMock.mockResolvedValue(new Response('{}'));
+            expect(await service.validateApiKey('test-pro-key')).toEqual({ valid: true, tier: 'pro' });
+            expect(fetchMock).toHaveBeenCalledExactlyOnceWith('https://api.deepl.com/v2/usage', {
+                method: 'GET', headers: { Authorization: 'DeepL-Auth-Key test-pro-key' },
+            });
+        });
+
+        it('rejects an empty key without a request', async () => {
+            expect((await service.validateApiKey('')).valid).toBe(false);
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
     });
 });

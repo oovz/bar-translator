@@ -38,11 +38,9 @@ export default defineConfig({
         },
         host_permissions: [
             'https://translate.google.com/*',
-            'https://translate.googleapis.com/*',
+            'https://lingva.ml/*',
             'https://api-free.deepl.com/*',
             'https://api.deepl.com/*',
-            'https://translation.googleapis.com/*',
-            'https://translate.api.cloud.yandex.net/*',
         ],
     },
 });

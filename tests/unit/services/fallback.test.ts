@@ -59,9 +59,7 @@ describe('Translation Orchestration', () => {
     };
 
     const defaultPrefs: UserPreferences = {
-        preferredServiceId: 'google-web',
         fallbackOrder: ['google-web', 'deepl'],
-        fallbackEnabled: true,
         defaultTargetLang: 'es',
         defaultSourceLang: 'auto',
         languageOverrides: {},

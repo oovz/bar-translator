@@ -31,16 +31,15 @@ Bar Translator is a simple, lightweight browser extension built with [WXT](https
 
 ## 🌍 Supported Services
 
-Bar Translator supports a wide range of translation services to ensure reliable results:
+Bar Translator offers these translation providers:
 
 - **Google Translate**: Fast, reliable translation via web (no API key required).
 - **Lingva Translate**: Privacy-focused alternative frontend for Google Translate (no API key required).
 - **DeepL**: Industry-leading translation quality (requires Free or Pro API key).
-- **Microsoft Translator**: Integrated Azure Cognitive Services (requires API key).
-- **Google Cloud Translation**: Official Google Cloud API (requires API key).
-- **Yandex Translate**: Popular service for Eastern European languages (requires API key).
-- **Baidu Translate (百度翻译)**: Leading provider for Chinese language pairs (requires API key).
-- **Youdao Translate (有道翻译)**: Specialized Chinese translation service (requires API key).
+
+In settings, enable the providers you allow to receive your text and drag them into order. The first available provider is tried first; later enabled providers may receive the same text if an earlier attempt fails. Disable every provider to pause translation. This choice persists when settings or the browser reopen.
+
+DeepL's **Test** button checks the key with the authenticated [usage endpoint](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits). Enable DeepL separately when you want to use it. Google Web and Lingva need no keys. Public web endpoints can be unavailable or change their response format.
 
 ## 🚀 Getting Started
 

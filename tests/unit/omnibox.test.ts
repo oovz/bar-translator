@@ -107,6 +107,60 @@ function description() {
     return omnibox.setDefaultSuggestion.mock.lastCall?.[0].description as string;
 }
 
+describe('allowed translation providers', () => {
+    it('keeps disable-all after a background restart and resumes only after explicit re-enabling', async () => {
+        preferences = { ...preferences, fallbackOrder: [] };
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(description()).toContain('Enable at least one service in settings');
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(writeText).not.toHaveBeenCalled();
+
+        Object.assign(omnibox, {
+            onInputStarted: event<[]>(),
+            onInputChanged: event<[string, () => void]>(),
+            onInputEntered: event<[string, string]>(),
+            onInputCancelled: event<[]>(),
+        });
+        vi.resetModules();
+        const { default: background } = await import('@/entrypoints/background');
+        (background as unknown as () => void)();
+        await omnibox.onInputStarted.fire();
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(description()).toContain('Enable at least one service in settings');
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(writeText).not.toHaveBeenCalled();
+
+        preferences = { ...preferences, fallbackOrder: ['lingva'] };
+        fetchMock.mockResolvedValue(new Response(JSON.stringify({ translation: 'Bonjour' })));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(description()).toContain('Bonjour');
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+        expect(String(fetchMock.mock.calls[0][0])).toBe('https://lingva.ml/api/v1/auto/fr/Hello');
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+    });
+
+    it('sends text only to supported selected providers in their explicit order', async () => {
+        vi.mocked(chrome.storage.sync.get).mockImplementation(async () => ({ preferences: {
+            ...preferences, fallbackOrder: ['microsoft', 'lingva', 'google-cloud', 'google-web', 'deepl'],
+        } }));
+        fetchMock.mockResolvedValueOnce(new Response('', { status: 503 }))
+            .mockResolvedValueOnce(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
+            'lingva.ml', 'translate.google.com',
+        ]);
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+    });
+});
+
 describe('current omnibox translation', () => {
     it('keeps the latest preview and copy when responses complete in reverse order', async () => {
         const older = deferred<Response>();

@@ -17,6 +17,7 @@ import type {
     StoredApiKeys,
 } from '@/src/types';
 import { TranslationError } from '@/utils/errors';
+import { SERVICE_TO_STORAGE_KEY } from '@/src/types';
 import { getServiceDefinition, getAllServiceDefinitions } from './base';
 import type { TranslationService } from './base';
 
@@ -84,35 +85,11 @@ export async function isServiceAvailable(
     if (!service.requiresApiKey) return true;
 
     // Check if we have a validated API key
-    const storageKey = getStorageKeyForService(id);
+    const storageKey = SERVICE_TO_STORAGE_KEY[id];
     if (!storageKey) return true;
 
     const credential = apiKeys[storageKey];
     return credential?.validated === true;
-}
-
-/**
- * Get storage key for a service's API key.
- */
-function getStorageKeyForService(id: ServiceId): keyof StoredApiKeys | null {
-    switch (id) {
-        case 'deepl':
-            return 'deepl';
-        case 'google-cloud':
-            return 'googleCloud';
-        case 'yandex':
-            return 'yandex';
-        case 'microsoft':
-            return 'microsoft';
-        case 'baidu':
-            return 'baidu';
-        case 'youdao':
-            return 'youdao';
-        case 'google-web':
-        case 'lingva':
-        default:
-            return null;
-    }
 }
 
 /**
@@ -178,7 +155,7 @@ export async function translateWithFallback(
 
         try {
             // Get API key if needed
-            const storageKey = getStorageKeyForService(serviceId);
+            const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
             const apiKey = storageKey ? apiKeys[storageKey]?.key : undefined;
             const tier = storageKey ? apiKeys[storageKey]?.tier : undefined;
 
@@ -253,7 +230,7 @@ export async function translateDirect(
         );
     }
 
-    const storageKey = getStorageKeyForService(serviceId);
+    const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
     const apiKey = storageKey ? apiKeys[storageKey]?.key : undefined;
     const tier = storageKey ? apiKeys[storageKey]?.tier : undefined;
 

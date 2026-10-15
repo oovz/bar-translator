@@ -18,6 +18,7 @@ import type {
 } from '@/src/types';
 import {
     DEFAULT_PREFERENCES,
+    SERVICE_IDS,
     SYNC_STORAGE_KEYS,
     SESSION_STORAGE_KEYS,
     SERVICE_TO_STORAGE_KEY,
@@ -45,6 +46,10 @@ export async function getPreferences(): Promise<UserPreferences> {
             | undefined;
 
         const prefs = { ...DEFAULT_PREFERENCES, ...stored };
+        // Stored selections may contain unsupported providers or malformed values.
+        prefs.fallbackOrder = Array.isArray(prefs.fallbackOrder)
+            ? [...new Set(prefs.fallbackOrder.filter(id => SERVICE_IDS.some(supported => supported === id)))]
+            : [];
 
         // Auto-generate distinctId if missing
         if (!prefs.distinctId) {

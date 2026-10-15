@@ -37,7 +37,7 @@
         "message": "Services de traduction"
     },
     "servicesDesc": {
-        "message": "Premier service activé = principal. Les autres sont des services de secours (glisser pour réorganiser)."
+        "message": "Activez uniquement les fournisseurs autorisés à recevoir votre texte. Le premier fournisseur disponible est essayé en premier ; en cas d’échec, les suivants peuvent recevoir le même texte. Faites glisser pour modifier l’ordre."
     },
     "availableServices": {
         "message": "Services disponibles (cliquez sur + pour activer) :"

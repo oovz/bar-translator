@@ -21,6 +21,7 @@ export default function App() {
         preferences,
         apiKeys,
         loading,
+        error,
         updatePreferences,
         saveApiKey,
         updateKeyValidation
@@ -29,14 +30,6 @@ export default function App() {
     const services = getAllServiceDefinitions();
     const sourceLanguages = getSourceLanguages();
     const targetLanguages = getTargetLanguages();
-
-    // Initialize with Google Translate enabled by default
-    useEffect(() => {
-        if (loading) return;
-        if (preferences.fallbackOrder.length === 0) {
-            updatePreferences({ fallbackOrder: ['google-web'] });
-        }
-    }, [loading]);
 
     // Set document title
     useEffect(() => {
@@ -53,6 +46,7 @@ export default function App() {
 
     return (
         <div>
+            {error && <div role="alert">{error}</div>}
             {/* Languages */}
             <div class="section">
                 <div class="section-title">{t('sectionDefaultLanguages')}</div>

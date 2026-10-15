@@ -8,6 +8,7 @@ import {
 } from '@/utils/storage';
 import {
     DEFAULT_PREFERENCES,
+    SERVICE_TO_STORAGE_KEY,
     type UserPreferences,
     type StoredApiKeys,
     type ServiceId,
@@ -60,7 +61,9 @@ export function usePreferences() {
                 tier: key.endsWith(':fx') ? 'free' : 'pro' // Simple DeepL heuristic
             };
 
-            setApiKeysState(prev => ({ ...prev, [serviceId]: credential })); // Optimistic update
+            const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
+            if (!storageKey) return;
+            setApiKeysState(prev => ({ ...prev, [storageKey]: credential }));
             await setApiKey(serviceId, credential);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save API key');
@@ -68,22 +71,21 @@ export function usePreferences() {
     }, []);
 
     // Update validation status
-    const updateKeyValidation = useCallback(async (serviceId: ServiceId, isValid: boolean, _errorMsg?: string) => {
-        try {
-            const currentKey = await getApiKey(serviceId);
-            if (!currentKey) return;
-
-            const updatedKey = {
-                ...currentKey,
-                validated: isValid,
-                lastValidated: Date.now()
-            };
-
-            setApiKeysState(prev => ({ ...prev, [serviceId]: updatedKey }));
-            await setApiKey(serviceId, updatedKey);
-        } catch (err) {
-            console.error('Failed to update key validation', err);
+    const updateKeyValidation = useCallback(async (serviceId: ServiceId, key: string, isValid: boolean) => {
+        const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
+        const currentKey = await getApiKey(serviceId);
+        if (!storageKey || !currentKey || currentKey.key !== key) {
+            throw new Error('API key changed. Test the current key again.');
         }
+
+        const updatedKey = {
+            ...currentKey,
+            validated: isValid,
+            lastValidated: Date.now()
+        };
+
+        await setApiKey(serviceId, updatedKey);
+        setApiKeysState(prev => ({ ...prev, [storageKey]: updatedKey }));
     }, []);
 
     return {

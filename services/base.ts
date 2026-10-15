@@ -140,57 +140,6 @@ export const TRANSLATION_SERVICES: readonly TranslationService[] = [
         proEndpoint: 'https://api.deepl.com/v2/translate',
         maxTextLength: 5000,
     },
-    {
-        id: 'microsoft',
-        name: 'Microsoft Translator',
-        type: 'api',
-        requiresApiKey: true,
-        authMethod: 'api-key-header',
-        httpMethod: 'POST',
-        endpoint: 'https://api.cognitive.microsofttranslator.com/translate',
-        maxTextLength: 50000,
-    },
-    {
-        id: 'yandex',
-        name: 'Yandex Translate',
-        type: 'api',
-        requiresApiKey: true,
-        authMethod: 'header-bearer',
-        httpMethod: 'POST',
-        endpoint: 'https://translate.api.cloud.yandex.net/translate/v2/translate',
-        maxTextLength: 10000,
-    },
-    {
-        id: 'baidu',
-        name: 'Baidu Translate (百度翻译)',
-        type: 'api',
-        requiresApiKey: true,
-        authMethod: 'none', // Uses appid+salt+sign in body
-        httpMethod: 'POST',
-        endpoint: 'https://fanyi-api.baidu.com/api/trans/vip/translate',
-        maxTextLength: 6000,
-    },
-    {
-        id: 'youdao',
-        name: 'Youdao Translate (有道翻译)',
-        type: 'api',
-        requiresApiKey: true,
-        authMethod: 'none', // Uses appKey+salt+sign in body
-        httpMethod: 'POST',
-        endpoint: 'https://openapi.youdao.com/api',
-        maxTextLength: 5000,
-    },
-    {
-        id: 'google-cloud',
-        name: 'Google Cloud Translation',
-        type: 'api',
-        requiresApiKey: true,
-        authMethod: 'header-bearer',
-        httpMethod: 'POST',
-        endpoint:
-            'https://translation.googleapis.com/v3/projects/-/locations/global:translateText',
-        maxTextLength: 30000,
-    },
 ] as const;
 
 /**
