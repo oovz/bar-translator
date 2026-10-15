@@ -130,7 +130,10 @@
         "message": "⚠️ 金鑰將在裝置間同步（安全性較低）"
     },
     "storageLocalHint": {
-        "message": "🔒 金鑰僅儲存在本地（更安全）"
+        "message": "此裝置使用本機金鑰。先前同步的金鑰仍可供其他裝置使用。"
+    },
+    "storageChangeFailed": {
+        "message": "無法完成金鑰儲存位置的變更。請檢查所選儲存位置並重試。"
     },
     "privacyDesc": {
         "message": "Bar Translator 不收集使用分析資料。文字會依您選擇的順序傳送給已啟用的翻譯服務。API 金鑰會傳送給對應的服務，用於翻譯和驗證。"

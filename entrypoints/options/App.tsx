@@ -20,6 +20,9 @@ export default function App() {
     const {
         preferences,
         apiKeys,
+        storageType,
+        changingStorage,
+        changeStorageType,
         loading,
         error,
         updatePreferences,
@@ -115,19 +118,22 @@ export default function App() {
             </div>
 
             {/* Translation Services */}
-            <ServiceList
-                services={services}
-                preferences={preferences}
-                apiKeys={apiKeys}
-                updatePreferences={updatePreferences}
-                saveApiKey={saveApiKey}
-                updateKeyValidation={updateKeyValidation}
-            />
+            <fieldset disabled={changingStorage} style="border: 0; padding: 0; margin: 0; min-width: 0;">
+                <ServiceList
+                    services={services}
+                    preferences={preferences}
+                    apiKeys={apiKeys}
+                    updatePreferences={updatePreferences}
+                    saveApiKey={saveApiKey}
+                    updateKeyValidation={updateKeyValidation}
+                />
+            </fieldset>
 
             {/* Privacy & Storage */}
             <PrivacySettings
-                preferences={preferences}
-                updatePreferences={updatePreferences}
+                storageType={storageType}
+                changingStorage={changingStorage}
+                changeStorageType={changeStorageType}
             />
 
             {/* Footer */}

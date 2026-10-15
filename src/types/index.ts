@@ -195,9 +195,6 @@ export interface UserPreferences {
   /** Default source language (ISO 639-1) or 'auto' */
   defaultSourceLang: string | 'auto';
 
-  /** Where to store API keys: 'local' (more secure) or 'sync' (cross-device) */
-  storageType: 'local' | 'sync';
-
   /**
    * Overrides for language code resolution.
    * Map of 2-letter ISO code (e.g., 'zh') to specific BCP 47 code (e.g., 'zh-TW').
@@ -212,13 +209,14 @@ export const DEFAULT_PREFERENCES: Readonly<UserPreferences> = {
   fallbackOrder: ['google-web'],
   defaultTargetLang: 'en',
   defaultSourceLang: 'auto',
-  storageType: 'local',
   languageOverrides: {},
 } as const;
 
 // =============================================================================
 // API Credentials
 // =============================================================================
+
+export type CredentialStorageType = 'local' | 'sync';
 
 /**
  * Stored API credential for a single service.
@@ -241,7 +239,7 @@ export interface ApiCredential {
 }
 
 /**
- * Collection of API credentials stored in chrome.storage.sync.
+ * Collection of API credentials stored in the selected storage area.
  * Storage key: 'apiKeys'
  */
 export interface StoredApiKeys {
@@ -461,6 +459,12 @@ export type ClipboardMessage =
 export const SYNC_STORAGE_KEYS = {
   PREFERENCES: 'preferences',
   API_KEYS: 'apiKeys',
+} as const;
+
+/** Keys used in chrome.storage.local, independently on each device. */
+export const LOCAL_STORAGE_KEYS = {
+  CREDENTIAL_STORAGE_TYPE: 'credentialStorageType',
+  API_KEYS: 'apiKeys_local',
 } as const;
 
 /**

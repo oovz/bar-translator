@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor, within } from '@testing-library/preact';
 import App from '@/entrypoints/options/App';
-import { DEFAULT_PREFERENCES, type StoredApiKeys, type UserPreferences } from '@/src/types';
+import { DEFAULT_PREFERENCES, type StoredApiKeys, type UserPreferences, type CredentialStorageType } from '@/src/types';
 
 declare const jsdom: { window: Window };
 
 let storedPreferences: UserPreferences;
 let storedKeys: StoredApiKeys;
+let syncedKeys: StoredApiKeys;
+let storageType: CredentialStorageType;
 
 beforeEach(() => {
     Object.defineProperty(window, 'localStorage', { configurable: true, value: jsdom.window.localStorage });
@@ -15,16 +17,21 @@ beforeEach(() => {
     window.sessionStorage.clear();
     storedPreferences = { ...DEFAULT_PREFERENCES, fallbackOrder: [] };
     storedKeys = { deepl: { key: 'test-key:fx', validated: false, tier: 'free' } };
-    vi.mocked(chrome.storage.sync.get).mockImplementation(async () => ({ preferences: storedPreferences }));
+    syncedKeys = {};
+    storageType = 'local';
+    vi.mocked(chrome.storage.sync.get).mockImplementation(async () => ({ preferences: storedPreferences, apiKeys: structuredClone(syncedKeys) }));
     vi.mocked(chrome.storage.sync.set).mockImplementation(async items => {
         const { preferences } = items as { preferences?: UserPreferences };
         if (preferences) storedPreferences = structuredClone(preferences);
+        if ('apiKeys' in items) syncedKeys = structuredClone(items.apiKeys as StoredApiKeys);
     });
-    vi.mocked(chrome.storage.local.get).mockImplementation(async () => ({ apiKeys_local: structuredClone(storedKeys) }));
+    vi.mocked(chrome.storage.local.get).mockImplementation(async () => ({ apiKeys_local: structuredClone(storedKeys), credentialStorageType: storageType }));
     vi.mocked(chrome.storage.local.set).mockImplementation(async items => {
         const { apiKeys_local } = items as { apiKeys_local: StoredApiKeys };
-        storedKeys = structuredClone(apiKeys_local);
+        if (apiKeys_local) storedKeys = structuredClone(apiKeys_local);
+        if ('credentialStorageType' in items) storageType = items.credentialStorageType as CredentialStorageType;
     });
+    vi.mocked(chrome.storage.local.remove).mockImplementation(async () => { storedKeys = {}; });
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -139,5 +146,79 @@ describe('provider settings', () => {
         expect(storedKeys.deepl?.key).toBe('replacement-key:fx');
         expect(storedKeys.deepl?.validated).toBe(false);
         expect(storedPreferences.fallbackOrder).toEqual([]);
+    });
+});
+
+
+describe('credential storage settings', () => {
+    it.each(['destination', 'selection', 'cleanup'])('shows the committed selection after %s failure and recovers on retry', async failure => {
+        if (failure === 'destination') vi.mocked(chrome.storage.sync.set).mockRejectedValueOnce(new Error('Write failed'));
+        if (failure === 'selection') vi.mocked(chrome.storage.local.set).mockRejectedValueOnce(new Error('Write failed'));
+        if (failure === 'cleanup') vi.mocked(chrome.storage.local.remove).mockRejectedValueOnce(new Error('Cleanup failed'));
+        const view = render(<App />);
+        await view.findByText('privacyDesc');
+        fireEvent.click(view.getByText('API Key'));
+        const select = view.getByLabelText('labelStorage') as HTMLSelectElement;
+        const keyInput = view.container.querySelector('input[type="password"]') as HTMLInputElement;
+        fireEvent.change(select, { target: { value: 'sync' } });
+        await view.findByRole('alert');
+        expect(select.value).toBe(failure === 'cleanup' ? 'sync' : 'local');
+        expect(keyInput.value).toBe('test-key:fx');
+        fireEvent.click(view.getByText('retry'));
+        await waitFor(() => {
+            expect(view.queryByRole('alert')).toBeNull();
+            expect(select.value).toBe('sync');
+        });
+        expect(storageType).toBe('sync');
+        expect(storedKeys).toEqual({});
+        expect(syncedKeys.deepl?.key).toBe('test-key:fx');
+        expect(storedPreferences).toEqual({ ...DEFAULT_PREFERENCES, fallbackOrder: [] });
+        view.unmount();
+        const reopened = render(<App />);
+        await reopened.findByText('privacyDesc');
+        expect((reopened.getByLabelText('labelStorage') as HTMLSelectElement).value).toBe('sync');
+        fireEvent.click(reopened.getByText('API Key'));
+        expect((reopened.container.querySelector('input[type="password"]') as HTMLInputElement).value).toBe('test-key:fx');
+    });
+
+    it('shows the committed storage selection when refreshing its keys fails and can retry', async () => {
+        vi.mocked(chrome.storage.sync.set).mockImplementationOnce(async items => {
+            syncedKeys = (items as { apiKeys: StoredApiKeys }).apiKeys;
+            vi.mocked(chrome.storage.sync.get).mockRejectedValueOnce(new Error('Read failed'));
+        });
+        const view = render(<App />);
+        await view.findByText('privacyDesc');
+        const select = view.getByLabelText('labelStorage') as HTMLSelectElement;
+        fireEvent.change(select, { target: { value: 'sync' } });
+        await view.findByRole('alert');
+        expect(storageType).toBe('sync');
+        expect(select.value).toBe('sync');
+        expect(storedKeys).toEqual({});
+        fireEvent.click(view.getByText('retry'));
+        await waitFor(() => expect(view.queryByRole('alert')).toBeNull());
+        expect(select.value).toBe('sync');
+        expect(syncedKeys.deepl?.key).toBe('test-key:fx');
+    });
+
+    it('waits for storage completion before showing success or enabling key editing', async () => {
+        let finish!: () => void;
+        const pending = new Promise<void>(resolve => { finish = resolve; });
+        vi.mocked(chrome.storage.sync.set).mockImplementationOnce(async items => {
+            await pending;
+            syncedKeys = (items as { apiKeys: StoredApiKeys }).apiKeys;
+        });
+        const view = render(<App />);
+        await view.findByText('privacyDesc');
+        const select = view.getByLabelText('labelStorage') as HTMLSelectElement;
+        fireEvent.change(select, { target: { value: 'sync' } });
+        await waitFor(() => expect(select.disabled).toBe(true));
+        expect(select.value).toBe('local');
+        expect(view.container.querySelector('fieldset')?.disabled).toBe(true);
+        finish();
+        await waitFor(() => {
+            expect(select.value).toBe('sync');
+            expect(select.disabled).toBe(false);
+        });
+        expect(view.container.querySelector('fieldset')?.disabled).toBe(false);
     });
 });

@@ -64,7 +64,6 @@ describe('Translation Orchestration', () => {
         defaultTargetLang: 'es',
         defaultSourceLang: 'auto',
         languageOverrides: {},
-        storageType: 'local',
     };
 
     const validApiKeys: StoredApiKeys = {

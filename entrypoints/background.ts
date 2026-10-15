@@ -183,11 +183,11 @@ export default defineBackground(() => {
         const nextPreferences = preferenceChange?.newValue as Partial<UserPreferences> | undefined;
         const contextChanged = preferenceChange && (
             JSON.stringify(languageContext(previousPreferences)) !== JSON.stringify(languageContext(nextPreferences)) ||
-            JSON.stringify(previousPreferences?.fallbackOrder) !== JSON.stringify(nextPreferences?.fallbackOrder) ||
-            previousPreferences?.storageType !== nextPreferences?.storageType
+            JSON.stringify(previousPreferences?.fallbackOrder) !== JSON.stringify(nextPreferences?.fallbackOrder)
         );
         const credentialsChanged = (area === 'sync' && changes.apiKeys) || (area === 'local' && changes.apiKeys_local);
-        if (current && (contextChanged || credentialsChanged)) {
+        const storageSelectionChanged = area === 'local' && changes.credentialStorageType;
+        if (current && (contextChanged || credentialsChanged || storageSelectionChanged)) {
             if (current.committed) {
                 invalidate();
                 showPrompt();

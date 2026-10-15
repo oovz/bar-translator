@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_PREFERENCES, type StoredApiKeys, type UserPreferences } from '@/src/types';
+import { DEFAULT_PREFERENCES, type StoredApiKeys, type UserPreferences, type CredentialStorageType } from '@/src/types';
 import messages from '@/public/_locales/en/messages.json';
+import { switchCredentialStorage } from '@/utils/storage';
 
 function event<Args extends unknown[]>() {
     const listeners: ((...args: Args) => unknown)[] = [];
@@ -23,6 +24,8 @@ function googleResponse(translation: string) {
 
 let preferences: UserPreferences;
 let apiKeys: StoredApiKeys;
+let syncedApiKeys: StoredApiKeys;
+let storageType: CredentialStorageType;
 let omnibox: {
     onInputStarted: ReturnType<typeof event<[]>>;
     onInputChanged: ReturnType<typeof event<[string, () => void]>>;
@@ -45,6 +48,8 @@ beforeEach(async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     preferences = { ...DEFAULT_PREFERENCES, languageOverrides: {} };
     apiKeys = {};
+    syncedApiKeys = {};
+    storageType = 'local';
     omnibox = {
         onInputStarted: event<[]>(),
         onInputChanged: event<[string, () => void]>(),
@@ -62,8 +67,18 @@ beforeEach(async () => {
         omnibox,
         notifications: { create: notify },
         storage: {
-            sync: { get: vi.fn(async () => ({ preferences })), set: vi.fn() },
-            local: { get: vi.fn(async () => ({ apiKeys_local: apiKeys })) },
+            sync: {
+                get: vi.fn(async () => ({ preferences, apiKeys: structuredClone(syncedApiKeys) })),
+                set: vi.fn(async (items: { apiKeys: StoredApiKeys }) => { syncedApiKeys = items.apiKeys; }),
+            },
+            local: {
+                get: vi.fn(async () => ({ apiKeys_local: structuredClone(apiKeys), credentialStorageType: storageType })),
+                set: vi.fn(async (items: { credentialStorageType?: CredentialStorageType; apiKeys_local?: StoredApiKeys }) => {
+                    if (items.credentialStorageType) storageType = items.credentialStorageType;
+                    if (items.apiKeys_local) apiKeys = items.apiKeys_local;
+                }),
+                remove: vi.fn(async () => { apiKeys = {}; }),
+            },
             onChanged: storageChanged,
         },
         runtime: {
@@ -690,5 +705,35 @@ describe('copy confirmation and failure feedback', () => {
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(writeText).toHaveBeenCalledExactlyOnceWith('<Bonjour> & salut');
         expect(description()).toContain('&lt;Bonjour&gt; &amp; salut');
+    });
+});
+
+
+describe('translation after credential storage changes', () => {
+    it.each(['success', 'destination', 'selection', 'cleanup'])('can translate and copy after a storage switch with %s outcome', async outcome => {
+        preferences = { ...preferences, fallbackOrder: ['deepl'] };
+        apiKeys = { deepl: { key: 'configured-key:fx', validated: true, tier: 'free' } };
+        if (outcome === 'destination') vi.mocked(chrome.storage.sync.set).mockRejectedValueOnce(new Error('Write failed'));
+        if (outcome === 'selection') vi.mocked(chrome.storage.local.set).mockRejectedValueOnce(new Error('Write failed'));
+        if (outcome === 'cleanup') vi.mocked(chrome.storage.local.remove).mockRejectedValueOnce(new Error('Cleanup failed'));
+        if (outcome === 'success') await switchCredentialStorage('sync');
+        else await expect(switchCredentialStorage('sync')).rejects.toThrow();
+        fetchMock.mockResolvedValue(new Response(JSON.stringify({ translations: [{ text: 'Bonjour', detected_source_language: 'EN' }] })));
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+        expect(fetchMock).toHaveBeenCalledWith('https://api-free.deepl.com/v2/translate', expect.objectContaining({
+            headers: expect.objectContaining({ Authorization: 'DeepL-Auth-Key configured-key:fx' }),
+        }));
+    });
+
+    it('invalidates submitted work when the device credential selection changes', async () => {
+        const response = deferred<Response>();
+        fetchMock.mockReturnValue(response.promise);
+        const submitted = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        await vi.advanceTimersByTimeAsync(0);
+        await storageChanged.fire({ credentialStorageType: { oldValue: 'local', newValue: 'sync' } }, 'local');
+        response.resolve(googleResponse('Bonjour'));
+        await submitted;
+        expect(writeText).not.toHaveBeenCalled();
     });
 });

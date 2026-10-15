@@ -1,19 +1,22 @@
-import { migrateApiKeys } from '@/utils/storage';
+import { useState } from 'preact/hooks';
+import type { CredentialStorageType } from '@/src/types';
 import { t } from '@/utils/i18n';
 
 interface PrivacySettingsProps {
-    readonly preferences: import('@/src/types').UserPreferences;
-    readonly updatePreferences: (prefs: Partial<import('@/src/types').UserPreferences>) => void;
+    readonly storageType: CredentialStorageType;
+    readonly changingStorage: boolean;
+    readonly changeStorageType: (storageType: CredentialStorageType) => Promise<void>;
 }
 
-export function PrivacySettings({ preferences, updatePreferences }: PrivacySettingsProps) {
-    const handleStorageTypeChange = async (newType: 'sync' | 'local') => {
-        const oldType = preferences.storageType;
-        if (oldType === newType) return;
-
-        // Migrate API keys to new storage
-        await migrateApiKeys(oldType, newType);
-        await updatePreferences({ storageType: newType });
+export function PrivacySettings({ storageType, changingStorage, changeStorageType }: PrivacySettingsProps) {
+    const [failedType, setFailedType] = useState<CredentialStorageType | null>(null);
+    const handleStorageTypeChange = async (newType: CredentialStorageType) => {
+        setFailedType(null);
+        try {
+            await changeStorageType(newType);
+        } catch {
+            setFailedType(newType);
+        }
     };
 
     return (
@@ -33,21 +36,35 @@ export function PrivacySettings({ preferences, updatePreferences }: PrivacySetti
                         </span>
                     </div>
                     <div class="setting-hint">
-                        {preferences.storageType === 'sync'
+                        {storageType === 'sync'
                             ? t('storageSyncWarning')
                             : t('storageLocalHint')}
                     </div>
                 </div>
                 <select
                     class="select select-sm"
-                    value={preferences.storageType}
-                    onChange={(e) => handleStorageTypeChange(e.currentTarget.value as 'sync' | 'local')}
+                    aria-label={t('labelStorage')}
+                    disabled={changingStorage}
+                    value={storageType}
+                    onChange={(e) => {
+                        const nextType = e.currentTarget.value as CredentialStorageType;
+                        e.currentTarget.value = storageType;
+                        void handleStorageTypeChange(nextType);
+                    }}
                 >
                     <option value="local">{t('storageLocal')}</option>
                     <option value="sync">{t('storageSync')}</option>
                 </select>
             </div>
 
+            {failedType && (
+                <div role="alert">
+                    {t('storageChangeFailed')}
+                    <button class="btn" disabled={changingStorage} onClick={() => handleStorageTypeChange(failedType)}>
+                        {t('retry')}
+                    </button>
+                </div>
+            )}
             <div class="setting-hint">{t('privacyDesc')}</div>
         </div>
     );

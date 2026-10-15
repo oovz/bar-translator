@@ -18,7 +18,7 @@ test('preserves translation setup while removing analytics data and controls', a
         await chrome.storage.sync.set({
             preferences: {
                 fallbackOrder: ['deepl'], defaultTargetLang: 'fr', defaultSourceLang: 'auto',
-                storageType: 'local', languageOverrides: { zh: 'zh-TW' },
+                languageOverrides: { zh: 'zh-TW' },
                 telemetryEnabled: true, distinctId: 'obsolete-identity',
             },
             apiKeys: { microsoft: { key: 'preserved-sync-key', validated: true } },
@@ -44,7 +44,7 @@ test('preserves translation setup while removing analytics data and controls', a
         sync: {
             preferences: {
                 fallbackOrder: ['deepl'], defaultTargetLang: 'fr', defaultSourceLang: 'auto',
-                storageType: 'local', languageOverrides: { zh: 'zh-TW' },
+                languageOverrides: { zh: 'zh-TW' },
             },
             apiKeys: { microsoft: { key: 'preserved-sync-key', validated: true } },
         },

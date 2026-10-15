@@ -9,7 +9,8 @@ import {
     getPreferences,
     getApiKeys,
     setApiKey,
-    migrateApiKeys,
+    getCredentialStorageType,
+    switchCredentialStorage,
 } from '@/utils/storage';
 import { DEFAULT_PREFERENCES } from '@/src/types';
 
@@ -49,6 +50,7 @@ describe('Preferences', () => {
         vi.clearAllMocks();
         mockStorageSync.get.mockResolvedValue({});
         mockStorageSync.set.mockResolvedValue(undefined);
+        mockStorageLocal.get.mockResolvedValue({});
     });
 
     describe('getPreferences', () => {
@@ -61,7 +63,7 @@ describe('Preferences', () => {
             expect(prefs).not.toHaveProperty('distinctId');
             expect(prefs).not.toHaveProperty('telemetryEnabled');
             expect(mockStorageSync.set).not.toHaveBeenCalled();
-            expect(prefs.storageType).toBe('local'); // Default should be local now
+            expect(prefs).not.toHaveProperty('storageType');
         });
 
         it('returns stored preferences', async () => {
@@ -69,7 +71,6 @@ describe('Preferences', () => {
                 preferences: {
                     ...DEFAULT_PREFERENCES,
                     defaultTargetLang: 'fr',
-                    storageType: 'sync' as const,
                 },
             };
             mockStorageSync.get.mockResolvedValue(stored);
@@ -77,7 +78,7 @@ describe('Preferences', () => {
             const prefs = await getPreferences();
 
             expect(prefs.defaultTargetLang).toBe('fr');
-            expect(prefs.storageType).toBe('sync');
+            expect(prefs).not.toHaveProperty('storageType');
         });
 
         it('removes stored analytics fields while preserving translation settings and credentials', async () => {
@@ -112,7 +113,7 @@ describe('Preferences', () => {
 
         it('reports a cleanup write failure and leaves the stored configuration recoverable', async () => {
             const preferences = {
-                ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'], storageType: 'sync',
+                ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'],
                 distinctId: 'obsolete-identity',
             };
             mockStorageSync.get.mockResolvedValue({ preferences });
@@ -120,7 +121,7 @@ describe('Preferences', () => {
 
             await expect(getPreferences()).rejects.toThrow('Storage unavailable');
             expect(preferences).toEqual({
-                ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'], storageType: 'sync',
+                ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'],
                 distinctId: 'obsolete-identity',
             });
             expect(mockStorageSync.remove).not.toHaveBeenCalled();
@@ -157,6 +158,7 @@ describe('API Keys', () => {
         mockStorageLocal.get.mockResolvedValue({});
         mockStorageLocal.set.mockResolvedValue(undefined);
         mockStorageSync.set.mockResolvedValue(undefined);
+        mockStorageLocal.get.mockResolvedValue({});
     });
 
     describe('getApiKeys', () => {
@@ -170,8 +172,8 @@ describe('API Keys', () => {
             const keys = await getApiKeys();
 
             expect(keys.deepl?.key).toBe('local-key');
-            expect(mockStorageLocal.get).toHaveBeenCalledWith('apiKeys_local');
-            expect(mockStorageSync.get).toHaveBeenCalledWith('preferences');
+            expect(mockStorageLocal.get).toHaveBeenCalledWith(['credentialStorageType', 'apiKeys_local']);
+            expect(await getCredentialStorageType()).toBe('local');
         });
 
         it('uses sync storage when configured', async () => {
@@ -179,7 +181,7 @@ describe('API Keys', () => {
             mockStorageSync.get.mockImplementation((key) => {
                 if (key === 'preferences') {
                     return Promise.resolve({
-                        preferences: { ...DEFAULT_PREFERENCES, storageType: 'sync' }
+                        preferences: { ...DEFAULT_PREFERENCES }
                     });
                 }
                 if (key === 'apiKeys') {
@@ -192,6 +194,7 @@ describe('API Keys', () => {
                 return Promise.resolve({});
             });
 
+            mockStorageLocal.get.mockResolvedValue({ credentialStorageType: 'sync' });
             const keys = await getApiKeys();
 
             expect(keys.deepl?.key).toBe('sync-key');
@@ -231,58 +234,123 @@ describe('API Keys', () => {
         });
     });
 
-    describe('migrateApiKeys', () => {
-        it('migrates keys from local to sync', async () => {
-            // Setup source (local)
-            mockStorageLocal.get.mockResolvedValue({
-                apiKeys_local: {
-                    deepl: { key: 'migrating-key', validated: true }
-                }
-            });
+});
 
-            await migrateApiKeys('local', 'sync');
 
-            // Should set in sync
-            expect(mockStorageSync.set).toHaveBeenCalledWith({
-                apiKeys: {
-                    deepl: { key: 'migrating-key', validated: true }
-                }
-            });
+describe('device credential storage', () => {
+    let local: Record<string, unknown>;
+    let sync: Record<string, unknown>;
+    const credential = { key: 'device-key:fx', validated: true, tier: 'free' as const };
 
-            // Should remove from local
-            expect(mockStorageLocal.remove).toHaveBeenCalledWith('apiKeys_local');
-        });
-
-        it('migrates keys from sync to local', async () => {
-            // Setup source (sync)
-            mockStorageSync.get.mockImplementation((key) => {
-                if (key === 'apiKeys') {
-                    return Promise.resolve({
-                        apiKeys: {
-                            deepl: { key: 'sync-key', validated: true }
-                        }
-                    });
-                }
-                return Promise.resolve({});
-            });
-
-            await migrateApiKeys('sync', 'local');
-
-            // Should set in local
-            expect(mockStorageLocal.set).toHaveBeenCalledWith({
-                apiKeys_local: {
-                    deepl: { key: 'sync-key', validated: true }
-                }
-            });
-
-            // Should remove from sync
-            expect(mockStorageSync.remove).toHaveBeenCalledWith('apiKeys');
-        });
-
-        it('does nothing if types are same', async () => {
-            await migrateApiKeys('local', 'local');
-            expect(mockStorageLocal.get).not.toHaveBeenCalled();
-            expect(mockStorageLocal.set).not.toHaveBeenCalled();
-        });
+    beforeEach(() => {
+        vi.resetAllMocks();
+        local = { apiKeys_local: { deepl: credential }, unrelated: 'keep' };
+        sync = { preferences: { ...DEFAULT_PREFERENCES, defaultTargetLang: 'fr' } };
+        mockStorageLocal.get.mockImplementation(async key => structuredClone(
+            Object.fromEntries((Array.isArray(key) ? key : [key]).map(name => [name, local[name]]))
+        ));
+        mockStorageSync.get.mockImplementation(async key => structuredClone({ [key]: sync[key] }));
+        mockStorageLocal.set.mockImplementation(async items => { Object.assign(local, structuredClone(items)); });
+        mockStorageSync.set.mockImplementation(async items => { Object.assign(sync, structuredClone(items)); });
+        mockStorageLocal.remove.mockImplementation(async key => { delete local[key]; });
+        mockStorageSync.remove.mockImplementation(async key => { delete sync[key]; });
     });
+
+    it('uses a device-local selection and defaults a fresh device to local keys', async () => {
+        expect(await getCredentialStorageType()).toBe('local');
+        local.credentialStorageType = 'sync';
+        expect(await getCredentialStorageType()).toBe('sync');
+    });
+
+    it('commits usable synced keys before removing the local copy and preserves other settings', async () => {
+        sync.apiKeys = { microsoft: { key: 'other-key', validated: true } };
+        await switchCredentialStorage('sync');
+        expect(await getCredentialStorageType()).toBe('sync');
+        expect(await getApiKeys()).toEqual({ deepl: credential, microsoft: { key: 'other-key', validated: true } });
+        expect(local).toEqual({ credentialStorageType: 'sync', unrelated: 'keep' });
+        expect(sync.preferences).toEqual({ ...DEFAULT_PREFERENCES, defaultTargetLang: 'fr' });
+    });
+
+    it.each(['destination', 'selection'])('preserves the active local keys after a %s write failure and recovers on retry', async failure => {
+        if (failure === 'destination') {
+            mockStorageSync.set.mockRejectedValueOnce(new Error('Write failed'));
+        } else {
+            mockStorageLocal.set.mockRejectedValueOnce(new Error('Write failed'));
+        }
+        await expect(switchCredentialStorage('sync')).rejects.toThrow('Write failed');
+        expect(await getCredentialStorageType()).toBe('local');
+        expect(await getApiKeys()).toEqual({ deepl: credential });
+        expect(mockStorageLocal.remove).not.toHaveBeenCalled();
+        await switchCredentialStorage('sync');
+        expect(await getCredentialStorageType()).toBe('sync');
+        expect(await getApiKeys()).toEqual({ deepl: credential });
+    });
+
+    it('keeps synced keys usable when local cleanup fails and retries cleanup without replacing them', async () => {
+        mockStorageLocal.remove.mockRejectedValueOnce(new Error('Cleanup failed'));
+        await expect(switchCredentialStorage('sync')).rejects.toThrow('Cleanup failed');
+        expect(await getCredentialStorageType()).toBe('sync');
+        expect(await getApiKeys()).toEqual({ deepl: credential });
+        const replacement = { key: 'new-synced-key:fx', validated: false };
+        await setApiKey('deepl', replacement);
+        await switchCredentialStorage('sync');
+        expect(await getApiKeys()).toEqual({ deepl: replacement });
+        expect(local.apiKeys_local).toBeUndefined();
+    });
+
+    it('keeps device choices independent and shared keys usable when another device chooses local', async () => {
+        await switchCredentialStorage('sync');
+        const firstDevice = local;
+        local = { unrelated: 'second-device' };
+        expect(await getCredentialStorageType()).toBe('local');
+        await switchCredentialStorage('sync');
+        expect(await getApiKeys()).toEqual({ deepl: credential });
+        await switchCredentialStorage('local');
+        await setApiKey('deepl', { key: 'second-device-key:fx', validated: true });
+        expect(await getCredentialStorageType()).toBe('local');
+        expect(await getApiKeys()).toEqual({ deepl: { key: 'second-device-key:fx', validated: true } });
+        local = firstDevice;
+        expect(await getCredentialStorageType()).toBe('sync');
+        expect(await getApiKeys()).toEqual({ deepl: credential });
+        expect(mockStorageSync.remove).not.toHaveBeenCalled();
+    });
+
+    it.each(['destination', 'selection'])('preserves synced access after a failed switch to local at %s', async failure => {
+        local = { credentialStorageType: 'sync' };
+        sync.apiKeys = { deepl: credential };
+        if (failure === 'selection') {
+            mockStorageLocal.set.mockImplementationOnce(async items => { Object.assign(local, items); });
+        }
+        mockStorageLocal.set.mockRejectedValueOnce(new Error('Write failed'));
+        await expect(switchCredentialStorage('local')).rejects.toThrow('Write failed');
+        expect(await getCredentialStorageType()).toBe('sync');
+        expect(await getApiKeys()).toEqual({ deepl: credential });
+        await switchCredentialStorage('local');
+        expect(await getCredentialStorageType()).toBe('local');
+        expect(await getApiKeys()).toEqual({ deepl: credential });
+        expect(sync.apiKeys).toEqual({ deepl: credential });
+    });
+
+
+    it('keeps a key edit that overlaps a storage switch', async () => {
+        let finishWrite!: () => void;
+        let startedWrite!: () => void;
+        const started = new Promise<void>(resolve => { startedWrite = resolve; });
+        const pending = new Promise<void>(resolve => { finishWrite = resolve; });
+        mockStorageLocal.set.mockImplementationOnce(async items => {
+            startedWrite();
+            await pending;
+            Object.assign(local, structuredClone(items));
+        });
+        const updated = { key: 'edited-key:fx', validated: false };
+        const saving = setApiKey('deepl', updated);
+        await started;
+        const switching = switchCredentialStorage('sync');
+        await Promise.race([switching, new Promise(resolve => setTimeout(resolve, 0))]);
+        finishWrite();
+        await Promise.all([saving, switching]);
+        expect(await getApiKeys()).toEqual({ deepl: updated });
+        expect(local.apiKeys_local).toBeUndefined();
+    });
+
 });

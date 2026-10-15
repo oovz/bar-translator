@@ -3,7 +3,7 @@
  *
  * Type-safe utilities for Chrome storage operations.
  * - Preferences: always stored in sync storage
- * - API Keys: stored in sync OR local based on user preference
+ * - API Keys: stored in sync OR local based on this device's selection
  * - Cache: stored in session storage
  *
  * @module utils/storage
@@ -15,17 +15,19 @@ import type {
     CacheBackup,
     ApiCredential,
     ServiceId,
+    CredentialStorageType,
 } from '@/src/types';
 import {
     DEFAULT_PREFERENCES,
     SERVICE_IDS,
     SYNC_STORAGE_KEYS,
+    LOCAL_STORAGE_KEYS,
     SESSION_STORAGE_KEYS,
     SERVICE_TO_STORAGE_KEY,
 } from '@/src/types';
 
-// Local key for API keys when using local storage
-const LOCAL_API_KEYS_KEY = 'apiKeys_local';
+// Coordinate edits and switches across settings pages and the background worker.
+const CREDENTIAL_STORAGE_LOCK = 'credential-storage';
 
 // =============================================================================
 // Preferences (always sync storage)
@@ -44,7 +46,10 @@ export async function getPreferences(): Promise<UserPreferences> {
     if (hasAnalytics) {
         await chrome.storage.sync.set({ [SYNC_STORAGE_KEYS.PREFERENCES]: cleaned });
     }
-    const prefs = { ...DEFAULT_PREFERENCES, ...cleaned };
+    const { fallbackOrder, defaultTargetLang, defaultSourceLang, languageOverrides } = {
+        ...DEFAULT_PREFERENCES, ...cleaned,
+    };
+    const prefs: UserPreferences = { fallbackOrder, defaultTargetLang, defaultSourceLang, languageOverrides };
     // Stored selections may contain unsupported providers or malformed values.
     prefs.fallbackOrder = Array.isArray(prefs.fallbackOrder)
         ? [...new Set(prefs.fallbackOrder.filter(id => SERVICE_IDS.some(supported => supported === id)))]
@@ -73,30 +78,41 @@ export async function updatePreferences(
 }
 
 // =============================================================================
-// API Keys (sync or local based on preference)
+// API Keys (selected independently on each device)
 // =============================================================================
 
 /**
- * Get the storage area for API keys based on user preference.
+ * Get this device's credential storage selection.
  */
-async function getApiKeysStorageArea(): Promise<{
+export async function getCredentialStorageType(): Promise<CredentialStorageType> {
+    const result = await chrome.storage.local.get(LOCAL_STORAGE_KEYS.CREDENTIAL_STORAGE_TYPE);
+    return (result[LOCAL_STORAGE_KEYS.CREDENTIAL_STORAGE_TYPE] as CredentialStorageType | undefined) ?? 'local';
+}
+
+function apiKeysStorageArea(storageType: CredentialStorageType): {
     storage: chrome.storage.StorageArea;
     key: string;
-}> {
-    const prefs = await getPreferences();
-    if (prefs.storageType === 'sync') {
+} {
+    if (storageType === 'sync') {
         return { storage: chrome.storage.sync, key: SYNC_STORAGE_KEYS.API_KEYS };
     }
-    return { storage: chrome.storage.local, key: LOCAL_API_KEYS_KEY };
+    return { storage: chrome.storage.local, key: LOCAL_STORAGE_KEYS.API_KEYS };
 }
 
 /**
  * Get all stored API keys.
  */
 export async function getApiKeys(): Promise<StoredApiKeys> {
-    const { storage, key } = await getApiKeysStorageArea();
-    const result = await storage.get(key);
-    return (result[key] as StoredApiKeys) ?? {};
+    // Read local selection and keys together so a switch cannot remove a copy
+    // between selecting its storage area and reading its contents.
+    const local = await chrome.storage.local.get([
+        LOCAL_STORAGE_KEYS.CREDENTIAL_STORAGE_TYPE, LOCAL_STORAGE_KEYS.API_KEYS,
+    ]);
+    if (local[LOCAL_STORAGE_KEYS.CREDENTIAL_STORAGE_TYPE] === 'sync') {
+        const result = await chrome.storage.sync.get(SYNC_STORAGE_KEYS.API_KEYS);
+        return (result[SYNC_STORAGE_KEYS.API_KEYS] as StoredApiKeys) ?? {};
+    }
+    return (local[LOCAL_STORAGE_KEYS.API_KEYS] as StoredApiKeys) ?? {};
 }
 
 /**
@@ -119,28 +135,34 @@ export async function setApiKey(
     serviceId: ServiceId,
     credential: ApiCredential
 ): Promise<void> {
-    const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
-    if (!storageKey) {
-        throw new Error(`Service ${serviceId} does not require an API key`);
-    }
+    return navigator.locks.request(CREDENTIAL_STORAGE_LOCK, async () => {
+        const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
+        if (!storageKey) {
+            throw new Error(`Service ${serviceId} does not require an API key`);
+        }
 
-    const { storage, key } = await getApiKeysStorageArea();
-    const apiKeys = await getApiKeys();
-    apiKeys[storageKey] = credential;
-    await storage.set({ [key]: apiKeys });
+        const { storage, key } = apiKeysStorageArea(await getCredentialStorageType());
+        const result = await storage.get(key);
+        const apiKeys = (result[key] as StoredApiKeys) ?? {};
+        apiKeys[storageKey] = credential;
+        await storage.set({ [key]: apiKeys });
+    });
 }
 
 /**
  * Remove API key for a specific service.
  */
 export async function removeApiKey(serviceId: ServiceId): Promise<void> {
-    const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
-    if (!storageKey) return;
+    return navigator.locks.request(CREDENTIAL_STORAGE_LOCK, async () => {
+        const storageKey = SERVICE_TO_STORAGE_KEY[serviceId];
+        if (!storageKey) return;
 
-    const { storage, key } = await getApiKeysStorageArea();
-    const apiKeys = await getApiKeys();
-    delete apiKeys[storageKey];
-    await storage.set({ [key]: apiKeys });
+        const { storage, key } = apiKeysStorageArea(await getCredentialStorageType());
+        const result = await storage.get(key);
+        const apiKeys = (result[key] as StoredApiKeys) ?? {};
+        delete apiKeys[storageKey];
+        await storage.set({ [key]: apiKeys });
+    });
 }
 
 /**
@@ -151,28 +173,30 @@ export async function hasValidApiKey(serviceId: ServiceId): Promise<boolean> {
     return credential?.validated === true;
 }
 
-/**
- * Migrate API keys when storage type changes.
- */
-export async function migrateApiKeys(
-    fromType: 'sync' | 'local',
-    toType: 'sync' | 'local'
-): Promise<void> {
-    if (fromType === toType) return;
+/** Switch this device after the destination contains its credentials. */
+export async function switchCredentialStorage(toType: CredentialStorageType): Promise<void> {
+    return navigator.locks.request(CREDENTIAL_STORAGE_LOCK, async () => {
+        const fromType = await getCredentialStorageType();
+        if (fromType !== toType) {
+            const source = apiKeysStorageArea(fromType);
+            const destination = apiKeysStorageArea(toType);
+            const sourceData = await source.storage.get(source.key);
+            const destinationData = await destination.storage.get(destination.key);
+            await destination.storage.set({
+                [destination.key]: {
+                    ...(destinationData[destination.key] as StoredApiKeys),
+                    ...(sourceData[source.key] as StoredApiKeys),
+                },
+            });
+            await chrome.storage.local.set({ [LOCAL_STORAGE_KEYS.CREDENTIAL_STORAGE_TYPE]: toType });
+        }
 
-    // Get keys from old location
-    const fromStorage = fromType === 'sync' ? chrome.storage.sync : chrome.storage.local;
-    const fromKey = fromType === 'sync' ? SYNC_STORAGE_KEYS.API_KEYS : LOCAL_API_KEYS_KEY;
-    const result = await fromStorage.get(fromKey);
-    const apiKeys = (result[fromKey] as StoredApiKeys) ?? {};
-
-    // Save to new location
-    const toStorage = toType === 'sync' ? chrome.storage.sync : chrome.storage.local;
-    const toKey = toType === 'sync' ? SYNC_STORAGE_KEYS.API_KEYS : LOCAL_API_KEYS_KEY;
-    await toStorage.set({ [toKey]: apiKeys });
-
-    // Clear old location
-    await fromStorage.remove(fromKey);
+        // Shared keys may still be used by another device. Only clean up local keys.
+        // Repeating a synced selection also retries a failed cleanup.
+        if (toType === 'sync') {
+            await chrome.storage.local.remove(LOCAL_STORAGE_KEYS.API_KEYS);
+        }
+    });
 }
 
 // =============================================================================

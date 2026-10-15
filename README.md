@@ -25,7 +25,7 @@ Bar Translator is a simple, lightweight browser extension built with [WXT](https
 - **Auto-Detection**: Automatically identifies the source language if not provided.
 - **Regional Dialect Support**: Configure preferred regional variants for languages (e.g., map 'zh' to 'zh-TW').
 - **Service Fallback**: Support for multiple translation providers with automatic fallback logic.
-- **Chrome Sync Support**: Your settings and API keys can be synced across all your Chrome instances using your Google account.
+- **Chrome Sync Support**: Translation settings sync across your Chrome instances. Each device independently chooses local or synced API keys.
 - **Clipboard Sync**: Press **Enter** to instantly copy the translation result to your clipboard.
 - **Privacy First**: The extension collects no usage analytics. Text goes to your enabled translation providers in the order you choose.
 
@@ -42,6 +42,9 @@ In settings, enable the providers you allow to receive your text and drag them i
 Each provider attempt has a four-second deadline, including reading its response. The complete sequence has a ten-second budget, so later attempts receive only the remaining time. Attempts run sequentially, with each selected provider attempted once. A timeout aborts the active request and advances to the next available provider within the budget. Terminal failure shows an error and preserves the clipboard. Editing or abandoning the input cancels its pending work; cancellation cannot reverse text already received by a provider or any resulting billing.
 
 DeepL's **Test** button checks the key with the authenticated [usage endpoint](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits). Enable DeepL separately when you want to use it. Google Web and Lingva need no keys. Public web endpoints can be unavailable or change their response format.
+
+
+API keys default to local storage. **API Key Storage** controls only the current device. Selecting sync copies this device's keys into shared storage, preserving credentials for other providers already stored there; this device's key takes precedence for the same provider. Selecting local copies shared keys to this device and keeps the shared copy available to other devices. Both storage areas hold readable credentials.
 
 ## 🚀 Getting Started
 

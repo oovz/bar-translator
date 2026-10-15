@@ -135,7 +135,10 @@
         "message": "⚠️ Keys sync across devices (less secure)"
     },
     "storageLocalHint": {
-        "message": "🔒 Keys stored locally only (more secure)"
+        "message": "This device uses local keys. Previously synced keys remain available to other devices."
+    },
+    "storageChangeFailed": {
+        "message": "Could not finish changing key storage. Check the selected storage and retry."
     },
     "privacyDesc": {
         "message": "Bar Translator collects no usage analytics. Text is sent to the enabled translation providers in your chosen order. API keys are sent to their provider for translation and validation."

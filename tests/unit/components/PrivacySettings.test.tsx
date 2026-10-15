@@ -1,55 +1,36 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/preact';
 import { PrivacySettings } from '@/entrypoints/options/components/PrivacySettings';
-import { DEFAULT_PREFERENCES } from '@/src/types';
-import * as storageUtils from '@/utils/storage';
 
-// Mock utils
-vi.mock('@/utils/storage', () => ({
-    migrateApiKeys: vi.fn(),
-}));
+function props() {
+    return { storageType: 'local' as const, changingStorage: false, changeStorageType: vi.fn().mockResolvedValue(undefined) };
+}
 
 describe('PrivacySettings Component', () => {
-    const mockProps = {
-        preferences: DEFAULT_PREFERENCES,
-        updatePreferences: vi.fn(),
-    };
-
-    it('renders storage type selector', () => {
-        const { getByText, container } = render(<PrivacySettings {...mockProps} />);
-        expect(getByText('labelStorage')).toBeTruthy();
-        const select = container.querySelector('select');
-        expect(select).toBeTruthy();
-        expect(select?.value).toBe('local');
+    it('renders an accessible local storage selector and privacy information', () => {
+        const view = render(<PrivacySettings {...props()} />);
+        expect((view.getByLabelText('labelStorage') as HTMLSelectElement).value).toBe('local');
+        expect(view.getByText('privacyDesc')).toBeTruthy();
+        expect(view.container.querySelector('input[type="checkbox"]')).toBeNull();
+        expect(view.container.querySelector('span[title="storageDesc"]')).toBeTruthy();
     });
 
-    it('explains privacy without an analytics control', () => {
-        const { getByText, container } = render(<PrivacySettings {...mockProps} />);
-        expect(getByText('privacyDesc')).toBeTruthy();
-        const checkbox = container.querySelector('input[type="checkbox"]');
-        expect(checkbox).toBeNull();
+    it('shows failure, preserves the selected source, and lets the user retry', async () => {
+        const options = props();
+        options.changeStorageType.mockRejectedValueOnce(new Error('Storage unavailable'));
+        const view = render(<PrivacySettings {...options} />);
+        const select = view.getByLabelText('labelStorage') as HTMLSelectElement;
+        fireEvent.change(select, { target: { value: 'sync' } });
+        await view.findByRole('alert');
+        expect(select.value).toBe('local');
+        expect(options.changeStorageType).toHaveBeenCalledWith('sync');
+        fireEvent.click(view.getByText('retry'));
+        await vi.waitFor(() => expect(view.queryByRole('alert')).toBeNull());
+        expect(options.changeStorageType).toHaveBeenCalledTimes(2);
     });
 
-    it('changing storage type triggers migration and update', async () => {
-        const { container } = render(<PrivacySettings {...mockProps} />);
-        const select = container.querySelector('select');
-
-        if (select) {
-            fireEvent.change(select, { target: { value: 'sync' } });
-
-            // Wait for async operations
-            await new Promise(r => setTimeout(r, 0));
-
-            expect(storageUtils.migrateApiKeys).toHaveBeenCalledWith('local', 'sync');
-            expect(mockProps.updatePreferences).toHaveBeenCalledWith({ storageType: 'sync' });
-        } else {
-            throw new Error('Select element not found');
-        }
-    });
-
-    it('shows security warning tooltip', () => {
-        const { container } = render(<PrivacySettings {...mockProps} />);
-        const tooltipIcon = container.querySelector('span[title*="storageDesc"]');
-        expect(tooltipIcon).toBeTruthy();
+    it('disables storage selection while a change is pending', () => {
+        const view = render(<PrivacySettings {...props()} changingStorage />);
+        expect((view.getByLabelText('labelStorage') as HTMLSelectElement).disabled).toBe(true);
     });
 });

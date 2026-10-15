@@ -130,7 +130,10 @@
         "message": "⚠️ 密钥将在设备间同步（安全性较低）"
     },
     "storageLocalHint": {
-        "message": "🔒 密钥仅存储在本地（更安全）"
+        "message": "此设备使用本地密钥。之前同步的密钥仍可供其他设备使用。"
+    },
+    "storageChangeFailed": {
+        "message": "无法完成密钥存储位置的更改。请检查所选存储位置并重试。"
     },
     "privacyDesc": {
         "message": "Bar Translator 不收集使用分析数据。文本按您选择的顺序发送给已启用的翻译服务。API 密钥会发送给对应的服务，用于翻译和验证。"

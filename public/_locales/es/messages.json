@@ -130,7 +130,10 @@
         "message": "⚠️ Las claves se sincronizan entre dispositivos (menos seguro)"
     },
     "storageLocalHint": {
-        "message": "🔒 Claves almacenadas solo localmente (más seguro)"
+        "message": "Este dispositivo usa claves locales. Las claves sincronizadas previamente siguen disponibles para otros dispositivos."
+    },
+    "storageChangeFailed": {
+        "message": "No se pudo completar el cambio de almacenamiento de claves. Comprueba la ubicación seleccionada e inténtalo de nuevo."
     },
     "privacyDesc": {
         "message": "Bar Translator no recopila estadísticas de uso. El texto se envía a los proveedores de traducción habilitados en el orden elegido. Las claves API se envían a su proveedor para traducir y validarlas."
