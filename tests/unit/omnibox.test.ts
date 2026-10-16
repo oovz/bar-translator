@@ -414,6 +414,55 @@ describe('current omnibox translation', () => {
 });
 
 describe('copying completed previews', () => {
+    it('copies a matching completed preview once when cancellation precedes Enter', async () => {
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        await omnibox.onInputCancelled.fire();
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(writeText).toHaveBeenCalledTimes(1);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['clear', 'edit', 'restart'])('discards a retained completed preview on %s', async action => {
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        await omnibox.onInputCancelled.fire();
+        if (action === 'clear') await change('');
+        if (action === 'edit') await change('fr Goodbye');
+        if (action === 'restart') await omnibox.onInputStarted.fire();
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(writeText).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects a retained completed preview when stored language settings change before Enter', async () => {
+        preferences = { ...preferences, defaultTargetLang: 'fr' };
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        await omnibox.onInputCancelled.fire();
+        preferences = { ...preferences, defaultTargetLang: 'es' };
+        await omnibox.onInputEntered.fire('Hello', 'currentTab');
+        expect(writeText).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('discards a retained completed preview when credential storage selection changes', async () => {
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        await omnibox.onInputCancelled.fire();
+        storageType = 'sync';
+        await storageChanged.fire({ credentialStorageType: { oldValue: 'local', newValue: 'sync' } }, 'local');
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(writeText).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('discards preview preparation that finishes reading settings after Enter', async () => {
         const keys = deferred<Record<string, unknown>>();
         vi.mocked(chrome.storage.local.get).mockImplementationOnce(() => keys.promise);
@@ -548,6 +597,7 @@ describe('interaction invalidation', () => {
         pending.resolve(googleResponse('Bonjour'));
         await vi.advanceTimersByTimeAsync(0);
         expect(description()).toBe(messages.omniboxSuggestion.message);
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(writeText).not.toHaveBeenCalled();
     });
 
@@ -720,6 +770,7 @@ describe('copy confirmation and failure feedback', () => {
         else execCommand.mockImplementation(() => { throw new Error('Copy denied'); });
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
+        await omnibox.onInputCancelled.fire();
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(description()).toContain(messages.omniboxCopyFailed.message);
         expect(description()).not.toContain('Copied:');

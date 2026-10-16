@@ -15,16 +15,16 @@ import type { UserPreferences, StoredApiKeys } from '@/src/types';
 
 const DEBOUNCE_DELAY = 300;
 
-interface TranslationRequest {
+interface CompletedTranslation {
+    input: string;
     context: string;
-    controller: AbortController;
-    translation?: string;
+    translation: string;
 }
 
 interface Interaction {
     input: string;
     committed: boolean;
-    request?: TranslationRequest;
+    controller: AbortController;
 }
 
 function languageContext(preferences: Partial<UserPreferences> = {}) {
@@ -47,6 +47,7 @@ function translationContext(input: string, preferences: UserPreferences, apiKeys
 
 export default defineBackground(() => {
     let current: Interaction | undefined;
+    let completed: CompletedTranslation | undefined;
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
     let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -64,11 +65,11 @@ export default defineBackground(() => {
         const interaction = current;
         // Release ownership before abort callbacks can settle the old preview.
         current = undefined;
-        interaction?.request?.controller.abort();
+        interaction?.controller.abort();
     }
 
-    function isCurrent(interaction: Interaction, request: TranslationRequest) {
-        return current === interaction && interaction.request === request && !request.controller.signal.aborted;
+    function isCurrent(interaction: Interaction) {
+        return current === interaction && !interaction.controller.signal.aborted;
     }
 
     function showError(error: unknown) {
@@ -87,16 +88,15 @@ export default defineBackground(() => {
                 showPrompt();
                 return;
             }
-            const request: TranslationRequest = {
-                context: context.identity,
-                controller: new AbortController(),
-            };
-            interaction.request = request;
             const result = await translateWithFallback({
-                ...context.params, signal: request.controller.signal,
+                ...context.params, signal: interaction.controller.signal,
             }, preferences, apiKeys);
-            if (!interaction.committed && isCurrent(interaction, request)) {
-                request.translation = result.translation;
+            if (!interaction.committed && isCurrent(interaction)) {
+                completed = {
+                    input: interaction.input,
+                    context: context.identity,
+                    translation: result.translation,
+                };
                 browser.omnibox.setDefaultSuggestion({
                     description: formatSuggestionDescription(result.translation, context.params.targetLang),
                 });
@@ -107,12 +107,13 @@ export default defineBackground(() => {
     }
 
     function inputChanged(input: string) {
+        completed = undefined;
         invalidate();
         if (!input.trim()) {
             showPrompt();
             return;
         }
-        const interaction: Interaction = { input, committed: false };
+        const interaction: Interaction = { input, committed: false, controller: new AbortController() };
         current = interaction;
         browser.omnibox.setDefaultSuggestion({ description: t('omniboxTranslating') });
         debounceTimer = setTimeout(() => { void preview(interaction); }, DEBOUNCE_DELAY);
@@ -120,10 +121,12 @@ export default defineBackground(() => {
 
     showPrompt();
     browser.omnibox.onInputStarted.addListener(() => {
+        completed = undefined;
         invalidate();
         showPrompt();
     });
     browser.omnibox.onInputCancelled.addListener(() => {
+        // Chrome can close keyword mode before dispatching the accepted input.
         invalidate();
         showPrompt();
     });
@@ -131,28 +134,26 @@ export default defineBackground(() => {
 
     browser.omnibox.onInputEntered.addListener(async input => {
         clearTimeout(debounceTimer);
-        const interaction = current;
-        if (interaction?.committed) return;
-        const request = interaction?.request;
-        const translation = request?.translation;
-        if (!interaction || interaction.input !== input || !request || translation === undefined) {
-            invalidate();
-            return;
-        }
-        interaction.committed = true;
+        if (current?.committed) return;
+        const result = completed;
+        completed = undefined;
+        invalidate();
+        if (!result || result.input !== input) return;
+        const interaction: Interaction = { input, committed: true, controller: new AbortController() };
+        current = interaction;
         try {
             const preferences = await getPreferences();
             const apiKeys = await getApiKeys();
-            if (!isCurrent(interaction, request)) return;
-            if (translationContext(input, preferences, apiKeys)?.identity !== request.context) {
+            if (!isCurrent(interaction)) return;
+            if (translationContext(input, preferences, apiKeys)?.identity !== result.context) {
                 invalidate();
                 showPrompt();
                 return;
             }
-            const copied = await copyToClipboard(translation, request.controller.signal);
-            if (!isCurrent(interaction, request)) return;
+            const copied = await copyToClipboard(result.translation, interaction.controller.signal);
+            if (!isCurrent(interaction)) return;
             if (!copied) throw new Error(t('omniboxCopyFailed'));
-            browser.omnibox.setDefaultSuggestion({ description: t('omniboxCopied', [escapeXml(translation)]) });
+            browser.omnibox.setDefaultSuggestion({ description: t('omniboxCopied', [escapeXml(result.translation)]) });
             feedbackTimer = setTimeout(showPrompt, 3000);
         } catch (error) {
             if (current === interaction) {
@@ -171,7 +172,7 @@ export default defineBackground(() => {
             }
         } finally {
             if (current === interaction) {
-                interaction.request?.controller.abort();
+                interaction.controller.abort();
                 current = undefined;
             }
         }
@@ -187,7 +188,9 @@ export default defineBackground(() => {
         );
         const credentialsChanged = (area === 'sync' && changes.apiKeys) || (area === 'local' && changes.apiKeys_local);
         const storageSelectionChanged = area === 'local' && changes.credentialStorageType;
-        if (current && (contextChanged || credentialsChanged || storageSelectionChanged)) {
+        if (contextChanged || credentialsChanged || storageSelectionChanged) {
+            completed = undefined;
+            if (!current) return;
             if (current.committed) {
                 invalidate();
                 showPrompt();
