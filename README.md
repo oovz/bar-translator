@@ -40,6 +40,19 @@ Each provider is attempted once, in sequence. An attempt has up to four seconds,
 
 DeepL's **Test** button checks your key through the authenticated [usage endpoint](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits). Enable DeepL separately to use it for translation.
 
+## Run locally
+
+With [Node.js](https://nodejs.org/) 24.15+ and [pnpm](https://pnpm.io/) 12.14.0 installed:
+
+```bash
+git clone https://github.com/oovz/bar-translator.git
+cd bar-translator
+pnpm install
+pnpm dev
+```
+
+This launches a browser with the extension loaded.
+
 ## Privacy
 
 Translation requests go directly to your enabled providers. Translation content is sent only to those providers, and API keys go to their corresponding provider for translation and explicit key validation. Cancelling a request cannot undo text a provider has already received or any resulting billing.
@@ -53,16 +66,3 @@ Settings sync across your Chrome instances. API keys default to local storage, a
 
 > [!IMPORTANT]
 > Both local and synced storage hold readable API keys.
-
-## Run locally
-
-With [Node.js](https://nodejs.org/) 24.15+ and [pnpm](https://pnpm.io/) 12.14.0 installed:
-
-```bash
-git clone https://github.com/oovz/bar-translator.git
-cd bar-translator
-pnpm install
-pnpm dev
-```
-
-This launches a browser with the extension loaded.
