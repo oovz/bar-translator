@@ -4,7 +4,7 @@
 
 Translate text from Chrome's address bar and press Enter to copy the result, without leaving your current tab.
 
-[Install from the Chrome Web Store](https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno)
+[![Available in the Chrome Web Store](https://user-images.githubusercontent.com/22908993/166417152-f870bfbd-1770-4c28-b69d-a7303aebc9a6.png)](https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno)
 
 ## Usage
 
@@ -54,9 +54,9 @@ Settings sync across your Chrome instances. API keys default to local storage, a
 > [!IMPORTANT]
 > Both local and synced storage hold readable API keys.
 
-## Development
+## Run locally
 
-Use [Node.js](https://nodejs.org/) 24.15+ (24 LTS) and [pnpm](https://pnpm.io/) 12.14.0, as pinned in `package.json`.
+With [Node.js](https://nodejs.org/) 24.15+ and [pnpm](https://pnpm.io/) 12.14.0 installed:
 
 ```bash
 git clone https://github.com/oovz/bar-translator.git
@@ -65,32 +65,4 @@ pnpm install
 pnpm dev
 ```
 
-The development command launches a browser with the extension loaded.
-
-### Verification
-
-```bash
-pnpm lint
-pnpm typecheck
-pnpm test
-pnpm build
-```
-
-The build produces `.output/chrome-mv3/`. Browser tests use that build and run in headed Chromium:
-
-```bash
-pnpm exec playwright install --with-deps chromium
-pnpm test:e2e
-```
-
-On Linux without a display, run `xvfb-run --auto-servernum pnpm test:e2e`.
-
-### Packaging and CI
-
-Run `pnpm zip` to create the Chrome extension ZIP in `.output/`.
-
-[CI](.github/workflows/ci.yml) runs lint, typechecking, unit tests, a Chrome build, and browser tests on branch pushes and pull requests. The [release workflow](.github/workflows/release.yml) runs the same checks for pushed tags starting with `v`. The tag must match the version in `package.json`, such as `v1.1.0` for version `1.1.0`. After the checks pass, it publishes a GitHub release with the Chrome ZIP.
-
-### Tech stack
-
-[WXT](https://wxt.dev/), [Preact](https://preactjs.com/), [Vite](https://vitejs.dev/), and [TypeScript](https://www.typescriptlang.org/), with [Vitest](https://vitest.dev/) for unit tests and [Playwright](https://playwright.dev/) for browser tests.
+This launches a browser with the extension loaded.
