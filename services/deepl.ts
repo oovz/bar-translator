@@ -88,11 +88,10 @@ export class DeepLTranslationService extends BaseTranslationService {
 
             const data = await response.json() as DeepLResponse;
 
-            if (!data.translations || data.translations.length === 0) {
+            const result = data.translations?.[0];
+            if (!result) {
                 throw new TranslationError('SERVICE_UNAVAILABLE', 'No translation returned', { serviceId: this.service.id });
             }
-
-            const result = data.translations[0];
 
             return {
                 translation: result.text,
@@ -112,7 +111,7 @@ export class DeepLTranslationService extends BaseTranslationService {
         }
     }
 
-    async validateApiKey(apiKey: string): Promise<ValidationResult> {
+    override async validateApiKey(apiKey: string): Promise<ValidationResult> {
         if (!apiKey) return { valid: false, error: 'Empty key' };
 
         // Lightweight check: Get Usage or Translate trivial text

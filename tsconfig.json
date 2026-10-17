@@ -1,6 +1,8 @@
 {
     "extends": "./.wxt/tsconfig.json",
     "compilerOptions": {
+        "rootDir": ".",
+        "types": ["chrome", "node", "vite/client", "vitest/globals"],
         "lib": [
             "DOM",
             "DOM.Iterable",

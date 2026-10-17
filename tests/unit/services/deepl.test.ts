@@ -39,7 +39,7 @@ describe('DeepLTranslationService', () => {
                 tier: validKey.tier
             });
 
-            const url = fetchMock.mock.calls[0][0];
+            const url = fetchMock.mock.calls[0]![0];
             expect(url).toContain('api-free.deepl.com');
         });
 
@@ -59,7 +59,7 @@ describe('DeepLTranslationService', () => {
                 tier: 'pro'
             });
 
-            const url = fetchMock.mock.calls[0][0];
+            const url = fetchMock.mock.calls[0]![0];
             expect(url).toContain('api.deepl.com');
         });
 

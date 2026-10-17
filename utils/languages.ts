@@ -210,7 +210,7 @@ export function fromDeepLLanguage(code: string): string {
     if (upper === 'PT-BR') return 'pt-BR';
     if (upper === 'NB') return 'nb';
     // Default: lowercase the base code
-    return code.toLowerCase().split('-')[0];
+    return normalizeLanguageCode(code);
 }
 
 /**
@@ -297,5 +297,6 @@ export function getSourceLanguages(): LanguageInfo[] {
  * 'zh-CN' → 'zh', 'pt-BR' → 'pt'
  */
 export function normalizeLanguageCode(code: string): string {
-    return code.toLowerCase().split('-')[0];
+    const separator = code.indexOf('-');
+    return (separator === -1 ? code : code.slice(0, separator)).toLowerCase();
 }

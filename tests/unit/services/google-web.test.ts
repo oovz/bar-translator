@@ -66,7 +66,7 @@ describe('GoogleTranslationWebService', () => {
                 targetLang: 'en',
             });
 
-            const url = new URL(fetchMock.mock.calls[0][0]);
+            const url = new URL(fetchMock.mock.calls[0]![0]);
             expect(url.searchParams.get('sl')).toBe('auto');
         });
 
@@ -83,7 +83,7 @@ describe('GoogleTranslationWebService', () => {
                 targetLang: 'zh-CN',
             });
 
-            const url = new URL(fetchMock.mock.calls[0][0]);
+            const url = new URL(fetchMock.mock.calls[0]![0]);
             expect(url.searchParams.get('tl')).toBe('zh-CN');
         });
 
@@ -100,7 +100,7 @@ describe('GoogleTranslationWebService', () => {
                 targetLang: 'nb',
             });
 
-            const url = new URL(fetchMock.mock.calls[0][0]);
+            const url = new URL(fetchMock.mock.calls[0]![0]);
             expect(url.searchParams.get('tl')).toBe('no');
         });
 

@@ -168,13 +168,12 @@ export async function translateWithFallback(
     }
     let lastError: TranslationError | null = null;
 
-    for (let i = 0; i < availableServices.length; i++) {
+    for (const [i, serviceId] of availableServices.entries()) {
         params.signal?.throwIfAborted();
         const remainingMs = deadline - performance.now();
         if (remainingMs <= 0) {
             throw new TranslationError('TIMEOUT', 'Translation timed out. Please try again.');
         }
-        const serviceId = availableServices[i];
         const handler = serviceRegistry.get(serviceId);
         if (!handler) {
             continue;

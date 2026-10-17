@@ -111,6 +111,7 @@ export function ServiceList({
 
                 const enabledServices = [...preferences.fallbackOrder];
                 const [moved] = enabledServices.splice(evt.oldIndex, 1);
+                if (moved === undefined) return;
                 enabledServices.splice(evt.newIndex, 0, moved);
 
                 updatePreferences({ fallbackOrder: enabledServices });
@@ -149,7 +150,7 @@ export function ServiceList({
             <div class="api-key-section">
                 <div class="api-key-input">
                     <input
-                        type={showKeys[serviceId] ? 'text' : 'password'}
+                        {...(showKeys[serviceId] ? { type: 'text' as const } : { type: 'password' as const })}
                         class="input"
                         placeholder={t('enterApiKey', [svc.name])}
                         value={apiKey}

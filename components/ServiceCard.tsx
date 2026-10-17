@@ -64,7 +64,7 @@ export function ServiceCard({
                         <label class="label">{t('apiKeyLabel')}</label>
                         <div style="display: flex; gap: 0.5rem;">
                             <input
-                                type={showKey ? 'text' : 'password'}
+                                {...(showKey ? { type: 'text' as const } : { type: 'password' as const })}
                                 class="input"
                                 value={apiKey}
                                 onInput={(e) => onApiKeyChange(e.currentTarget.value)}

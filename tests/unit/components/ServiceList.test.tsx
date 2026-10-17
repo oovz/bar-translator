@@ -58,7 +58,7 @@ describe('ServiceList Component', () => {
     it('toggling service calls updatePreferences', () => {
         const { getAllByTitle } = render(<ServiceList {...mockProps} />);
         const enableButtons = getAllByTitle('Enable service');
-        fireEvent.click(enableButtons[0]);
+        fireEvent.click(enableButtons[0]!);
 
         expect(mockProps.updatePreferences).toHaveBeenCalledWith({
             fallbackOrder: ['google-web', 'deepl'],
@@ -68,7 +68,7 @@ describe('ServiceList Component', () => {
     it('shows api key input when expanded', () => {
         const { getAllByText, getByPlaceholderText } = render(<ServiceList {...mockProps} />);
         const apiKeyButtons = getAllByText('API Key');
-        fireEvent.click(apiKeyButtons[0]); // Expand DeepL
+        fireEvent.click(apiKeyButtons[0]!); // Expand DeepL
 
         expect(getByPlaceholderText('enterApiKey')).toBeTruthy();
     });

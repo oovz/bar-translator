@@ -44,7 +44,7 @@ export function parseOmniboxInput(
         // Check for source>target format (e.g., "en>fr")
         if (trimmed.includes('>')) {
             const [source, target] = trimmed.split('>');
-            if (isValidLanguageCode(source) && isValidLanguageCode(target)) {
+            if (source && target && isValidLanguageCode(source) && isValidLanguageCode(target)) {
                 return {
                     sourceLang: resolveLanguageCode(source, overrides),
                     targetLang: resolveLanguageCode(target, overrides),
@@ -77,7 +77,7 @@ export function parseOmniboxInput(
     // Check for source>target format (e.g., "en>fr")
     if (firstPart.includes('>')) {
         const [source, target] = firstPart.split('>');
-        if (isValidLanguageCode(source) && isValidLanguageCode(target)) {
+        if (source && target && isValidLanguageCode(source) && isValidLanguageCode(target)) {
             return {
                 sourceLang: resolveLanguageCode(source, overrides),
                 targetLang: resolveLanguageCode(target, overrides),

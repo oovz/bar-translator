@@ -183,7 +183,7 @@ describe('allowed translation providers', () => {
         expect(description()).toContain('Bonjour');
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(fetchMock).toHaveBeenCalledTimes(1);
-        expect(String(fetchMock.mock.calls[0][0])).toBe('https://lingva.ml/api/v1/auto/fr/Hello');
+        expect(String(fetchMock.mock.calls[0]![0])).toBe('https://lingva.ml/api/v1/auto/fr/Hello');
         expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
     });
 
@@ -229,7 +229,7 @@ describe('bounded sequential fallback', () => {
             'lingva.ml', 'translate.google.com',
         ]);
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
-        expect(fetchMock.mock.calls[1][1]?.signal?.aborted).toBe(true);
+        expect(fetchMock.mock.calls[1]![1]?.signal?.aborted).toBe(true);
         fallback.resolve(googleResponse('Bonjour'));
         await vi.advanceTimersByTimeAsync(20000);
         expect(writeText).not.toHaveBeenCalled();
@@ -247,7 +247,7 @@ describe('bounded sequential fallback', () => {
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
         await vi.advanceTimersByTimeAsync(4000);
-        expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+        expect(fetchMock.mock.calls[0]![1]?.signal?.aborted).toBe(true);
         expect(description()).toContain('Bonjour');
         body.resolve('<div class="result-container">Late body</div>');
         await vi.advanceTimersByTimeAsync(0);
@@ -268,7 +268,7 @@ describe('bounded sequential fallback', () => {
         if (action === 'clear') await change('');
         if (action === 'cancel') await omnibox.onInputCancelled.fire();
         if (action === 'restart') await omnibox.onInputStarted.fire();
-        expect(fetchMock.mock.calls[1][1]?.signal?.aborted).toBe(true);
+        expect(fetchMock.mock.calls[1]![1]?.signal?.aborted).toBe(true);
         await vi.advanceTimersByTimeAsync(20000);
         fallback.reject(new Error('Late failure'));
         await vi.advanceTimersByTimeAsync(0);
@@ -334,7 +334,7 @@ describe('bounded sequential fallback', () => {
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(description()).toContain('Translation timed out');
         expect(writeText).not.toHaveBeenCalled();
-        expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+        expect(fetchMock.mock.calls[0]![1]?.signal?.aborted).toBe(true);
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
@@ -347,17 +347,17 @@ describe('bounded sequential fallback', () => {
         await vi.advanceTimersByTimeAsync(3999);
         expect(fetchMock).toHaveBeenCalledTimes(1);
         await vi.advanceTimersByTimeAsync(1);
-        expect(fetchMock.mock.calls[0][1]?.signal?.aborted).toBe(true);
+        expect(fetchMock.mock.calls[0]![1]?.signal?.aborted).toBe(true);
         expect(fetchMock).toHaveBeenCalledTimes(2);
         await vi.advanceTimersByTimeAsync(4000);
-        expect(fetchMock.mock.calls[1][1]?.signal?.aborted).toBe(true);
+        expect(fetchMock.mock.calls[1]![1]?.signal?.aborted).toBe(true);
         expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname)).toEqual([
             'translate.google.com', 'lingva.ml', 'api-free.deepl.com',
         ]);
         await vi.advanceTimersByTimeAsync(1999);
         expect(notify).not.toHaveBeenCalled();
         await vi.advanceTimersByTimeAsync(1);
-        expect(fetchMock.mock.calls[2][1]?.signal?.aborted).toBe(true);
+        expect(fetchMock.mock.calls[2]![1]?.signal?.aborted).toBe(true);
         expect(description()).toContain('Translation timed out');
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(notify).not.toHaveBeenCalled();
@@ -375,7 +375,7 @@ describe('bounded sequential fallback', () => {
             .mockResolvedValueOnce(new Response(JSON.stringify({ translation: 'Bonjour' })));
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
-        const primarySignal = fetchMock.mock.calls[0][1]?.signal;
+        const primarySignal = fetchMock.mock.calls[0]![1]?.signal;
         await vi.advanceTimersByTimeAsync(3999);
         expect(fetchMock).toHaveBeenCalledTimes(1);
         await vi.advanceTimersByTimeAsync(1);
@@ -589,7 +589,7 @@ describe('interaction invalidation', () => {
         fetchMock.mockReturnValue(pending.promise);
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
-        const signal = fetchMock.mock.calls[0][1]?.signal;
+        const signal = fetchMock.mock.calls[0]![1]?.signal;
         if (action === 'clear') await change('');
         if (action === 'cancel') await omnibox.onInputCancelled.fire();
         if (action === 'restart') await omnibox.onInputStarted.fire();

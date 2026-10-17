@@ -12,10 +12,16 @@ import type { UserPreferences } from '@/src/types';
 
 // Extension messages follow the browser's UI locale, which can differ from page locale.
 async function messages(page: Page) {
-    return page.evaluate(() => Object.fromEntries([
-        'sectionDefaultLanguages', 'sectionRegionalDialects', 'sectionTranslationServices',
-        'sectionPrivacy', 'lang_zh', 'primary', 'labelStorage', 'storageDesc',
-    ].map(key => [key, chrome.i18n.getMessage(key)])));
+    return page.evaluate(() => ({
+        sectionDefaultLanguages: chrome.i18n.getMessage('sectionDefaultLanguages'),
+        sectionRegionalDialects: chrome.i18n.getMessage('sectionRegionalDialects'),
+        sectionTranslationServices: chrome.i18n.getMessage('sectionTranslationServices'),
+        sectionPrivacy: chrome.i18n.getMessage('sectionPrivacy'),
+        lang_zh: chrome.i18n.getMessage('lang_zh'),
+        primary: chrome.i18n.getMessage('primary'),
+        labelStorage: chrome.i18n.getMessage('labelStorage'),
+        storageDesc: chrome.i18n.getMessage('storageDesc'),
+    }));
 }
 
 test.describe('Options Page', () => {

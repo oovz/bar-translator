@@ -50,7 +50,7 @@ API keys default to local storage. **API Key Storage** controls only the current
 
 ### Prerequisites
 
-- [Node.js](https://nodejs.org/) (v22 or later LTS)
+- [Node.js](https://nodejs.org/) 24.15+ (24 LTS)
 - [pnpm](https://pnpm.io/)
 
 ### Development

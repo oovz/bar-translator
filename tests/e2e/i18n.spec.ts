@@ -12,11 +12,17 @@ test.describe('i18n Support', () => {
     test('displays the active extension locale', async ({ context, extensionId }) => {
         const page = await context.newPage();
         await page.goto(`chrome-extension://${extensionId}/options.html`);
-        const messages = await page.evaluate(() => Object.fromEntries([
-            'extName', 'settings', 'sectionDefaultLanguages', 'sectionRegionalDialects',
-            'sectionTranslationServices', 'sectionPrivacy', 'labelSource', 'regionalDialectsDesc',
-            'footerUsage',
-        ].map(key => [key, chrome.i18n.getMessage(key)])));
+        const messages = await page.evaluate(() => ({
+            extName: chrome.i18n.getMessage('extName'),
+            settings: chrome.i18n.getMessage('settings'),
+            sectionDefaultLanguages: chrome.i18n.getMessage('sectionDefaultLanguages'),
+            sectionRegionalDialects: chrome.i18n.getMessage('sectionRegionalDialects'),
+            sectionTranslationServices: chrome.i18n.getMessage('sectionTranslationServices'),
+            sectionPrivacy: chrome.i18n.getMessage('sectionPrivacy'),
+            labelSource: chrome.i18n.getMessage('labelSource'),
+            regionalDialectsDesc: chrome.i18n.getMessage('regionalDialectsDesc'),
+            footerUsage: chrome.i18n.getMessage('footerUsage'),
+        }));
         await expect(page).toHaveTitle(`${messages.extName} ${messages.settings}`);
         await expect(page.locator('.section-title')).toHaveText([
             messages.sectionDefaultLanguages, messages.sectionRegionalDialects,

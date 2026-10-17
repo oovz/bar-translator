@@ -3,10 +3,6 @@
  *
  * These interfaces define the core types used throughout the extension.
  * They serve as the contract between different modules and for storage schemas.
- *
- * @version 1.0.0
- * @lastUpdated 2025-12-29
- * @typescript 5.7.x
  */
 
 // =============================================================================

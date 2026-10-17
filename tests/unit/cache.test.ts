@@ -221,7 +221,7 @@ describe('TranslationCache', () => {
             await cache.backup();
 
             expect(mockStorageSession.set).toHaveBeenCalled();
-            const call = mockStorageSession.set.mock.calls[0][0];
+            const call = mockStorageSession.set.mock.calls[0]![0];
             expect(call.cacheBackup).toBeDefined();
             expect(call.cacheBackup.entries.length).toBe(2);
         });

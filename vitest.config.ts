@@ -29,7 +29,7 @@ export default defineConfig({
         alias: {
             react: 'preact/compat',
             'react-dom': 'preact/compat',
-            '@': path.resolve(__dirname, '.'),
+            '@': path.resolve(import.meta.dirname, '.'),
         },
     },
 });
