@@ -95,7 +95,7 @@ The build produces the Chrome extension in `.output/chrome-mv3/`.
 
 Translation previews start after a 300 ms typing pause. The address bar shows loading text while translation is pending. Enter copies a completed translation that matches the current input and settings. Pressing Enter before a result is ready leaves the clipboard unchanged and ends the interaction, cancelling pending work. Clearing the input or ending the interaction also invalidates pending previews.
 
-Translation failures appear in the address bar. Copy failures also use Chrome notifications, whose visibility depends on browser and OS notification settings.
+Translation failures appear in the address bar.
 
 **Example:**
 - `t Hello world` -> Translates to your default target language.

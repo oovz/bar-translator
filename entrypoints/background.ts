@@ -158,17 +158,6 @@ export default defineBackground(() => {
         } catch (error) {
             if (current === interaction) {
                 showError(error);
-                // Enter closes the omnibox, so submission failures also need visible feedback.
-                try {
-                    await browser.notifications.create('translation-error', {
-                        type: 'basic',
-                        iconUrl: 'icons/icon-128.png',
-                        title: t('extName'),
-                        message: t('omniboxCopyFailed'),
-                    });
-                } catch {
-                    console.error('[Background] Could not display failure notification');
-                }
             }
         } finally {
             if (current === interaction) {

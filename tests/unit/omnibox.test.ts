@@ -62,7 +62,7 @@ beforeEach(async () => {
     sendMessage = vi.fn(message => new Promise(resolve => {
         void onMessage.fire(message, {}, resolve);
     }));
-    notify = vi.fn(async () => 'translation-error');
+    notify = vi.fn();
     const browser = {
         omnibox,
         notifications: { create: notify },
@@ -774,9 +774,7 @@ describe('copy confirmation and failure feedback', () => {
         await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
         expect(description()).toContain(messages.omniboxCopyFailed.message);
         expect(description()).not.toContain('Copied:');
-        expect(notify).toHaveBeenCalledWith('translation-error', expect.objectContaining({
-            message: messages.omniboxCopyFailed.message,
-        }));
+        expect(notify).not.toHaveBeenCalled();
         expect(document.querySelector('textarea')).toBeNull();
     });
 
