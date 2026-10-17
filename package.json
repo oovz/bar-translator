@@ -1,6 +1,6 @@
 {
   "name": "bar-translator",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Quick translations from the Chrome address bar",
   "type": "module",
   "scripts": {
