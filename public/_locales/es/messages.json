@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "Traducciones instantáneas directamente desde tu barra de direcciones. Compatible con Google, DeepL y más."
+        "message": "Traduce desde la barra de direcciones de Chrome sin perder de vista tu página."
     },
     "loading": {
         "message": "Cargando..."

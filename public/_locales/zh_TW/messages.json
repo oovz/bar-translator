@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "直接從網址列即時翻譯。支援 Google、DeepL 等。"
+        "message": "直接在 Chrome 網址列翻譯，思緒留在眼前的頁面。"
     },
     "loading": {
         "message": "載入中..."
