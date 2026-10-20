@@ -139,10 +139,10 @@
         "message": "Bar Translator no recopila estadísticas de uso. El texto se envía a los proveedores de traducción habilitados en el orden elegido. Las claves API se envían a su proveedor para traducir y validarlas."
     },
     "footerUsage": {
-        "message": "Escriba <code>t hola</code> en la barra de direcciones para traducir"
+        "message": "Escribe <code>t hello</code> para traducir con los idiomas de origen y destino guardados. Opcional: <code>t fr hello</code> traduce al francés."
     },
     "omniboxSuggestion": {
-        "message": "Escriba <match>[idioma] texto</match> para traducir (ej: <match>fr Hola</match>)"
+        "message": "Escribe el texto para traducir con tus idiomas guardados. <dim>Atajo opcional: fr Hello → francés.</dim>"
     },
     "omniboxTranslating": {
         "message": "<dim>Traduciendo... Espera el resultado antes de pulsar Intro.</dim>"

@@ -139,10 +139,10 @@
         "message": "Bar Translator は利用状況の分析データを収集しません。テキストは有効にした翻訳プロバイダーに指定した順序で送信されます。API キーは翻訳と検証のために対応するプロバイダーに送信されます。"
     },
     "footerUsage": {
-        "message": "アドレスバーに <code>t hello</code> と入力して翻訳"
+        "message": "<code>t hello</code> と入力すると、保存済みの翻訳元・翻訳先言語で翻訳します。任意で <code>t fr hello</code> と入力するとフランス語に翻訳できます。"
     },
     "omniboxSuggestion": {
-        "message": "<match>[言語] テキスト</match> と入力して翻訳（例：<match>en こんにちは</match>）"
+        "message": "テキストを入力すると、保存済みの言語設定で翻訳します。<dim>任意のショートカット：fr Hello → フランス語。</dim>"
     },
     "omniboxTranslating": {
         "message": "<dim>翻訳中... 結果が表示されてから Enter キーを押してください。</dim>"

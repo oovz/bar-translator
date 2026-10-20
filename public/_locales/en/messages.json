@@ -144,10 +144,10 @@
         "message": "Bar Translator collects no usage analytics. Text is sent to the enabled translation providers in your chosen order. API keys are sent to their provider for translation and validation."
     },
     "footerUsage": {
-        "message": "Type <code>t hello</code> in address bar to translate"
+        "message": "Type <code>t hello</code> to translate with your saved source and target languages. Optional: <code>t fr hello</code> translates to French."
     },
     "omniboxSuggestion": {
-        "message": "Type <match>[lang] text</match> to translate (e.g., <match>fr Hello</match>)"
+        "message": "Type text to translate with your saved languages. <dim>Optional shortcut: fr Hello → French.</dim>"
     },
     "omniboxTranslating": {
         "message": "<dim>Translating... Wait for the result before pressing Enter.</dim>"

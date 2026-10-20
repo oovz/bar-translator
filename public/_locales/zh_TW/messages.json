@@ -139,10 +139,10 @@
         "message": "Bar Translator 不收集使用分析資料。文字會依您選擇的順序傳送給已啟用的翻譯服務。API 金鑰會傳送給對應的服務，用於翻譯和驗證。"
     },
     "footerUsage": {
-        "message": "在網址列輸入 <code>t hello</code> 進行翻譯"
+        "message": "在網址列輸入 <code>t hello</code>，即可依已儲存的來源語言與目標語言翻譯。選用：輸入 <code>t fr hello</code> 可翻譯為法文。"
     },
     "omniboxSuggestion": {
-        "message": "輸入 <match>[語言] 文本</match> 進行翻譯（例如：<match>zh Hello</match>）"
+        "message": "輸入文字，即可依已儲存的語言設定翻譯。<dim>選用快捷用法：fr Hello → 法文。</dim>"
     },
     "omniboxTranslating": {
         "message": "<dim>正在翻譯... 請等待結果後再按 Enter。</dim>"

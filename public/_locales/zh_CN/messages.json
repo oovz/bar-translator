@@ -139,10 +139,10 @@
         "message": "Bar Translator 不收集使用分析数据。文本按您选择的顺序发送给已启用的翻译服务。API 密钥会发送给对应的服务，用于翻译和验证。"
     },
     "footerUsage": {
-        "message": "在地址栏输入 <code>t hello</code> 进行翻译"
+        "message": "在地址栏输入 <code>t hello</code>，即可按已保存的源语言和目标语言翻译。可选：输入 <code>t fr hello</code> 可翻译为法语。"
     },
     "omniboxSuggestion": {
-        "message": "输入 <match>[语言] 文本</match> 进行翻译（例如：<match>zh Hello</match>）"
+        "message": "输入文本，即可按已保存的语言设置翻译。<dim>可选快捷用法：fr Hello → 法语。</dim>"
     },
     "omniboxTranslating": {
         "message": "<dim>正在翻译... 请等待结果后再按 Enter。</dim>"

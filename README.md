@@ -12,7 +12,7 @@ On a new installation, settings open automatically in their own tab. Grant acces
 
 1. Focus the address bar with Ctrl+L (Windows/Linux) or Cmd+L (macOS).
 2. Type `t` followed by a space to enter translation mode.
-3. Enter your text, optionally prefixed with a language code.
+3. Enter your text to translate with your saved source and target languages.
 4. Wait for the translation preview, then press Enter to copy it if copying is enabled.
 
 The primary result contains only the translated text. Additional suggestions show copy actions and provider warnings. Select a settings action and press Enter to fix missing permissions or credentials. When a settings problem blocks translation, pressing Enter on the error also opens settings. Temporary network errors do not redirect you. After changing settings or permissions, edit the input or enter translation mode again to refresh completed suggestions.
@@ -23,7 +23,7 @@ The primary result contains only the translated text. Additional suggestions sho
 | `t fr Hello world` | Translates to French. |
 | `t en>fr Hello world` | Uses English as the source and French as the target. |
 
-The source language is detected automatically unless you specify one. In settings, choose default source and target languages and preferred regional variants, such as mapping `zh` to `zh-TW`.
+In settings, choose your source and target languages and preferred regional variants, such as mapping `zh` to `zh-TW`. Choose **Auto-detect** as the source language to detect it automatically. Language-code prefixes are optional shortcuts for overriding these settings for one translation.
 
 Previews start after a 300 ms pause in typing. The address bar shows loading text while a request is pending and an error if translation fails. Editing or clearing the input, or ending the interaction, cancels pending work.
 
