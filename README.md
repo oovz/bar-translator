@@ -8,7 +8,7 @@ Translate text from Chrome's address bar and optionally press Enter to copy the 
 
 ## Usage
 
-On a new installation, settings open automatically. Grant access to your chosen providers and optionally enable **Enter to copy**. You can use translation previews without clipboard access.
+On a new installation, settings open automatically in their own tab. Grant access to your chosen providers and optionally enable **Enter to copy**. You can use translation previews without clipboard access.
 
 1. Focus the address bar with Ctrl+L (Windows/Linux) or Cmd+L (macOS).
 2. Type `t` followed by a space to enter translation mode.

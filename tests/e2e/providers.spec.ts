@@ -175,18 +175,24 @@ test('keeps disable-all after closing and restarting Chrome', async () => {
         const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
         const extensionId = new URL(worker.url()).host;
         const url = `chrome-extension://${extensionId}/options.html`;
-        const page = await context.newPage();
-        await page.goto(url);
+        const settingsPage = async () => {
+            await expect.poll(() => context.pages().map(page => page.url())).toContain(url);
+            const page = context.pages().find(page => page.url() === url)!;
+            await expect(page.locator('#providers')).toBeVisible();
+            return page;
+        };
+        const page = await settingsPage();
         await page.locator('[title="Disable service"]').click();
         await expect.poll(() => page.evaluate(async () => {
-            const { preferences } = await chrome.storage.sync.get<{ preferences: { fallbackOrder: string[] } }>('preferences');
-            return preferences.fallbackOrder;
+            const { preferences } = await chrome.storage.sync.get<{ preferences?: { fallbackOrder: string[] } }>('preferences');
+            return preferences?.fallbackOrder;
         })).toEqual([]);
         await context.close();
 
         context = await launch();
-        const reopened = await context.newPage();
-        await reopened.goto(url);
+        const restartedWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
+        await restartedWorker.evaluate(() => chrome.runtime.openOptionsPage());
+        const reopened = await settingsPage();
         const message = await reopened.evaluate(() => chrome.i18n.getMessage('noServicesEnabled'));
         await expect(reopened.getByText(message, { exact: true })).toBeVisible();
         await expect(reopened.locator('.service-item.enabled')).toHaveCount(0);

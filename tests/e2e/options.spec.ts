@@ -30,6 +30,13 @@ async function messages(page: Page) {
 }
 
 test.describe('Options Page', () => {
+    test('opens first-install setup in a dedicated extension tab', async ({ context, extensionId }) => {
+        const url = `chrome-extension://${extensionId}/options.html`;
+        await expect.poll(() => context.pages().map(page => page.url())).toContain(url);
+        const setup = context.pages().find(page => page.url() === url)!;
+        await expect(setup.locator('#providers')).toBeVisible();
+    });
+
     test('loads and displays settings', async ({ context, extensionId }) => {
         const page = await context.newPage();
 
