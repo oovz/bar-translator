@@ -20,6 +20,7 @@ describe('DeepLTranslationService', () => {
     beforeEach(() => {
         service = new DeepLTranslationService(definition);
         vi.clearAllMocks();
+        vi.mocked(chrome.permissions.contains).mockImplementation(async () => true);
     });
 
     describe('translate', () => {
@@ -87,6 +88,27 @@ describe('DeepLTranslationService', () => {
     });
 
     describe('validateApiKey', () => {
+        it('does not test or fetch when provider access is missing', async () => {
+            vi.mocked(chrome.permissions.contains).mockImplementation(async () => false);
+            expect(await service.validateApiKey('test:fx')).toMatchObject({ valid: false, error: expect.stringContaining('access required') });
+            expect(fetchMock).not.toHaveBeenCalled();
+            expect(chrome.permissions.contains).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
+        });
+
+        it('propagates permission query failures without making a request', async () => {
+            vi.mocked(chrome.permissions.contains).mockRejectedValueOnce(new Error('Permission query failed'));
+            await expect(service.validateApiKey('test:fx')).rejects.toThrow('Permission query failed');
+            expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it('does not retest a key when checking availability after a failed explicit test', async () => {
+            fetchMock.mockResolvedValueOnce({ ok: false, statusText: 'Unauthorized' });
+            expect((await service.validateApiKey('user-key')).valid).toBe(false);
+            expect(await service.isAvailable('user-key')).toBe(true);
+            expect(await service.isAvailable()).toBe(false);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
         it('returns valid: true on 200 OK', async () => {
             fetchMock.mockResolvedValue({ ok: true });
             const result = await service.validateApiKey('test:fx');

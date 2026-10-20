@@ -171,6 +171,14 @@ export interface TranslateResultWithMeta extends TranslateResult {
 
   /** Whether result came from cache */
   readonly cached: boolean;
+
+  /** Earlier enabled providers that could not translate this input. */
+  readonly warnings: readonly TranslationWarning[];
+}
+
+export interface TranslationWarning {
+  readonly code: TranslationErrorCode;
+  readonly serviceId?: ServiceId;
 }
 
 // =============================================================================
@@ -360,6 +368,9 @@ export interface LanguageInfo {
  * Error codes for translation failures.
  */
 export type TranslationErrorCode =
+  | 'PERMISSION_REQUIRED' // Provider needs browser access
+  | 'API_KEY_REQUIRED' // Provider needs a user-supplied credential
+  | 'NO_SERVICES_ENABLED' // Enable a provider in settings
   | 'TIMEOUT' // Advance to the next allowed service within the total budget
   | 'NETWORK_ERROR' // Retry with backoff
   | 'INVALID_API_KEY' // Don't retry, notify user
@@ -381,6 +392,7 @@ export interface TranslationError {
   readonly serviceId?: ServiceId;
   readonly retryable: boolean;
   readonly httpStatus?: number;
+  readonly warnings: readonly TranslationWarning[];
 }
 
 /**

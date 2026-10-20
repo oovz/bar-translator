@@ -286,5 +286,97 @@
     },
     "lang_variant_uk": {
         "message": "Reino Unido (en-GB)"
+    },
+    "omniboxCopyAction": {
+        "message": "Copiar traducción — Pulsa Intro"
+    },
+    "omniboxCopyOff": {
+        "message": "Copia desactivada — Abrir ajustes"
+    },
+    "omniboxSettingsAction": {
+        "message": "Abrir ajustes — Pulsa Intro"
+    },
+    "omniboxWarning": {
+        "message": "Advertencia: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "providerPermissionRequired": {
+        "message": "Se requiere permiso"
+    },
+    "providerMissingKey": {
+        "message": "Se requiere una clave API"
+    },
+    "providerInvalidKey": {
+        "message": "Clave API rechazada"
+    },
+    "providerQuotaExceeded": {
+        "message": "Cuota de traducción superada"
+    },
+    "providerTimedOut": {
+        "message": "La traducción agotó el tiempo de espera"
+    },
+    "providerNetworkError": {
+        "message": "Error de solicitud de red"
+    },
+    "providerUnavailable": {
+        "message": "Proveedor de traducción no disponible"
+    },
+    "providerResponseError": {
+        "message": "No se pudo leer la respuesta de traducción"
+    },
+    "omniboxAllFailed": {
+        "message": "La traducción falló."
+    },
+    "omniboxNoProviders": {
+        "message": "No hay proveedores activados."
+    },
+    "permissionCheckFailed": {
+        "message": "No se pudieron comprobar los permisos. Inténtalo de nuevo."
+    },
+    "permissionDenied": {
+        "message": "Permiso no concedido. Inténtalo de nuevo para activar esta función."
+    },
+    "permissionRemoveFailed": {
+        "message": "No se pudo retirar el permiso. Inténtalo de nuevo."
+    },
+    "settingsSaveFailed": {
+        "message": "No se pudieron guardar los ajustes. Inténtalo de nuevo."
+    },
+    "permissionChangeFailed": {
+        "message": "No se pudo cambiar el permiso. Inténtalo de nuevo."
+    },
+    "testNeedsAccess": {
+        "message": "Activa el proveedor y concede permiso antes de probar."
+    },
+    "keyChangedDuringTest": {
+        "message": "La clave API ha cambiado. Prueba la clave actual."
+    },
+    "keyTestFailed": {
+        "message": "No se pudo probar esta clave. Comprueba la clave, los permisos y la conexión y vuelve a intentarlo."
+    },
+    "testKey": {
+        "message": "Probar"
+    },
+    "providerReady": {
+        "message": "Listo"
+    },
+    "grantAccess": {
+        "message": "Conceder permiso"
+    },
+    "sectionCopy": {
+        "message": "Copiar traducción"
+    },
+    "copySettingsDesc": {
+        "message": "Permite copiar traducciones con Intro en este dispositivo. Las vistas previas siguen disponibles si se desactiva la copia."
+    },
+    "enableCopy": {
+        "message": "Activar copia con Intro"
+    },
+    "removeAccess": {
+        "message": "Retirar permiso"
     }
 }

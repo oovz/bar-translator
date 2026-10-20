@@ -18,6 +18,7 @@ test.describe('i18n Support', () => {
             sectionDefaultLanguages: chrome.i18n.getMessage('sectionDefaultLanguages'),
             sectionRegionalDialects: chrome.i18n.getMessage('sectionRegionalDialects'),
             sectionTranslationServices: chrome.i18n.getMessage('sectionTranslationServices'),
+            sectionCopy: chrome.i18n.getMessage('sectionCopy'),
             sectionPrivacy: chrome.i18n.getMessage('sectionPrivacy'),
             labelSource: chrome.i18n.getMessage('labelSource'),
             regionalDialectsDesc: chrome.i18n.getMessage('regionalDialectsDesc'),
@@ -26,7 +27,7 @@ test.describe('i18n Support', () => {
         await expect(page).toHaveTitle(`${messages.extName} ${messages.settings}`);
         await expect(page.locator('.section-title')).toHaveText([
             messages.sectionDefaultLanguages, messages.sectionRegionalDialects,
-            messages.sectionTranslationServices, messages.sectionPrivacy,
+            messages.sectionTranslationServices, messages.sectionCopy, messages.sectionPrivacy,
         ]);
         await expect(page.locator('label', { hasText: messages.labelSource }).first()).toBeVisible();
         await expect(page.getByText(messages.regionalDialectsDesc, { exact: true })).toBeVisible();

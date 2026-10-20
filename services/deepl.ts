@@ -9,6 +9,7 @@
 
 import { BaseTranslationService } from './base';
 import { TranslationError } from '@/utils/errors';
+import { hasProviderAccess } from '@/utils/permissions';
 import { toDeepLLanguage, fromDeepLLanguage } from '@/utils/languages';
 import type {
     TranslationService,
@@ -113,6 +114,9 @@ export class DeepLTranslationService extends BaseTranslationService {
 
     override async validateApiKey(apiKey: string): Promise<ValidationResult> {
         if (!apiKey) return { valid: false, error: 'Empty key' };
+        if (!await hasProviderAccess(this.service.id)) {
+            return { valid: false, error: 'DeepL access required. Allow provider access in settings before testing.' };
+        }
 
         // Lightweight check: Get Usage or Translate trivial text
         // Usage endpoint: GET /v2/usage

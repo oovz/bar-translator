@@ -3,6 +3,7 @@ import { usePreferences } from './hooks/usePreferences';
 import { getAllServiceDefinitions } from '@/services/base';
 import { getSourceLanguages, getTargetLanguages, OVERRIDABLE_LANGUAGES, fromUserInput } from '@/utils/languages';
 import { ServiceList } from './components/ServiceList';
+import { CopySettings } from './components/CopySettings';
 import { PrivacySettings } from './components/PrivacySettings';
 import { Combobox } from './components/Combobox';
 import { t } from '@/utils/i18n';
@@ -47,6 +48,21 @@ export default function App() {
             for (const key of keys) storage.removeItem(key);
         }
     }, []);
+
+    useEffect(() => {
+        if (loading) return;
+        const focusSection = () => {
+            const id = window.location.hash.slice(1);
+            if (id === 'providers' || id === 'copy') {
+                const section = document.getElementById(id);
+                section?.focus();
+                section?.scrollIntoView?.();
+            }
+        };
+        focusSection();
+        window.addEventListener('hashchange', focusSection);
+        return () => window.removeEventListener('hashchange', focusSection);
+    }, [loading]);
 
     if (loading) {
         return (
@@ -96,13 +112,13 @@ export default function App() {
                                 class="select"
                                 value={preferences.languageOverrides?.[isoCode] || ''}
                                 onChange={(e) => {
-                                    const newOverrides = { ...(preferences.languageOverrides || {}) };
-                                    if (e.currentTarget.value) {
-                                        newOverrides[isoCode] = e.currentTarget.value;
-                                    } else {
-                                        delete newOverrides[isoCode];
-                                    }
-                                    updatePreferences({ languageOverrides: newOverrides });
+                                    const value = e.currentTarget.value;
+                                    updatePreferences(current => {
+                                        const overrides = { ...(current.languageOverrides || {}) };
+                                        if (value) overrides[isoCode] = value;
+                                        else delete overrides[isoCode];
+                                        return { languageOverrides: overrides };
+                                    });
                                 }}
                             >
                                 <option value="">{t('optionDefault', [fromUserInput(isoCode)])}</option>
@@ -128,6 +144,8 @@ export default function App() {
                     updateKeyValidation={updateKeyValidation}
                 />
             </fieldset>
+
+            <CopySettings />
 
             {/* Privacy & Storage */}
             <PrivacySettings

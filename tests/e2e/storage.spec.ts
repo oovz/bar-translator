@@ -16,7 +16,7 @@ test('switches credentials per device and keeps shared keys after choosing local
         });
     });
     await page.reload();
-    await page.getByText('API Key', { exact: true }).click();
+    await page.getByText(await page.evaluate(() => chrome.i18n.getMessage('apiKeyLabel')), { exact: true }).click();
     const key = page.locator('[data-id="deepl"] input');
     await expect(key).toHaveValue('device-key:fx');
     await selector.selectOption('sync');
@@ -38,7 +38,7 @@ test('switches credentials per device and keeps shared keys after choosing local
     expect(await page.evaluate(() => chrome.storage.sync.get(null))).toEqual(synced);
     await page.reload();
     await expect(selector).toHaveValue('local');
-    await page.getByText('API Key', { exact: true }).click();
+    await page.getByText(await page.evaluate(() => chrome.i18n.getMessage('apiKeyLabel')), { exact: true }).click();
     await expect(key).toHaveValue('device-key:fx');
 });
 
@@ -52,7 +52,7 @@ for (const stage of ['destination', 'selection', 'cleanup'] as const) {
             } });
         });
         await page.reload();
-        await page.getByText('API Key', { exact: true }).click();
+        await page.getByText(await page.evaluate(() => chrome.i18n.getMessage('apiKeyLabel')), { exact: true }).click();
         await page.evaluate(failure => {
             const area = failure === 'destination' ? chrome.storage.sync : chrome.storage.local;
             const operation = failure === 'cleanup' ? 'remove' : 'set';
@@ -78,7 +78,7 @@ for (const stage of ['destination', 'selection', 'cleanup'] as const) {
         await expect(selector).toBeEnabled();
         await page.reload();
         await expect(selector).toHaveValue('sync');
-        await page.getByText('API Key', { exact: true }).click();
+        await page.getByText(await page.evaluate(() => chrome.i18n.getMessage('apiKeyLabel')), { exact: true }).click();
         await expect(page.locator('[data-id="deepl"] input')).toHaveValue('recoverable-key:fx');
         expect(await page.evaluate(() => chrome.storage.local.get('apiKeys_local'))).toEqual({});
     });

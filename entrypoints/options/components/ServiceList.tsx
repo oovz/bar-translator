@@ -3,13 +3,16 @@ import { t } from '@/utils/i18n';
 import Sortable from 'sortablejs';
 import { getServiceDefinition } from '@/services/base';
 import { DeepLTranslationService } from '@/services/deepl';
+import { getPreferences } from '@/utils/storage';
+import { hasProviderAccess, hasAnyProviderAccess, requestProviderAccess, removeProviderAccess, PROVIDER_ORIGINS } from '@/utils/permissions';
+import type { PreferenceUpdate } from '../hooks/usePreferences';
 import { SERVICE_TO_STORAGE_KEY, type ServiceId, type TranslationService } from '@/src/types';
 
 interface ServiceListProps {
     readonly services: ReturnType<typeof import('@/services/base').getAllServiceDefinitions>;
     readonly preferences: import('@/src/types').UserPreferences;
     readonly apiKeys: import('@/src/types').StoredApiKeys;
-    readonly updatePreferences: (prefs: Partial<import('@/src/types').UserPreferences>) => void;
+    readonly updatePreferences: (prefs: PreferenceUpdate) => Promise<boolean>;
     readonly saveApiKey: (serviceId: ServiceId, key: string) => void;
     readonly updateKeyValidation: (serviceId: ServiceId, key: string, isValid: boolean) => Promise<void>;
 }
@@ -26,10 +29,17 @@ export function ServiceList({
 }: ServiceListProps) {
     const serviceListRef = useRef<HTMLUListElement>(null);
     const sortableRef = useRef<Sortable | null>(null);
+    const testedKeys = useRef<Partial<Record<ServiceId, string>>>({});
+    const accessRevision = useRef(0);
+    const keyTestAttempts = useRef<Partial<Record<ServiceId, symbol>>>({});
     const [expandedService, setExpandedService] = useState<ServiceId | null>(null);
     const [validationState, setValidationState] = useState<Record<string, ValidationState>>({});
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
     const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
+    const [anyAccess, setAnyAccess] = useState<Partial<Record<ServiceId, boolean>>>({});
+    const [access, setAccess] = useState<Partial<Record<ServiceId, boolean>>>({});
+    const [busy, setBusy] = useState<ServiceId | null>(null);
+    const [permissionError, setPermissionError] = useState('');
     const [keyChangedSinceValidation, setKeyChangedSinceValidation] = useState<Record<string, boolean>>({});
 
     const enabledServices = preferences.fallbackOrder;
@@ -43,24 +53,124 @@ export function ServiceList({
     const isServiceReady = (serviceId: ServiceId): boolean => {
         const service = services.find(s => s.id === serviceId);
         if (!service) return false;
+        if (!access[serviceId]) return false;
         if (!service.requiresApiKey) return true;
         const creds = getApiKeyForService(serviceId);
-        return creds?.validated === true;
+        return Boolean(creds?.key.trim());
+    };
+
+    useEffect(() => {
+        let active = true;
+        const refresh = async () => {
+            const current = ++accessRevision.current;
+            try {
+                const grants = await Promise.all(services.map(async service => {
+                    const [all, any] = await Promise.all([hasProviderAccess(service.id), hasAnyProviderAccess(service.id)]);
+                    return { id: service.id, all, any };
+                }));
+                if (active && current === accessRevision.current) {
+                    setAccess(Object.fromEntries(grants.map(grant => [grant.id, grant.all])));
+                    setAnyAccess(Object.fromEntries(grants.map(grant => [grant.id, grant.any])));
+                }
+            } catch {
+                if (active && current === accessRevision.current) setPermissionError(t('permissionCheckFailed'));
+            }
+        };
+        void refresh();
+        chrome.permissions.onAdded.addListener(refresh);
+        chrome.permissions.onRemoved.addListener(refresh);
+        return () => {
+            active = false;
+            chrome.permissions.onAdded.removeListener(refresh);
+            chrome.permissions.onRemoved.removeListener(refresh);
+        };
+    }, [services]);
+
+    const changeService = async (serviceId: ServiceId, enabled: boolean, grant?: Promise<boolean>) => {
+        setBusy(serviceId);
+        setPermissionError('');
+        try {
+            let removalFailed = false;
+            if (enabled) {
+                if (!await grant) throw new Error(t('permissionDenied'));
+                ++accessRevision.current;
+                setAccess(previous => ({ ...previous, [serviceId]: true }));
+                setAnyAccess(previous => ({ ...previous, [serviceId]: PROVIDER_ORIGINS[serviceId].length > 0 }));
+            } else {
+                try {
+                    await removeProviderAccess(serviceId);
+                    ++accessRevision.current;
+                    setAccess(previous => ({ ...previous, [serviceId]: PROVIDER_ORIGINS[serviceId].length === 0 }));
+                    setAnyAccess(previous => ({ ...previous, [serviceId]: false }));
+                } catch {
+                    removalFailed = true;
+                }
+            }
+            const saved = await updatePreferences(current => {
+                const order = current.fallbackOrder.filter(id => id !== serviceId);
+                if (enabled) order.push(serviceId);
+                return { fallbackOrder: order };
+            });
+            if (saved === false) {
+                // Do not retain newly granted access for an enablement that did
+                // not persist; another settings page may already have enabled it.
+                if (enabled && !(await getPreferences()).fallbackOrder.includes(serviceId)) {
+                    try {
+                        await removeProviderAccess(serviceId);
+                        ++accessRevision.current;
+                        setAccess(previous => ({ ...previous, [serviceId]: PROVIDER_ORIGINS[serviceId].length === 0 }));
+                        setAnyAccess(previous => ({ ...previous, [serviceId]: false }));
+                    } catch {
+                        throw new Error(`${t('settingsSaveFailed')} ${t('permissionRemoveFailed')}`);
+                    }
+                }
+                throw new Error(t('settingsSaveFailed'));
+            }
+            if (removalFailed) setPermissionError(t('permissionRemoveFailed'));
+        } catch (error) {
+            setPermissionError(error instanceof Error ? error.message : t('permissionChangeFailed'));
+        } finally {
+            setBusy(null);
+        }
     };
 
     const toggleService = (serviceId: ServiceId) => {
-        const currentOrder = [...preferences.fallbackOrder];
-        const idx = currentOrder.indexOf(serviceId);
-        if (idx >= 0) {
-            currentOrder.splice(idx, 1);
-        } else {
-            currentOrder.push(serviceId);
+        const enabled = !preferences.fallbackOrder.includes(serviceId);
+        // Permission request must run before the first await, during this user click.
+        const grant = enabled ? requestProviderAccess(serviceId) : undefined;
+        void changeService(serviceId, enabled, grant);
+    };
+
+    const grantAccess = (serviceId: ServiceId) => {
+        const grant = requestProviderAccess(serviceId);
+        setBusy(serviceId);
+        setPermissionError('');
+        void grant.then(granted => {
+            if (!granted) throw new Error(t('permissionDenied'));
+            ++accessRevision.current;
+            setAccess(previous => ({ ...previous, [serviceId]: true }));
+            setAnyAccess(previous => ({ ...previous, [serviceId]: PROVIDER_ORIGINS[serviceId].length > 0 }));
+        }).catch(() => setPermissionError(t('permissionDenied'))).finally(() => setBusy(null));
+    };
+
+    const releaseAccess = async (serviceId: ServiceId) => {
+        setBusy(serviceId);
+        setPermissionError('');
+        try {
+            await removeProviderAccess(serviceId);
+            ++accessRevision.current;
+            setAccess(previous => ({ ...previous, [serviceId]: false }));
+            setAnyAccess(previous => ({ ...previous, [serviceId]: false }));
+        } catch {
+            setPermissionError(t('permissionRemoveFailed'));
+        } finally {
+            setBusy(null);
         }
-        updatePreferences({ fallbackOrder: currentOrder });
     };
 
     const handleApiKeyChange = (serviceId: ServiceId, key: string) => {
         saveApiKey(serviceId, key);
+        setValidationErrors(previous => ({ ...previous, [serviceId]: '' }));
         setKeyChangedSinceValidation(prev => ({ ...prev, [serviceId]: true }));
         if (validationState[serviceId] === 'valid') {
             setValidationState(prev => ({ ...prev, [serviceId]: 'idle' }));
@@ -68,26 +178,36 @@ export function ServiceList({
     };
 
     const handleValidateKey = async (serviceId: ServiceId, key: string) => {
+        const attempt = Symbol();
+        keyTestAttempts.current[serviceId] = attempt;
+        testedKeys.current[serviceId] = key;
         setValidationState(prev => ({ ...prev, [serviceId]: 'validating' }));
         setValidationErrors(prev => ({ ...prev, [serviceId]: '' }));
 
         try {
+            if (!enabledServices.includes(serviceId) || !await hasProviderAccess(serviceId)) {
+                setAccess(previous => ({ ...previous, [serviceId]: false }));
+                throw new Error(t('testNeedsAccess'));
+            }
             const service = new DeepLTranslationService(getServiceDefinition('deepl'));
             const result = await service.validateApiKey(key);
+            if (keyTestAttempts.current[serviceId] !== attempt) return;
             await updateKeyValidation(serviceId, key, result.valid);
+            if (keyTestAttempts.current[serviceId] !== attempt) return;
 
             if (result.valid) {
                 setValidationState(prev => ({ ...prev, [serviceId]: 'valid' }));
                 setKeyChangedSinceValidation(prev => ({ ...prev, [serviceId]: false }));
             } else {
                 setValidationState(prev => ({ ...prev, [serviceId]: 'error' }));
-                setValidationErrors(prev => ({ ...prev, [serviceId]: result.error || t('invalidApiKey') }));
+                setValidationErrors(prev => ({ ...prev, [serviceId]: t('keyTestFailed') }));
             }
         } catch (e) {
+            if (keyTestAttempts.current[serviceId] !== attempt) return;
             setValidationState(prev => ({ ...prev, [serviceId]: 'error' }));
             setValidationErrors(prev => ({
                 ...prev,
-                [serviceId]: e instanceof Error ? e.message : 'Validation error'
+                [serviceId]: e instanceof Error && e.message === 'API key changed. Test the current key again.' ? t('keyChangedDuringTest') : t('keyTestFailed')
             }));
         }
     };
@@ -114,7 +234,11 @@ export function ServiceList({
                 if (moved === undefined) return;
                 enabledServices.splice(evt.newIndex, 0, moved);
 
-                updatePreferences({ fallbackOrder: enabledServices });
+                updatePreferences(current => {
+                    const ordered = enabledServices.filter(id => current.fallbackOrder.includes(id));
+                    const added = current.fallbackOrder.filter(id => !enabledServices.includes(id));
+                    return { fallbackOrder: [...ordered, ...added] };
+                });
             },
         });
 
@@ -129,11 +253,11 @@ export function ServiceList({
     const renderApiKeyInput = (serviceId: ServiceId, svc: TranslationService) => {
         const creds = getApiKeyForService(serviceId);
         const apiKey = creds?.key || '';
-        const state = validationState[serviceId] || 'idle';
+        const state = testedKeys.current[serviceId] === apiKey ? validationState[serviceId] || 'idle' : 'idle';
         const keyChanged = keyChangedSinceValidation[serviceId];
 
-        let buttonText = 'Test';
-        let buttonDisabled = !apiKey || state === 'validating';
+        let buttonText = t('testKey');
+        let buttonDisabled = !apiKey.trim() || state === 'validating' || !enabledServices.includes(serviceId) || !access[serviceId];
         let buttonClass = 'btn btn-sm btn-primary';
 
         if (state === 'validating') {
@@ -153,6 +277,7 @@ export function ServiceList({
                         {...(showKeys[serviceId] ? { type: 'text' as const } : { type: 'password' as const })}
                         class="input"
                         placeholder={t('enterApiKey', [svc.name])}
+                        aria-label={t('enterApiKey', [svc.name])}
                         value={apiKey}
                         onInput={(e) => handleApiKeyChange(serviceId, e.currentTarget.value)}
                         disabled={state === 'validating'}
@@ -174,8 +299,8 @@ export function ServiceList({
                         {buttonText}
                     </button>
                 </div>
-                {validationErrors[serviceId] && (
-                    <div style="color: var(--danger-color); font-size: 10px; margin-top: 4px;">
+                {testedKeys.current[serviceId] === apiKey && validationErrors[serviceId] && (
+                    <div role="alert" style="color: var(--danger-color); font-size: 10px; margin-top: 4px;">
                         {validationErrors[serviceId]}
                     </div>
                 )}
@@ -184,8 +309,9 @@ export function ServiceList({
     };
 
     return (
-        <div class="section">
+        <div class="section" id="providers" tabIndex={-1}>
             <div class="section-title">{t('sectionTranslationServices')}</div>
+            {permissionError && <div role="alert">{permissionError}</div>}
             <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">
                 {t('servicesDesc')}
             </div>
@@ -206,24 +332,28 @@ export function ServiceList({
                                     <span class="service-name">{svc.name}</span>
                                     {idx === 0 && <span class="badge badge-primary">{t('primary')}</span>}
                                     {ready ? (
-                                        <span class="badge badge-success">✓</span>
+                                        <span class="badge badge-success" aria-label={t('providerReady')}>✓</span>
+                                    ) : !access[serviceId] ? (
+                                        <span class="badge badge-warning">{t('providerPermissionRequired')}</span>
                                     ) : svc.requiresApiKey ? (
                                         <span class="badge badge-warning">{t('keyNeeded')}</span>
                                     ) : null}
                                 </div>
                                 <div class="service-actions">
+                                    {!access[serviceId] && <button class="btn btn-sm" disabled={busy !== null} onClick={() => grantAccess(serviceId)}>{t('grantAccess')}</button>}
                                     {svc.requiresApiKey && (
                                         <button
                                             class="btn btn-sm"
                                             onClick={() => setExpandedService(isExpanded ? null : serviceId)}
                                         >
-                                            {isExpanded ? '▲' : 'API Key'}
+                                            {isExpanded ? '▲' : t('apiKeyLabel')}
                                         </button>
                                     )}
                                     <button
                                         class="btn btn-sm"
                                         onClick={() => toggleService(serviceId)}
                                         title="Disable service"
+                                        disabled={busy !== null}
                                     >
                                         ✕
                                     </button>
@@ -258,18 +388,20 @@ export function ServiceList({
                                             )}
                                         </div>
                                         <div class="service-actions">
+                                            {anyAccess[serviceId] && PROVIDER_ORIGINS[serviceId].length > 0 && <button class="btn btn-sm" disabled={busy !== null} onClick={() => { void releaseAccess(serviceId); }}>{t('removeAccess')}</button>}
                                             {svc.requiresApiKey && (
                                                 <button
                                                     class="btn btn-sm"
                                                     onClick={() => setExpandedService(isExpanded ? null : serviceId)}
                                                 >
-                                                    {isExpanded ? '▲' : 'API Key'}
+                                                    {isExpanded ? '▲' : t('apiKeyLabel')}
                                                 </button>
                                             )}
                                             <button
                                                 class="btn btn-sm btn-primary"
                                                 onClick={() => toggleService(serviceId)}
                                                 title="Enable service"
+                                                disabled={busy !== null}
                                             >
                                                 +
                                             </button>

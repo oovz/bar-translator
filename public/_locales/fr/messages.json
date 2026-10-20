@@ -288,5 +288,97 @@
     },
     "lang_variant_uk": {
         "message": "UK (en-GB)"
+    },
+    "omniboxCopyAction": {
+        "message": "Copier la traduction — Appuyez sur Entrée"
+    },
+    "omniboxCopyOff": {
+        "message": "Copie désactivée — Ouvrir les paramètres"
+    },
+    "omniboxSettingsAction": {
+        "message": "Ouvrir les paramètres — Appuyez sur Entrée"
+    },
+    "omniboxWarning": {
+        "message": "Attention : $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "providerPermissionRequired": {
+        "message": "Autorisation requise"
+    },
+    "providerMissingKey": {
+        "message": "Clé API requise"
+    },
+    "providerInvalidKey": {
+        "message": "Clé API refusée"
+    },
+    "providerQuotaExceeded": {
+        "message": "Quota de traduction dépassé"
+    },
+    "providerTimedOut": {
+        "message": "Délai de traduction dépassé"
+    },
+    "providerNetworkError": {
+        "message": "Échec de la requête réseau"
+    },
+    "providerUnavailable": {
+        "message": "Service de traduction indisponible"
+    },
+    "providerResponseError": {
+        "message": "Impossible de lire la réponse de traduction"
+    },
+    "omniboxAllFailed": {
+        "message": "Échec de la traduction."
+    },
+    "omniboxNoProviders": {
+        "message": "Aucun service activé."
+    },
+    "permissionCheckFailed": {
+        "message": "Impossible de vérifier les autorisations. Réessayez."
+    },
+    "permissionDenied": {
+        "message": "Autorisation non accordée. Réessayez pour activer cette fonction."
+    },
+    "permissionRemoveFailed": {
+        "message": "Impossible de retirer l’autorisation. Réessayez."
+    },
+    "settingsSaveFailed": {
+        "message": "Impossible d’enregistrer les paramètres. Réessayez."
+    },
+    "permissionChangeFailed": {
+        "message": "Impossible de modifier l’autorisation. Réessayez."
+    },
+    "testNeedsAccess": {
+        "message": "Activez le service et accordez l’autorisation avant de tester."
+    },
+    "keyChangedDuringTest": {
+        "message": "La clé API a changé. Testez la clé actuelle."
+    },
+    "keyTestFailed": {
+        "message": "Impossible de tester cette clé. Vérifiez la clé, les autorisations et la connexion, puis réessayez."
+    },
+    "testKey": {
+        "message": "Tester"
+    },
+    "providerReady": {
+        "message": "Prêt"
+    },
+    "grantAccess": {
+        "message": "Autoriser"
+    },
+    "sectionCopy": {
+        "message": "Copier la traduction"
+    },
+    "copySettingsDesc": {
+        "message": "Autorisez Entrée à copier les traductions sur cet appareil. Les aperçus restent disponibles si la copie est désactivée."
+    },
+    "enableCopy": {
+        "message": "Activer la copie avec Entrée"
+    },
+    "removeAccess": {
+        "message": "Retirer l’autorisation"
     }
 }

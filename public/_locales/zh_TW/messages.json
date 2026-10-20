@@ -286,5 +286,97 @@
     },
     "lang_variant_uk": {
         "message": "英國 (en-GB)"
+    },
+    "omniboxCopyAction": {
+        "message": "複製翻譯 — 按 Enter"
+    },
+    "omniboxCopyOff": {
+        "message": "複製已關閉 — 開啟設定"
+    },
+    "omniboxSettingsAction": {
+        "message": "開啟設定 — 按 Enter"
+    },
+    "omniboxWarning": {
+        "message": "警告：$1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "providerPermissionRequired": {
+        "message": "需要存取權限"
+    },
+    "providerMissingKey": {
+        "message": "需要 API 金鑰"
+    },
+    "providerInvalidKey": {
+        "message": "API 金鑰遭拒"
+    },
+    "providerQuotaExceeded": {
+        "message": "翻譯配額已用盡"
+    },
+    "providerTimedOut": {
+        "message": "翻譯逾時"
+    },
+    "providerNetworkError": {
+        "message": "網路請求失敗"
+    },
+    "providerUnavailable": {
+        "message": "翻譯服務無法使用"
+    },
+    "providerResponseError": {
+        "message": "無法讀取翻譯回應"
+    },
+    "omniboxAllFailed": {
+        "message": "翻譯失敗。"
+    },
+    "omniboxNoProviders": {
+        "message": "未啟用翻譯服務。"
+    },
+    "permissionCheckFailed": {
+        "message": "無法檢查存取權限，請重試。"
+    },
+    "permissionDenied": {
+        "message": "未取得存取權限，請重試以啟用此功能。"
+    },
+    "permissionRemoveFailed": {
+        "message": "無法移除存取權限，請重試。"
+    },
+    "settingsSaveFailed": {
+        "message": "無法儲存設定，請重試。"
+    },
+    "permissionChangeFailed": {
+        "message": "無法變更存取權限，請重試。"
+    },
+    "testNeedsAccess": {
+        "message": "請先啟用服務並授予存取權限，再測試金鑰。"
+    },
+    "keyChangedDuringTest": {
+        "message": "API 金鑰已變更，請測試目前的金鑰。"
+    },
+    "keyTestFailed": {
+        "message": "無法測試此金鑰，請檢查金鑰、存取權限及網路連線後重試。"
+    },
+    "testKey": {
+        "message": "測試"
+    },
+    "providerReady": {
+        "message": "可用"
+    },
+    "grantAccess": {
+        "message": "授予存取權限"
+    },
+    "sectionCopy": {
+        "message": "複製翻譯"
+    },
+    "copySettingsDesc": {
+        "message": "允許在此裝置上按 Enter 複製翻譯。關閉複製後，仍可使用翻譯預覽。"
+    },
+    "enableCopy": {
+        "message": "啟用 Enter 複製"
+    },
+    "removeAccess": {
+        "message": "移除存取權限"
     }
 }

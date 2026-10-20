@@ -18,6 +18,10 @@ import {
     type CredentialStorageType,
 } from '@/src/types';
 
+export type PreferenceUpdate = Partial<UserPreferences> | ((current: UserPreferences) => Partial<UserPreferences>);
+
+const PREFERENCES_LOCK = 'bar-translator-preferences';
+
 export function usePreferences() {
     const [preferences, setPreferencesState] = useState<UserPreferences>(DEFAULT_PREFERENCES);
     const [apiKeys, setApiKeysState] = useState<StoredApiKeys>({});
@@ -28,23 +32,35 @@ export function usePreferences() {
 
     // Load initial data
     useEffect(() => {
+        let active = true;
+        let revision = 0;
         async function loadData() {
+            const current = ++revision;
             try {
                 const [prefs, keys, credentialStorageType] = await Promise.all([
                     getPreferences(),
                     getApiKeys(),
                     getCredentialStorageType(),
                 ]);
+                if (!active || current !== revision) return;
                 setPreferencesState(prefs);
                 setApiKeysState(keys);
                 setStorageType(credentialStorageType);
             } catch (err) {
-                setError(err instanceof Error ? err.message : 'Failed to load settings');
+                if (active && current === revision) setError(err instanceof Error ? err.message : 'Failed to load settings');
             } finally {
-                setLoading(false);
+                if (active && current === revision) setLoading(false);
             }
         }
-        loadData();
+        void loadData();
+        const refresh = (changes: Record<string, chrome.storage.StorageChange>) => {
+            if (['preferences', 'apiKeys', 'apiKeys_local', 'credentialStorageType'].some(key => key in changes)) void loadData();
+        };
+        chrome.storage.onChanged.addListener(refresh);
+        return () => {
+            active = false;
+            chrome.storage.onChanged.removeListener(refresh);
+        };
     }, []);
 
     const changeStorageType = useCallback(async (nextType: CredentialStorageType) => {
@@ -63,24 +79,31 @@ export function usePreferences() {
         }
     }, []);
 
-    // Save preferences
-    const updatePreferences = useCallback(async (updates: Partial<UserPreferences>) => {
+    // Merge under one origin-wide lock so other settings pages and delayed
+    // permission dialogs cannot overwrite newer provider or language choices.
+    const updatePreferences = useCallback(async (updates: PreferenceUpdate) => {
+        setError(null);
         try {
-            const newPrefs = { ...preferences, ...updates };
-            setPreferencesState(newPrefs);
-            await setPreferences(newPrefs);
+            return await navigator.locks.request(PREFERENCES_LOCK, async () => {
+                const current = await getPreferences();
+                const patch = typeof updates === 'function' ? updates(current) : updates;
+                const next = { ...current, ...patch };
+                await setPreferences(next);
+                setPreferencesState(next);
+                return true;
+            });
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save preferences');
-            // Revert on error? For now, simple optimistic UI is fine.
+            return false;
         }
-    }, [preferences]);
+    }, []);
 
     // Save API Key
     const saveApiKey = useCallback(async (serviceId: ServiceId, key: string) => {
         try {
             const credential: ApiCredential = {
                 key,
-                validated: false, // Must be validated explicitly
+                validated: false, // Optional test status; never gates translation.
                 tier: key.endsWith(':fx') ? 'free' : 'pro' // Simple DeepL heuristic
             };
 

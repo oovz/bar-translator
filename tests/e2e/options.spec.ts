@@ -9,18 +9,23 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 import type { UserPreferences } from '@/src/types';
+import { mockOptionalPermissionsForSettings } from './permissions';
 
 // Extension messages follow the browser's UI locale, which can differ from page locale.
 async function messages(page: Page) {
     return page.evaluate(() => ({
+        title: `${chrome.i18n.getMessage('extName')} ${chrome.i18n.getMessage('settings')}`,
         sectionDefaultLanguages: chrome.i18n.getMessage('sectionDefaultLanguages'),
         sectionRegionalDialects: chrome.i18n.getMessage('sectionRegionalDialects'),
         sectionTranslationServices: chrome.i18n.getMessage('sectionTranslationServices'),
+        sectionCopy: chrome.i18n.getMessage('sectionCopy'),
         sectionPrivacy: chrome.i18n.getMessage('sectionPrivacy'),
         lang_zh: chrome.i18n.getMessage('lang_zh'),
         primary: chrome.i18n.getMessage('primary'),
         labelStorage: chrome.i18n.getMessage('labelStorage'),
         storageDesc: chrome.i18n.getMessage('storageDesc'),
+        apiKey: chrome.i18n.getMessage('apiKeyLabel'),
+        testKey: chrome.i18n.getMessage('testKey'),
     }));
 }
 
@@ -33,7 +38,7 @@ test.describe('Options Page', () => {
         const text = await messages(page);
 
         // Check title
-        await expect(page).toHaveTitle(/Bar Translator Settings/i);
+        await expect(page).toHaveTitle(text.title);
 
         // Header should be gone (refactoring requirement)
         await expect(page.locator('h1', { hasText: 'Bar Translate Settings' })).not.toBeVisible();
@@ -42,6 +47,7 @@ test.describe('Options Page', () => {
         await expect(page.locator('.section-title', { hasText: text.sectionDefaultLanguages })).toBeVisible();
         await expect(page.locator('.section-title', { hasText: text.sectionRegionalDialects })).toBeVisible();
         await expect(page.locator('.section-title', { hasText: text.sectionTranslationServices })).toBeVisible();
+        await expect(page.locator('.section-title', { hasText: text.sectionCopy })).toBeVisible();
         await expect(page.locator('.section-title', { hasText: text.sectionPrivacy })).toBeVisible();
     });
 
@@ -65,7 +71,7 @@ test.describe('Options Page', () => {
 
         await expect.poll(() => page.evaluate(async () => {
             const { preferences } = await chrome.storage.sync.get<{ preferences: UserPreferences }>('preferences');
-            return preferences.defaultSourceLang;
+            return preferences?.defaultSourceLang;
         })).toBe('fr');
 
         await page.reload();
@@ -89,7 +95,7 @@ test.describe('Options Page', () => {
 
         await expect.poll(() => page.evaluate(async () => {
             const { preferences } = await chrome.storage.sync.get<{ preferences: UserPreferences }>('preferences');
-            return preferences.languageOverrides.zh;
+            return preferences?.languageOverrides?.zh;
         })).toBe('zh-TW');
 
         await page.reload();
@@ -98,8 +104,9 @@ test.describe('Options Page', () => {
         await expect(reloadedZhSelect).toHaveValue('zh-TW');
     });
 
-    test('can enable a translation provider', async ({ context, extensionId }) => {
+    test('can enable a translation provider through a mocked permission boundary', async ({ context, extensionId }) => {
         const page = await context.newPage();
+        await mockOptionalPermissionsForSettings(page);
         await page.goto(`chrome-extension://${extensionId}/options.html`);
         const text = await messages(page);
 
@@ -112,32 +119,53 @@ test.describe('Options Page', () => {
 
         await page.locator('[data-id="deepl"] [title="Enable service"]').click();
         await expect(serviceList.locator('[data-id="deepl"]')).toBeVisible();
+        expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([{ origins: [
+            'https://api-free.deepl.com/*', 'https://api.deepl.com/*',
+        ] }]);
     });
 
-    test('can enter API key for DeepL', async ({ context, extensionId }) => {
+    test('can enter a DeepL key while disabled before enabling with mocked access', async ({ context, extensionId }) => {
         const page = await context.newPage();
+        await mockOptionalPermissionsForSettings(page);
         await page.goto(`chrome-extension://${extensionId}/options.html`);
+        const text = await messages(page);
 
         // Wait for service lists to render
         await page.waitForSelector('.service-list');
 
-        const serviceList = page.locator('.service-list').first();
-        const enabledDeepL = serviceList.locator('li', { hasText: 'DeepL' });
-
-        await page.locator('[data-id="deepl"] [title="Enable service"]').click();
-
-        // Now DeepL should be in the enabled list
-        await expect(enabledDeepL).toBeVisible();
-
-        // Expand API Key section
-        const apiKeyBtn = enabledDeepL.locator('button', { hasText: 'API Key' });
+        const deepl = page.locator('[data-id="deepl"]');
+        const apiKeyBtn = deepl.getByRole('button', { name: text.apiKey, exact: true });
         await apiKeyBtn.click();
 
-        const keyInput = enabledDeepL.locator('input');
+        const keyInput = deepl.locator('input');
         await expect(keyInput).toBeVisible();
 
         await keyInput.fill('test-api-key');
         await expect(keyInput).toHaveValue('test-api-key');
+        await expect(deepl.getByRole('button', { name: text.testKey, exact: true })).toBeDisabled();
+        expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([]);
+        await deepl.locator('[title="Enable service"]').click();
+        await expect(deepl).toHaveClass(/enabled/);
+        await expect(keyInput).toHaveValue('test-api-key');
+        await expect(deepl.getByRole('button', { name: text.testKey, exact: true })).toBeEnabled();
+    });
+
+    test('grants and removes copy access through a mocked permission boundary', async ({ context, extensionId }) => {
+        const page = await context.newPage();
+        await mockOptionalPermissionsForSettings(page);
+        await page.goto(`chrome-extension://${extensionId}/options.html`);
+        const copy = page.locator('#copy input[type="checkbox"]');
+        await expect(copy).not.toBeChecked();
+        await copy.check();
+        await expect(copy).toBeChecked();
+        expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([
+            { permissions: ['clipboardWrite', 'offscreen'] },
+        ]);
+        await copy.uncheck();
+        await expect(copy).not.toBeChecked();
+        expect(await page.evaluate(() => window.settingsPermissionMock.removals)).toEqual([
+            { permissions: ['clipboardWrite', 'offscreen'] },
+        ]);
     });
 
     test('shows security warning tooltip', async ({ context, extensionId }) => {

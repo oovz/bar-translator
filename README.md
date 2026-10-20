@@ -2,16 +2,20 @@
 
 # Bar Translator
 
-Translate text from Chrome's address bar and press Enter to copy the result, without leaving your current tab.
+Translate text from Chrome's address bar and optionally press Enter to copy the result, without leaving your current tab.
 
 [![Available in the Chrome Web Store](https://user-images.githubusercontent.com/22908993/166417152-f870bfbd-1770-4c28-b69d-a7303aebc9a6.png)](https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno)
 
 ## Usage
 
+On a new installation, settings open automatically. Grant access to your chosen providers and optionally enable **Enter to copy**. You can use translation previews without clipboard access.
+
 1. Focus the address bar with Ctrl+L (Windows/Linux) or Cmd+L (macOS).
 2. Type `t` followed by a space to enter translation mode.
 3. Enter your text, optionally prefixed with a language code.
-4. Wait for the translation preview, then press Enter to copy it.
+4. Wait for the translation preview, then press Enter to copy it if copying is enabled.
+
+The primary result contains only the translated text. Additional suggestions show copy actions and provider warnings. Select a settings action and press Enter to fix missing permissions or credentials. When a settings problem blocks translation, pressing Enter on the error also opens settings. Temporary network errors do not redirect you. After changing settings or permissions, edit the input or enter translation mode again to refresh completed suggestions.
 
 | Input | Translation |
 | --- | --- |
@@ -34,11 +38,11 @@ Previews start after a 300 ms pause in typing. The address bar shows loading tex
 | Lingva Translate | Alternative frontend for Google Translate; no API key required. |
 | DeepL | Official API; requires a Free or Pro API key. |
 
-Enable the providers you allow to receive your text, then drag them into order in settings. The first available provider is tried first. If it fails, later enabled providers may receive the same text. Disabling every provider pauses translation; the selection is saved across settings and browser restarts.
+Enable the providers you allow to receive your text, then drag them into order in settings. Enabling Google or DeepL requests access to that provider’s domains; DeepL requires both its Free and Pro domains regardless of your plan. Lingva currently needs no host permission because its API supports cross-origin requests. Disabling a provider releases its host access. Permission grants apply to this device; synced provider choices may need access granted again on another device. The first available provider is tried first. If it fails, later enabled providers may receive the same text. Disabling every provider pauses translation; the selection is saved across settings and browser restarts.
 
 Each provider is attempted once, in sequence. An attempt has up to four seconds, including reading the response, within a ten-second total budget. A timeout aborts that request and moves to the next available provider with the remaining time. If translation fails, the clipboard stays unchanged. Public web endpoints can become unavailable or change their response format.
 
-DeepL's **Test** button checks your key through the authenticated [usage endpoint](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits). Enable DeepL separately to use it for translation.
+You can enable DeepL before entering a key. Any supplied key is used for translation without a required test; rejected keys produce errors or fallback warnings. DeepL’s optional **Test** button checks your key through the authenticated [usage endpoint](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits), and is available only while DeepL is enabled and permitted. A failed test does not disable the provider.
 
 ## Run locally
 
@@ -53,7 +57,9 @@ pnpm dev
 
 This launches a browser with the extension loaded.
 
-## Privacy
+## Permissions and privacy
+
+Only extension storage is required at installation. Provider access and clipboard/offscreen access are optional. Clipboard access allows writing translations, not reading your clipboard. Turning off **Enter to copy** releases both clipboard and offscreen permissions. Settings do not open automatically on updates; missing access is shown in the address-bar preview.
 
 Translation requests go directly to your enabled providers. Translation content is sent only to those providers, and API keys go to their corresponding provider for translation and explicit key validation. Cancelling a request cannot undo text a provider has already received or any resulting billing.
 

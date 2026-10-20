@@ -19,42 +19,34 @@ chrome.runtime.onMessage.addListener(
         sendResponse: (response: { success: boolean; error?: string }) => void
     ) => {
         if (message.type === 'COPY_TO_CLIPBOARD') {
-            copyToClipboard(message.text)
-                .then(() => {
-                    sendResponse({ success: true });
-                })
-                .catch(() => {
-                    console.error('[Offscreen] Clipboard write failed');
-                    sendResponse({ success: false, error: 'Clipboard copy failed' });
-                });
-
-            // Return true to indicate we'll respond asynchronously
-            return true;
+            try {
+                copyToClipboard(message.text);
+                sendResponse({ success: true });
+            } catch {
+                console.error('[Offscreen] Clipboard write failed');
+                sendResponse({ success: false, error: 'Clipboard copy failed' });
+            }
         }
     }
 );
 
 /**
- * Write text to clipboard using the Clipboard API.
+ * Chrome's offscreen clipboard sample uses DOM copying because the document
+ * cannot receive focus: https://developer.chrome.com/docs/extensions/reference/api/offscreen
  */
-async function copyToClipboard(text: string): Promise<void> {
-    try {
-        await navigator.clipboard.writeText(text);
-    } catch {
-        // Offscreen documents cannot be focused, so use DOM copy if the Clipboard API rejects.
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-9999px';
-        document.body.appendChild(textArea);
-        textArea.select();
+function copyToClipboard(text: string): void {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
 
-        try {
-            if (!document.execCommand('copy')) {
-                throw new Error('Clipboard copy failed');
-            }
-        } finally {
-            document.body.removeChild(textArea);
+    try {
+        if (!document.execCommand('copy')) {
+            throw new Error('Clipboard copy failed');
         }
+    } finally {
+        textArea.remove();
     }
 }

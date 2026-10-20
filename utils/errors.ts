@@ -6,7 +6,7 @@
  * @module utils/errors
  */
 
-import type { TranslationErrorCode, ServiceId } from '@/src/types';
+import type { TranslationErrorCode, ServiceId, TranslationWarning } from '@/src/types';
 import { isRetryableError, shouldFallback } from '@/src/types';
 
 /**
@@ -17,6 +17,7 @@ export class TranslationError extends Error {
     readonly serviceId?: ServiceId;
     readonly retryable: boolean;
     readonly httpStatus?: number;
+    readonly warnings: readonly TranslationWarning[];
 
     constructor(
         code: TranslationErrorCode,
@@ -24,6 +25,7 @@ export class TranslationError extends Error {
         options?: {
             serviceId?: ServiceId;
             httpStatus?: number;
+            warnings?: readonly TranslationWarning[];
         }
     ) {
         super(message);
@@ -31,6 +33,7 @@ export class TranslationError extends Error {
         this.code = code;
         this.serviceId = options?.serviceId;
         this.httpStatus = options?.httpStatus;
+        this.warnings = options?.warnings ?? [];
         this.retryable = isRetryableError(code);
     }
 
@@ -46,6 +49,12 @@ export class TranslationError extends Error {
      */
     getUserMessage(): string {
         switch (this.code) {
+            case 'PERMISSION_REQUIRED':
+                return 'Provider access required. Please check your settings.';
+            case 'API_KEY_REQUIRED':
+                return 'API key required. Please check your settings.';
+            case 'NO_SERVICES_ENABLED':
+                return 'No translation services enabled. Enable at least one service in settings.';
             case 'TIMEOUT':
                 return 'Translation timed out. Please try again.';
             case 'NETWORK_ERROR':

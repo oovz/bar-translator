@@ -294,5 +294,97 @@
     },
     "lang_variant_uk": {
         "message": "UK (en-GB)"
+    },
+    "omniboxCopyAction": {
+        "message": "Copy translation — Press Enter"
+    },
+    "omniboxCopyOff": {
+        "message": "Copying is off — Open settings"
+    },
+    "omniboxSettingsAction": {
+        "message": "Open settings — Press Enter"
+    },
+    "omniboxWarning": {
+        "message": "Warning: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "providerPermissionRequired": {
+        "message": "Access required"
+    },
+    "providerMissingKey": {
+        "message": "API key required"
+    },
+    "providerInvalidKey": {
+        "message": "API key rejected"
+    },
+    "providerQuotaExceeded": {
+        "message": "Translation quota exceeded"
+    },
+    "providerTimedOut": {
+        "message": "Translation timed out"
+    },
+    "providerNetworkError": {
+        "message": "Network request failed"
+    },
+    "providerUnavailable": {
+        "message": "Translation provider unavailable"
+    },
+    "providerResponseError": {
+        "message": "Could not read translation response"
+    },
+    "omniboxAllFailed": {
+        "message": "Translation failed."
+    },
+    "omniboxNoProviders": {
+        "message": "No providers enabled."
+    },
+    "permissionCheckFailed": {
+        "message": "Could not check access. Please retry."
+    },
+    "permissionDenied": {
+        "message": "Access was not granted. Try again to enable this feature."
+    },
+    "permissionRemoveFailed": {
+        "message": "Could not remove access. Please retry."
+    },
+    "settingsSaveFailed": {
+        "message": "Could not save settings. Please retry."
+    },
+    "permissionChangeFailed": {
+        "message": "Could not change access. Please retry."
+    },
+    "testNeedsAccess": {
+        "message": "Enable the provider and grant access before testing."
+    },
+    "keyChangedDuringTest": {
+        "message": "API key changed. Test the current key again."
+    },
+    "keyTestFailed": {
+        "message": "Could not test this key. Check the key, access, and connection, then retry."
+    },
+    "testKey": {
+        "message": "Test"
+    },
+    "providerReady": {
+        "message": "Ready"
+    },
+    "grantAccess": {
+        "message": "Grant access"
+    },
+    "sectionCopy": {
+        "message": "Copy translation"
+    },
+    "copySettingsDesc": {
+        "message": "Allow Enter to copy translations on this device. Translation previews remain available when copying is off."
+    },
+    "enableCopy": {
+        "message": "Enable Enter to copy"
+    },
+    "removeAccess": {
+        "message": "Remove access"
     }
 }

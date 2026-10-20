@@ -286,5 +286,97 @@
     },
     "lang_variant_uk": {
         "message": "영국 (en-GB)"
+    },
+    "omniboxCopyAction": {
+        "message": "번역 복사 — Enter 누르기"
+    },
+    "omniboxCopyOff": {
+        "message": "복사 꺼짐 — 설정 열기"
+    },
+    "omniboxSettingsAction": {
+        "message": "설정 열기 — Enter 누르기"
+    },
+    "omniboxWarning": {
+        "message": "경고: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "providerPermissionRequired": {
+        "message": "접근 권한 필요"
+    },
+    "providerMissingKey": {
+        "message": "API 키 필요"
+    },
+    "providerInvalidKey": {
+        "message": "API 키가 거부되었습니다"
+    },
+    "providerQuotaExceeded": {
+        "message": "번역 할당량을 초과했습니다"
+    },
+    "providerTimedOut": {
+        "message": "번역 시간이 초과되었습니다"
+    },
+    "providerNetworkError": {
+        "message": "네트워크 요청 실패"
+    },
+    "providerUnavailable": {
+        "message": "번역 제공자를 사용할 수 없습니다"
+    },
+    "providerResponseError": {
+        "message": "번역 응답을 읽을 수 없습니다"
+    },
+    "omniboxAllFailed": {
+        "message": "번역에 실패했습니다."
+    },
+    "omniboxNoProviders": {
+        "message": "활성화된 제공자가 없습니다."
+    },
+    "permissionCheckFailed": {
+        "message": "접근 권한을 확인할 수 없습니다. 다시 시도하세요."
+    },
+    "permissionDenied": {
+        "message": "접근 권한이 허용되지 않았습니다. 이 기능을 켜려면 다시 시도하세요."
+    },
+    "permissionRemoveFailed": {
+        "message": "접근 권한을 제거할 수 없습니다. 다시 시도하세요."
+    },
+    "settingsSaveFailed": {
+        "message": "설정을 저장할 수 없습니다. 다시 시도하세요."
+    },
+    "permissionChangeFailed": {
+        "message": "접근 권한을 변경할 수 없습니다. 다시 시도하세요."
+    },
+    "testNeedsAccess": {
+        "message": "테스트 전에 제공자를 활성화하고 접근 권한을 허용하세요."
+    },
+    "keyChangedDuringTest": {
+        "message": "API 키가 변경되었습니다. 현재 키를 다시 테스트하세요."
+    },
+    "keyTestFailed": {
+        "message": "이 키를 테스트할 수 없습니다. 키, 접근 권한 및 연결을 확인하고 다시 시도하세요."
+    },
+    "testKey": {
+        "message": "테스트"
+    },
+    "providerReady": {
+        "message": "준비됨"
+    },
+    "grantAccess": {
+        "message": "접근 허용"
+    },
+    "sectionCopy": {
+        "message": "번역 복사"
+    },
+    "copySettingsDesc": {
+        "message": "이 기기에서 Enter로 번역을 복사하도록 허용합니다. 복사를 꺼도 번역 미리보기는 계속 사용할 수 있습니다."
+    },
+    "enableCopy": {
+        "message": "Enter로 복사 켜기"
+    },
+    "removeAccess": {
+        "message": "접근 권한 제거"
     }
 }

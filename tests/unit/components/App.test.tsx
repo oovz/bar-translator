@@ -37,6 +37,19 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('provider settings', () => {
+    it('releases newly granted access if provider enablement cannot be saved', async () => {
+        vi.mocked(chrome.permissions.remove).mockClear();
+        vi.mocked(chrome.permissions.request).mockImplementation(async () => true);
+        vi.mocked(chrome.storage.sync.set).mockRejectedValueOnce(new Error('Storage unavailable'));
+        const view = render(<App />);
+        await view.findByText('noServicesEnabled');
+        const deepl = within(view.getByText('DeepL').closest('li')!);
+        fireEvent.click(deepl.getByTitle('Enable service'));
+        await view.findByText('settingsSaveFailed');
+        expect(storedPreferences.fallbackOrder).toEqual([]);
+        expect(chrome.permissions.remove).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
+    });
+
     it('clears obsolete analytics browser storage and preserves unrelated data when settings open', async () => {
         const token = 'phc_yI0ofU7zKrbDyBlCEwGTfsT5EkfcGnmmUE2XRewGg3h';
         const keys = [
@@ -79,6 +92,53 @@ describe('provider settings', () => {
         await waitFor(() => expect(storedPreferences.fallbackOrder).toEqual([]));
     });
 
+    it('refreshes externally changed provider preferences and credentials, then cleans up its listener', async () => {
+        const view = render(<App />);
+        await view.findByText('noServicesEnabled');
+        const listener = vi.mocked(chrome.storage.onChanged.addListener).mock.calls.at(-1)![0];
+        storedPreferences = { ...storedPreferences, fallbackOrder: ['deepl'] };
+        storedKeys = { deepl: { key: 'externally-updated', validated: false } };
+        listener({ preferences: { newValue: storedPreferences }, apiKeys_local: { newValue: storedKeys } }, 'local');
+        await view.findByText('primary');
+        fireEvent.click(view.getByText('apiKeyLabel'));
+        expect((view.getByPlaceholderText('enterApiKey') as HTMLInputElement).value).toBe('externally-updated');
+        await view.findByLabelText('providerReady');
+        view.unmount();
+        await waitFor(() => expect(chrome.storage.onChanged.removeListener).toHaveBeenCalledWith(listener));
+    });
+
+    it('merges a delayed provider grant with newer provider and language changes from another settings page', async () => {
+        storedPreferences = { ...DEFAULT_PREFERENCES, fallbackOrder: ['google-web'] };
+        let grantDeepL!: (granted: boolean) => void;
+        const request = vi.spyOn(chrome.permissions, 'request').mockImplementation(() => new Promise<boolean>(resolve => { grantDeepL = resolve; }));
+        const locks = vi.spyOn(navigator.locks, 'request');
+        const first = render(<App />);
+        const firstRoot = first.container as HTMLElement;
+        await within(firstRoot).findByText('privacyDesc');
+        const second = render(<App />);
+        const secondRoot = second.container as HTMLElement;
+        await within(secondRoot).findByText('privacyDesc');
+        const deepL = within(within(firstRoot).getByText('DeepL').closest('li')!);
+        fireEvent.click(deepL.getByTitle('Enable service'));
+        expect(request).toHaveBeenCalledExactlyOnceWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
+
+        fireEvent.click(within(secondRoot).getByTitle('Disable service'));
+        await waitFor(() => expect(storedPreferences.fallbackOrder).toEqual([]));
+        const targetInput = secondRoot.querySelectorAll<HTMLInputElement>('.combobox-container input')[1]!;
+        fireEvent.focus(targetInput);
+        fireEvent.click(within(secondRoot).getByText('French'));
+        await waitFor(() => expect(storedPreferences.defaultTargetLang).toBe('fr'));
+        for (const [listener] of vi.mocked(chrome.storage.onChanged.addListener).mock.calls) {
+            listener({ preferences: { newValue: storedPreferences } }, 'sync');
+        }
+        first.rerender(<App />);
+
+        grantDeepL(true);
+        await waitFor(() => expect(storedPreferences.fallbackOrder).toEqual(['deepl']));
+        expect(storedPreferences.defaultTargetLang).toBe('fr');
+        expect(locks).toHaveBeenCalledWith('bar-translator-preferences', expect.any(Function));
+    });
+
     it('offers exactly the implemented providers', async () => {
         const view = render(<App />);
         await view.findByText('Google Translate (Web)');
@@ -87,35 +147,48 @@ describe('provider settings', () => {
         ]);
     });
 
-    it('validates a DeepL key without enabling a disabled provider', async () => {
+    it('does not test a key while its provider is disabled', async () => {
+        const fetchMock = vi.spyOn(globalThis, 'fetch');
+        const view = render(<App />);
+        await view.findByText('DeepL');
+        fireEvent.click(view.getByText('apiKeyLabel'));
+        expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.click(view.getByText('testKey'));
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('validates a DeepL key without changing provider enablement', async () => {
+        storedPreferences.fallbackOrder = ['deepl'];
         const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ character_count: 0, character_limit: 500000 })));
         vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock);
         const view = render(<App />);
         await view.findByText('DeepL');
-        fireEvent.click(view.getByText('API Key'));
-        fireEvent.click(view.getByText('Test'));
+        fireEvent.click(view.getByText('apiKeyLabel'));
+        fireEvent.click(view.getByText('testKey'));
         await view.findByText('valid');
         expect(storedKeys.deepl?.validated).toBe(true);
-        expect(storedPreferences.fallbackOrder).toEqual([]);
+        expect(storedPreferences.fallbackOrder).toEqual(['deepl']);
         expect(fetchMock).toHaveBeenCalledExactlyOnceWith('https://api-free.deepl.com/v2/usage', {
             method: 'GET', headers: { Authorization: 'DeepL-Auth-Key test-key:fx' },
         });
     });
 
-    it('shows a validation save error and leaves the provider disabled', async () => {
+    it('shows a validation save error and leaves the provider enabled', async () => {
+        storedPreferences.fallbackOrder = ['deepl'];
         vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'));
         vi.mocked(chrome.storage.local.set).mockImplementationOnce(async () => { throw new Error('Unable to save validation'); });
         const view = render(<App />);
         await view.findByText('DeepL');
-        fireEvent.click(view.getByText('API Key'));
-        fireEvent.click(view.getByText('Test'));
-        await view.findByText('Unable to save validation');
+        fireEvent.click(view.getByText('apiKeyLabel'));
+        fireEvent.click(view.getByText('testKey'));
+        await view.findByText('keyTestFailed');
         expect(view.queryByText('valid')).toBeNull();
         expect(storedKeys.deepl?.validated).toBe(false);
-        expect(storedPreferences.fallbackOrder).toEqual([]);
+        expect(storedPreferences.fallbackOrder).toEqual(['deepl']);
     });
 
-    it.each(['rejected', 'offline'])('reports %s credentials without validating or enabling DeepL', async failure => {
+    it.each(['rejected', 'offline'])('reports %s credentials without validating or disabling DeepL', async failure => {
+        storedPreferences.fallbackOrder = ['deepl'];
         const fetchMock = vi.spyOn(globalThis, 'fetch');
         if (failure === 'rejected') {
             fetchMock.mockResolvedValue(new Response('', { status: 403, statusText: 'Forbidden' }));
@@ -124,28 +197,29 @@ describe('provider settings', () => {
         }
         const view = render(<App />);
         await view.findByText('DeepL');
-        fireEvent.click(view.getByText('API Key'));
-        fireEvent.click(view.getByText('Test'));
-        await view.findByText(failure === 'rejected' ? 'Validation failed: Forbidden' : 'Network unavailable');
+        fireEvent.click(view.getByText('apiKeyLabel'));
+        fireEvent.click(view.getByText('testKey'));
+        await view.findByText('keyTestFailed');
         expect(storedKeys.deepl?.validated).toBe(false);
-        expect(storedPreferences.fallbackOrder).toEqual([]);
+        expect(storedPreferences.fallbackOrder).toEqual(['deepl']);
         expect(view.queryByText('valid')).toBeNull();
     });
 
     it('does not validate a replacement key when an earlier key check completes', async () => {
+        storedPreferences.fallbackOrder = ['deepl'];
         let finish!: (response: Response) => void;
         vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(resolve => { finish = resolve; }));
         const view = render(<App />);
         await view.findByText('DeepL');
-        fireEvent.click(view.getByText('API Key'));
-        fireEvent.click(view.getByText('Test'));
+        fireEvent.click(view.getByText('apiKeyLabel'));
+        fireEvent.click(view.getByText('testKey'));
         await view.findByText('checking');
         storedKeys = { deepl: { key: 'replacement-key:fx', validated: false, tier: 'free' } };
         finish(new Response('{}'));
-        await view.findByText('API key changed. Test the current key again.');
+        await view.findByText('keyChangedDuringTest');
         expect(storedKeys.deepl?.key).toBe('replacement-key:fx');
         expect(storedKeys.deepl?.validated).toBe(false);
-        expect(storedPreferences.fallbackOrder).toEqual([]);
+        expect(storedPreferences.fallbackOrder).toEqual(['deepl']);
     });
 });
 
@@ -157,7 +231,7 @@ describe('credential storage settings', () => {
         if (failure === 'cleanup') vi.mocked(chrome.storage.local.remove).mockRejectedValueOnce(new Error('Cleanup failed'));
         const view = render(<App />);
         await view.findByText('privacyDesc');
-        fireEvent.click(view.getByText('API Key'));
+        fireEvent.click(view.getByText('apiKeyLabel'));
         const select = view.getByLabelText('labelStorage') as HTMLSelectElement;
         const keyInput = view.container.querySelector('input[type="password"]') as HTMLInputElement;
         fireEvent.change(select, { target: { value: 'sync' } });
@@ -177,7 +251,7 @@ describe('credential storage settings', () => {
         const reopened = render(<App />);
         await reopened.findByText('privacyDesc');
         expect((reopened.getByLabelText('labelStorage') as HTMLSelectElement).value).toBe('sync');
-        fireEvent.click(reopened.getByText('API Key'));
+        fireEvent.click(reopened.getByText('apiKeyLabel'));
         expect((reopened.container.querySelector('input[type="password"]') as HTMLInputElement).value).toBe('test-key:fx');
     });
 

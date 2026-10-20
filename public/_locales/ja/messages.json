@@ -286,5 +286,97 @@
     },
     "lang_variant_uk": {
         "message": "英国 (en-GB)"
+    },
+    "omniboxCopyAction": {
+        "message": "翻訳をコピー — Enter を押す"
+    },
+    "omniboxCopyOff": {
+        "message": "コピーは無効です — 設定を開く"
+    },
+    "omniboxSettingsAction": {
+        "message": "設定を開く — Enter を押す"
+    },
+    "omniboxWarning": {
+        "message": "警告: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "providerPermissionRequired": {
+        "message": "アクセス許可が必要です"
+    },
+    "providerMissingKey": {
+        "message": "API キーが必要です"
+    },
+    "providerInvalidKey": {
+        "message": "API キーが拒否されました"
+    },
+    "providerQuotaExceeded": {
+        "message": "翻訳の利用上限を超えました"
+    },
+    "providerTimedOut": {
+        "message": "翻訳がタイムアウトしました"
+    },
+    "providerNetworkError": {
+        "message": "ネットワークリクエストに失敗しました"
+    },
+    "providerUnavailable": {
+        "message": "翻訳サービスを利用できません"
+    },
+    "providerResponseError": {
+        "message": "翻訳の応答を読み取れませんでした"
+    },
+    "omniboxAllFailed": {
+        "message": "翻訳に失敗しました。"
+    },
+    "omniboxNoProviders": {
+        "message": "有効な翻訳サービスがありません。"
+    },
+    "permissionCheckFailed": {
+        "message": "アクセス許可を確認できませんでした。再試行してください。"
+    },
+    "permissionDenied": {
+        "message": "許可されませんでした。この機能を有効にするには再試行してください。"
+    },
+    "permissionRemoveFailed": {
+        "message": "アクセス許可を削除できませんでした。再試行してください。"
+    },
+    "settingsSaveFailed": {
+        "message": "設定を保存できませんでした。再試行してください。"
+    },
+    "permissionChangeFailed": {
+        "message": "アクセス許可を変更できませんでした。再試行してください。"
+    },
+    "testNeedsAccess": {
+        "message": "テストする前にサービスを有効にし、アクセスを許可してください。"
+    },
+    "keyChangedDuringTest": {
+        "message": "API キーが変更されました。現在のキーをテストしてください。"
+    },
+    "keyTestFailed": {
+        "message": "このキーをテストできませんでした。キー、アクセス許可、接続を確認して再試行してください。"
+    },
+    "testKey": {
+        "message": "テスト"
+    },
+    "providerReady": {
+        "message": "利用可能"
+    },
+    "grantAccess": {
+        "message": "アクセスを許可"
+    },
+    "sectionCopy": {
+        "message": "翻訳をコピー"
+    },
+    "copySettingsDesc": {
+        "message": "このデバイスで Enter による翻訳のコピーを許可します。コピーが無効でも翻訳プレビューは利用できます。"
+    },
+    "enableCopy": {
+        "message": "Enter でコピーを有効にする"
+    },
+    "removeAccess": {
+        "message": "アクセス許可を削除"
     }
 }

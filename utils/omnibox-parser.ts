@@ -13,7 +13,7 @@
  */
 
 import type { ParsedOmniboxInput, UserPreferences } from '@/src/types';
-import { isValidLanguageCode, resolveLanguageCode, getLanguageName } from './languages';
+import { isValidLanguageCode, resolveLanguageCode } from './languages';
 
 /**
  * Parse omnibox input string.
@@ -111,22 +111,9 @@ export function parseOmniboxInput(
  * Uses XML-like tags supported by Chrome omnibox.
  *
  * @param translation - Translated text
- * @param sourceText - Original text
- * @param usedFallback - Whether fallback was used
- * @param serviceName - Name of service that translated
  */
-export function formatSuggestionDescription(
-    translation: string,
-    targetLang: string
-): string {
-    // XML tags: <match>, <dim>, <url>
-    const langName = getLanguageName(targetLang);
-
-    // Format: <dim>= </dim> <match>Translation</match> <dim> in </dim> <url>Language</url>
-    // Note: <url> is used here solely for the side-effect of coloring the text (usually blue/green)
-    const description = `<dim>= </dim> <match>${escapeXml(translation)}</match> <dim> in </dim> <url>${escapeXml(langName)}</url>`;
-
-    return description;
+export function formatSuggestionDescription(translation: string): string {
+    return `<match>${escapeXml(translation)}</match>`;
 }
 
 /**

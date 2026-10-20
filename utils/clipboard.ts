@@ -8,33 +8,32 @@
  */
 
 import type { CopyToClipboardMessage } from '@/src/types';
+import { hasCopyAccess } from './permissions';
+
+let creatingDocument: Promise<void> | undefined;
 
 /**
  * Ensure offscreen document exists.
  */
-async function ensureOffscreenDocument(): Promise<void> {
+async function ensureOffscreenDocument(signal?: AbortSignal): Promise<void> {
     // Check if we already have an offscreen document
     const existingContexts = await chrome.runtime.getContexts({
         contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT],
     });
+    signal?.throwIfAborted();
 
-    if (existingContexts.length > 0) {
-        return;
-    }
-
-    // Create offscreen document
-    try {
-        await chrome.offscreen.createDocument({
+    // Share creation until the document has loaded and registered its listener.
+    if (existingContexts.length === 0 && !creatingDocument) {
+        creatingDocument = chrome.offscreen.createDocument({
             url: 'offscreen.html',
             reasons: [chrome.offscreen.Reason.CLIPBOARD],
             justification: 'Copy translation result to clipboard',
-        });
-    } catch (error) {
-        // Document might already exist (race condition)
-        if (!String(error).includes('Only a single offscreen')) {
-            throw error;
-        }
+        }).then(async () => {
+            if (!await hasCopyAccess()) await closeOffscreenDocument();
+        }).finally(() => { creatingDocument = undefined; });
     }
+    await creatingDocument;
+    signal?.throwIfAborted();
 }
 
 /**
@@ -46,7 +45,12 @@ async function ensureOffscreenDocument(): Promise<void> {
 export async function copyToClipboard(text: string, signal?: AbortSignal): Promise<boolean> {
     try {
         signal?.throwIfAborted();
-        await ensureOffscreenDocument();
+        if (!await hasCopyAccess()) return false;
+        signal?.throwIfAborted();
+        await ensureOffscreenDocument(signal);
+        signal?.throwIfAborted();
+
+        if (!await hasCopyAccess()) return false;
         signal?.throwIfAborted();
 
         const message: CopyToClipboardMessage = {
@@ -73,9 +77,6 @@ export async function copyToClipboard(text: string, signal?: AbortSignal): Promi
  * Call this after clipboard operations if you want to clean up.
  */
 export async function closeOffscreenDocument(): Promise<void> {
-    try {
-        await chrome.offscreen.closeDocument();
-    } catch {
-        // Ignore if document doesn't exist
-    }
+    const contexts = await chrome.runtime.getContexts({ contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT] });
+    if (contexts.length) await chrome.offscreen.closeDocument();
 }

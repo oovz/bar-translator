@@ -62,16 +62,11 @@ export abstract class BaseTranslationService implements TranslationServiceHandle
     }
 
     /**
-     * Check if service is available (has valid API key if required).
+     * A supplied credential is enough; only translations and explicit tests validate it.
      */
     async isAvailable(apiKey?: string): Promise<boolean> {
         if (!this.service.requiresApiKey) return true;
-        if (!apiKey) return false;
-        if (this.validateApiKey) {
-            const result = await this.validateApiKey(apiKey);
-            return result.valid;
-        }
-        return true;
+        return Boolean(apiKey);
     }
 
     /**

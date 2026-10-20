@@ -160,21 +160,13 @@ describe('parseOmniboxInput', () => {
 
 describe('formatSuggestionDescription', () => {
     it('formats basic translation', () => {
-        const result = formatSuggestionDescription(
-            'Bonjour le monde',
-            'fr'
-        );
-        // Format: <dim>= </dim> <match>Translation</match> <dim> in </dim> <url>Language</url>
-        expect(result).toContain('<match>Bonjour le monde</match>');
-        expect(result).toContain('<url>French</url>');
-        expect(result).toContain('<dim>= </dim>');
-        expect(result).toContain('<dim> in </dim>');
+        const result = formatSuggestionDescription('Bonjour le monde');
+        expect(result).toBe('<match>Bonjour le monde</match>');
     });
 
     it('escapes XML special characters', () => {
         const result = formatSuggestionDescription(
-            '<test> & "quotes"',
-            'fr'
+            '<test> & "quotes"'
         );
         expect(result).toContain('&lt;test&gt;');
         expect(result).toContain('&amp;');

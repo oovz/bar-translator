@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { translateWithFallback, registerService } from '@/services/index';
+import { translateWithFallback, translateDirect, isServiceAvailable, registerService, getService } from '@/services/index';
 import { TranslationError } from '@/utils/errors';
 import type {
     UserPreferences,
@@ -72,6 +72,7 @@ describe('Translation Orchestration', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(chrome.permissions.contains).mockImplementation(async () => true);
 
         // Overwrite registered services with mocks
         registerService(mockGoogleHandler);
@@ -80,6 +81,7 @@ describe('Translation Orchestration', () => {
 
     afterEach(() => {
         vi.resetAllMocks();
+        vi.useRealTimers();
     });
 
     it('uses the first enabled service (primary)', async () => {
@@ -142,6 +144,132 @@ describe('Translation Orchestration', () => {
         expect(result.serviceId).toBe('google-web');
         expect(mockDeepLTranslate).not.toHaveBeenCalled();
         expect(mockGoogleTranslate).toHaveBeenCalled();
+        expect(result.usedFallback).toBe(true);
+        expect(result.warnings).toEqual([{ code: 'API_KEY_REQUIRED', serviceId: 'deepl' }]);
+    });
+
+    it.each([false, true])('uses a supplied key regardless of its validation status (%s)', async validated => {
+        mockDeepLTranslate.mockResolvedValue({ translation: 'Hola', serviceId: 'deepl' });
+        const keys = { deepl: { key: 'user-supplied-key', validated } };
+        expect(await isServiceAvailable('deepl', keys)).toBe(true);
+        const result = await translateWithFallback(defaultParams, { ...defaultPrefs, fallbackOrder: ['deepl'] }, keys);
+        expect(result.translation).toBe('Hola');
+        expect(mockDeepLTranslate).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'user-supplied-key' }));
+        expect(mockDeepLHandler.validateApiKey).not.toHaveBeenCalled();
+    });
+
+    it('skips denied provider access and reports it with a successful fallback', async () => {
+        vi.mocked(chrome.permissions.contains).mockImplementation(async permission =>
+            !permission.origins?.includes('https://translate.google.com/*'));
+        mockDeepLTranslate.mockResolvedValue({ translation: 'Hola', serviceId: 'deepl' });
+        const result = await translateWithFallback(defaultParams, defaultPrefs, validApiKeys);
+        expect(mockGoogleTranslate).not.toHaveBeenCalled();
+        expect(result).toMatchObject({
+            usedFallback: true,
+            warnings: [{ code: 'PERMISSION_REQUIRED', serviceId: 'google-web' }],
+        });
+    });
+
+    it('requires every DeepL domain even for a Free key', async () => {
+        const granted = ['https://api-free.deepl.com/*'];
+        vi.mocked(chrome.permissions.contains).mockImplementation(async permission =>
+            permission.origins?.every(origin => granted.includes(origin)) ?? true);
+        await expect(translateDirect('deepl', defaultParams, validApiKeys)).rejects.toMatchObject({ code: 'PERMISSION_REQUIRED' });
+        expect(chrome.permissions.contains).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
+        expect(mockDeepLTranslate).not.toHaveBeenCalled();
+    });
+
+    it('checks revoked access when the next provider is reached', async () => {
+        let deeplAccess = true;
+        vi.mocked(chrome.permissions.contains).mockImplementation(async permission =>
+            !permission.origins?.includes('https://api.deepl.com/*') || deeplAccess);
+        mockGoogleTranslate.mockImplementation(async () => {
+            deeplAccess = false;
+            throw new TranslationError('NETWORK_ERROR', 'Offline');
+        });
+        await expect(translateWithFallback(defaultParams, defaultPrefs, validApiKeys)).rejects.toMatchObject({
+            code: 'PERMISSION_REQUIRED',
+            warnings: [
+                { code: 'NETWORK_ERROR', serviceId: 'google-web' },
+                { code: 'PERMISSION_REQUIRED', serviceId: 'deepl' },
+            ],
+        });
+        expect(mockDeepLTranslate).not.toHaveBeenCalled();
+    });
+
+    it('treats a permission API failure as an operational failure and falls back', async () => {
+        vi.mocked(chrome.permissions.contains).mockRejectedValueOnce(new Error('Permission query failed'));
+        mockDeepLTranslate.mockResolvedValue({ translation: 'Hola', serviceId: 'deepl' });
+        const result = await translateWithFallback(defaultParams, defaultPrefs, validApiKeys);
+        expect(mockGoogleTranslate).not.toHaveBeenCalled();
+        expect(result.warnings).toEqual([{ code: 'SERVICE_UNAVAILABLE', serviceId: 'google-web' }]);
+    });
+
+    it('attaches failed provider warnings while preserving the final classification', async () => {
+        mockGoogleTranslate.mockRejectedValue(new TranslationError('NETWORK_ERROR', 'Offline'));
+        mockDeepLTranslate.mockRejectedValue(new TranslationError('INVALID_API_KEY', 'Rejected', { httpStatus: 403, serviceId: 'deepl' }));
+        await expect(translateWithFallback(defaultParams, defaultPrefs, validApiKeys)).rejects.toMatchObject({
+            code: 'INVALID_API_KEY', httpStatus: 403, serviceId: 'deepl',
+            warnings: [
+                { code: 'NETWORK_ERROR', serviceId: 'google-web' },
+                { code: 'INVALID_API_KEY', serviceId: 'deepl' },
+            ],
+        });
+    });
+
+    it('does not fetch directly when a credential is missing', async () => {
+        await expect(translateDirect('deepl', defaultParams, {})).rejects.toMatchObject({ code: 'API_KEY_REQUIRED' });
+        expect(mockDeepLTranslate).not.toHaveBeenCalled();
+    });
+
+    it('cancels a pending attempt without starting another provider', async () => {
+        const controller = new AbortController();
+        mockGoogleTranslate.mockImplementation(async () => {
+            controller.abort(new DOMException('Cancelled', 'AbortError'));
+            return new Promise(() => {});
+        });
+        await expect(translateWithFallback({ ...defaultParams, signal: controller.signal }, defaultPrefs, validApiKeys)).rejects.toMatchObject({ name: 'AbortError' });
+        expect(mockDeepLTranslate).not.toHaveBeenCalled();
+    });
+
+    it('advances after the four-second attempt budget', async () => {
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+        mockGoogleTranslate.mockImplementation(() => new Promise(() => {}));
+        mockDeepLTranslate.mockResolvedValue({ translation: 'Hola', serviceId: 'deepl' });
+        const pending = translateWithFallback(defaultParams, defaultPrefs, validApiKeys);
+        await vi.advanceTimersByTimeAsync(4000);
+        expect(await pending).toMatchObject({
+            translation: 'Hola',
+            warnings: [{ code: 'TIMEOUT', serviceId: 'google-web' }],
+        });
+    });
+
+    it('limits three provider attempts to the ten-second total budget', async () => {
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'performance'] });
+        const originalLingva = getService('lingva')!;
+        const pendingTranslation = vi.fn(() => new Promise<never>(() => {}));
+        registerService({ service: { ...mockGoogleHandler.service, id: 'lingva' }, translate: pendingTranslation });
+        mockGoogleTranslate.mockImplementation(() => new Promise(() => {}));
+        mockDeepLTranslate.mockImplementation(() => new Promise(() => {}));
+        try {
+            const pending = translateWithFallback(defaultParams, { ...defaultPrefs, fallbackOrder: ['google-web', 'lingva', 'deepl'] }, validApiKeys);
+            const rejected = expect(pending).rejects.toMatchObject({
+                code: 'TIMEOUT',
+                warnings: [
+                    { code: 'TIMEOUT', serviceId: 'google-web' },
+                    { code: 'TIMEOUT', serviceId: 'lingva' },
+                    { code: 'TIMEOUT', serviceId: 'deepl' },
+                ],
+            });
+            await vi.advanceTimersByTimeAsync(10000);
+            await rejected;
+            expect(performance.now()).toBe(10000);
+            expect(mockGoogleTranslate).toHaveBeenCalledTimes(1);
+            expect(pendingTranslation).toHaveBeenCalledTimes(1);
+            expect(mockDeepLTranslate).toHaveBeenCalledTimes(1);
+        } finally {
+            registerService(originalLingva);
+        }
     });
 
     it('attempts each selected provider once even when the selection repeats it', async () => {
@@ -194,7 +322,7 @@ describe('Translation Orchestration', () => {
                 { ...defaultPrefs, fallbackOrder: ['deepl'] },
                 {} // No keys
             )
-        ).rejects.toThrow('No translation services available');
+        ).rejects.toMatchObject({ code: 'API_KEY_REQUIRED', warnings: [{ code: 'API_KEY_REQUIRED', serviceId: 'deepl' }] });
     });
 
     it('handles unexpected errors gracefully', async () => {

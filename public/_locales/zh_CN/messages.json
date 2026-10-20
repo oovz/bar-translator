@@ -286,5 +286,97 @@
     },
     "lang_variant_uk": {
         "message": "英国 (en-GB)"
+    },
+    "omniboxCopyAction": {
+        "message": "复制翻译 — 按 Enter"
+    },
+    "omniboxCopyOff": {
+        "message": "复制已关闭 — 打开设置"
+    },
+    "omniboxSettingsAction": {
+        "message": "打开设置 — 按 Enter"
+    },
+    "omniboxWarning": {
+        "message": "警告：$1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "providerPermissionRequired": {
+        "message": "需要访问权限"
+    },
+    "providerMissingKey": {
+        "message": "需要 API 密钥"
+    },
+    "providerInvalidKey": {
+        "message": "API 密钥被拒绝"
+    },
+    "providerQuotaExceeded": {
+        "message": "翻译配额已用尽"
+    },
+    "providerTimedOut": {
+        "message": "翻译超时"
+    },
+    "providerNetworkError": {
+        "message": "网络请求失败"
+    },
+    "providerUnavailable": {
+        "message": "翻译服务不可用"
+    },
+    "providerResponseError": {
+        "message": "无法读取翻译响应"
+    },
+    "omniboxAllFailed": {
+        "message": "翻译失败。"
+    },
+    "omniboxNoProviders": {
+        "message": "未启用翻译服务。"
+    },
+    "permissionCheckFailed": {
+        "message": "无法检查访问权限，请重试。"
+    },
+    "permissionDenied": {
+        "message": "未获得访问权限，请重试以启用此功能。"
+    },
+    "permissionRemoveFailed": {
+        "message": "无法移除访问权限，请重试。"
+    },
+    "settingsSaveFailed": {
+        "message": "无法保存设置，请重试。"
+    },
+    "permissionChangeFailed": {
+        "message": "无法更改访问权限，请重试。"
+    },
+    "testNeedsAccess": {
+        "message": "请先启用服务并授予访问权限，再测试密钥。"
+    },
+    "keyChangedDuringTest": {
+        "message": "API 密钥已更改，请测试当前密钥。"
+    },
+    "keyTestFailed": {
+        "message": "无法测试此密钥，请检查密钥、访问权限和网络连接后重试。"
+    },
+    "testKey": {
+        "message": "测试"
+    },
+    "providerReady": {
+        "message": "可用"
+    },
+    "grantAccess": {
+        "message": "授予访问权限"
+    },
+    "sectionCopy": {
+        "message": "复制翻译"
+    },
+    "copySettingsDesc": {
+        "message": "允许在此设备上按 Enter 复制翻译。关闭复制后，仍可使用翻译预览。"
+    },
+    "enableCopy": {
+        "message": "启用 Enter 复制"
+    },
+    "removeAccess": {
+        "message": "移除访问权限"
     }
 }
