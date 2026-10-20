@@ -37,14 +37,22 @@ export class GoogleTranslationWebService extends BaseTranslationService {
             const response = await fetch(url.toString(), {
                 method: 'GET',
                 signal: params.signal,
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Mobile Safari/537.36'
-                }
+                redirect: 'manual',
             });
+
+            // Redirects may lead to a challenge or consent page outside provider access.
+            // An opaque redirect does not expose its destination or prove its cause.
+            if (response.type === 'opaqueredirect') {
+                throw new TranslationError(
+                    'SERVICE_UNAVAILABLE',
+                    'Google Translate mobile redirected instead of returning a translation',
+                    { serviceId: this.service.id }
+                );
+            }
 
             if (!response.ok) {
                 throw new TranslationError(
-                    'SERVICE_UNAVAILABLE',
+                    response.status === 429 ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE',
                     `Google Translate returned status ${response.status}`,
                     {
                         serviceId: this.service.id,

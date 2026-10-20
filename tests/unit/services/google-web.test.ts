@@ -176,6 +176,35 @@ describe('GoogleTranslationWebService', () => {
             expect(result.translation).toBe('Hola');
         });
 
+        it('stops mobile redirects without reading or exposing the redirected page', async () => {
+            const readBody = vi.fn();
+            fetchMock.mockResolvedValue({
+                type: 'opaqueredirect',
+                ok: false,
+                status: 0,
+                text: readBody,
+            });
+
+            await expect(service.translate({
+                text: 'Hello', sourceLang: 'en', targetLang: 'fr',
+            })).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', serviceId: 'google-web' });
+            expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+                'https://translate.google.com/m?sl=en&tl=fr&q=Hello',
+                { method: 'GET', redirect: 'manual', signal: undefined },
+            );
+            expect(readBody).not.toHaveBeenCalled();
+        });
+
+        it('reports an HTTP 429 as rate limiting', async () => {
+            fetchMock.mockResolvedValue({ ok: false, status: 429 });
+
+            await expect(service.translate({
+                text: 'Hello', sourceLang: 'en', targetLang: 'fr',
+            })).rejects.toMatchObject({
+                code: 'RATE_LIMITED', serviceId: 'google-web', httpStatus: 429,
+            });
+        });
+
         it('throws SERVICE_UNAVAILABLE on non-200 response', async () => {
             fetchMock.mockResolvedValue({
                 ok: false,

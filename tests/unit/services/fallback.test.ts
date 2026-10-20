@@ -8,6 +8,8 @@
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { translateWithFallback, translateDirect, isServiceAvailable, registerService, getService } from '@/services/index';
+import { GoogleTranslationWebService } from '@/services/google-web';
+import { getServiceDefinition } from '@/services/base';
 import { TranslationError } from '@/utils/errors';
 import type {
     UserPreferences,
@@ -123,6 +125,26 @@ describe('Translation Orchestration', () => {
         expect(result.usedFallback).toBe(true);
         expect(mockGoogleTranslate).toHaveBeenCalled();
         expect(mockDeepLTranslate).toHaveBeenCalled();
+    });
+
+    it('keeps a mobile redirect as a service warning when an enabled fallback succeeds', async () => {
+        const redirect = new Response(null, { status: 302 });
+        Object.defineProperty(redirect, 'type', { value: 'opaqueredirect' });
+        const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(redirect);
+        registerService(new GoogleTranslationWebService(getServiceDefinition('google-web')));
+        mockDeepLTranslate.mockResolvedValue({ translation: 'Hola', serviceId: 'deepl' });
+
+        try {
+            const result = await translateWithFallback(defaultParams, defaultPrefs, validApiKeys);
+            expect(result).toMatchObject({
+                translation: 'Hola', serviceId: 'deepl', usedFallback: true,
+                warnings: [{ code: 'SERVICE_UNAVAILABLE', serviceId: 'google-web' }],
+            });
+            expect(fetch).toHaveBeenCalledTimes(1);
+            expect(mockDeepLTranslate).toHaveBeenCalledTimes(1);
+        } finally {
+            fetch.mockRestore();
+        }
     });
 
     it('skips services without required API keys', async () => {

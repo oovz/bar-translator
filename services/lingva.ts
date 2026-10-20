@@ -1,8 +1,8 @@
 /**
  * Lingva Translation Service
  *
- * Lingva is a free, open-source Google Translate proxy that works
- * in regions where Google is blocked. It requires no API key.
+ * Lingva is a free, open-source Google Translate proxy. Public deployment
+ * availability varies. It requires no API key.
  *
  * @see https://github.com/thedaviddelta/lingva-translate
  * @module services/lingva
