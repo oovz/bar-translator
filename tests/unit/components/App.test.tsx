@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor, within } from '@testing-library/preact';
 import App from '@/entrypoints/options/App';

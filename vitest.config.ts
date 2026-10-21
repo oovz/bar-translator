@@ -7,23 +7,10 @@ export default defineConfig({
     plugins: [preact()],
     test: {
         globals: true,
-        environment: 'jsdom',
+        environment: 'node',
         setupFiles: ['./tests/setup.ts'],
-        include: ['tests/unit/**/*.{test,spec}.{ts,tsx}'],
+        include: ['tests/unit/**/*.{test,spec}.{ts,tsx}', 'tests/integration/**/*.{test,spec}.{ts,tsx}'],
         exclude: ['node_modules', '.output', 'tests/e2e'],
-        coverage: {
-            provider: 'v8',
-            reporter: ['text', 'json', 'html'],
-            exclude: [
-                'node_modules/**',
-                '.output/**',
-                'tests/**',
-                '**/*.d.ts',
-                'wxt.config.ts',
-                'vitest.config.ts',
-                'playwright.config.ts',
-            ],
-        },
     },
     resolve: {
         alias: {

@@ -55,25 +55,34 @@ export class LingvaTranslationService extends BaseTranslationService {
                 );
             }
 
-            const data = await response.json();
+            const data: unknown = await response.json();
 
-            if (!data.translation) {
+            if (!data || typeof data !== 'object' ||
+                !('translation' in data) || typeof data.translation !== 'string' || !data.translation.trim()) {
                 throw new TranslationError(
-                    'WEB_REQUEST_FAILED',
+                    'SERVICE_UNAVAILABLE',
                     'Could not get translation from Lingva response',
                     { serviceId: this.service.id }
                 );
             }
 
+            const info = 'info' in data ? data.info : undefined;
+            const detectedSourceLang = info && typeof info === 'object' &&
+                'detectedSource' in info && typeof info.detectedSource === 'string'
+                ? info.detectedSource : undefined;
+
             return {
                 translation: data.translation,
                 serviceId: this.service.id,
-                detectedSourceLang: data.info?.detectedSource
+                detectedSourceLang
             };
 
         } catch (error) {
             params.signal?.throwIfAborted();
             if (error instanceof TranslationError) throw error;
+            if (error instanceof SyntaxError) {
+                throw new TranslationError('SERVICE_UNAVAILABLE', 'Invalid Lingva translation response', { serviceId: this.service.id });
+            }
 
             throw new TranslationError(
                 'NETWORK_ERROR',

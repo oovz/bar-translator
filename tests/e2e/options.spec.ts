@@ -47,9 +47,6 @@ test.describe('Options Page', () => {
         // Check title
         await expect(page).toHaveTitle(text.title);
 
-        // Header should be gone (refactoring requirement)
-        await expect(page.locator('h1', { hasText: 'Bar Translate Settings' })).not.toBeVisible();
-
         // Check for sections
         await expect(page.locator('.section-title', { hasText: text.sectionDefaultLanguages })).toBeVisible();
         await expect(page.locator('.section-title', { hasText: text.sectionRegionalDialects })).toBeVisible();

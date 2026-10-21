@@ -277,69 +277,6 @@ export interface ValidationResult {
 }
 
 // =============================================================================
-// Translation Cache
-// =============================================================================
-
-/**
- * Cache key format: `{serviceId}:{sourceLang}:{targetLang}:{normalizedText}`
- * Used as Map key for in-memory cache.
- */
-export type CacheKey = `${ServiceId}:${string}:${string}:${string}`;
-
-/**
- * Single cache entry.
- */
-export interface CacheEntry {
-  /** Translated text */
-  readonly result: string;
-
-  /** When this was cached (Unix ms) */
-  readonly timestamp: number;
-
-  /** Service that produced this result */
-  readonly serviceId: ServiceId;
-
-  /** Detected source language if auto-detected */
-  readonly detectedLang?: string;
-}
-
-/**
- * Cache configuration.
- */
-export interface CacheConfig {
-  /** Maximum number of entries */
-  readonly maxSize: number;
-
-  /** Time-to-live in milliseconds */
-  readonly ttl: number;
-}
-
-/**
- * Default cache configuration.
- */
-export const DEFAULT_CACHE_CONFIG: Readonly<CacheConfig> = {
-  maxSize: 500,
-  ttl: 3600000, // 1 hour
-} as const;
-
-/**
- * Cache backup stored in chrome.storage.session.
- * Used to restore cache after service worker restart.
- */
-export interface CacheBackup {
-  /** Serialized cache entries (last 100) */
-  entries: [string, CacheEntry][];
-
-  /** Timestamp of last backup */
-  lastBackup: number;
-}
-
-/**
- * Maximum entries to backup to session storage.
- */
-export const MAX_CACHE_BACKUP_ENTRIES = 100;
-
-// =============================================================================
 // Language Info
 // =============================================================================
 
@@ -473,15 +410,6 @@ export const SYNC_STORAGE_KEYS = {
 export const LOCAL_STORAGE_KEYS = {
   CREDENTIAL_STORAGE_TYPE: 'credentialStorageType',
   API_KEYS: 'apiKeys_local',
-} as const;
-
-/**
- * Keys used in chrome.storage.session.
- * Total limit: 10MB
- */
-export const SESSION_STORAGE_KEYS = {
-  LAST_TRANSLATION: 'lastTranslation',
-  CACHE_BACKUP: 'cacheBackup',
 } as const;
 
 // =============================================================================

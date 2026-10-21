@@ -5,6 +5,8 @@ declare global {
         settingsPermissionMock: {
             requests: chrome.permissions.Permissions[];
             removals: chrome.permissions.Permissions[];
+            denyNextRequest(): void;
+            revoke(value: chrome.permissions.Permissions): void;
             restore(): void;
         };
     }
@@ -35,8 +37,16 @@ export async function mockOptionalPermissionsForSettings(page: Page): Promise<vo
             hasListener: (listener: Listener) => listeners.has(listener),
             hasListeners: () => listeners.size > 0,
         });
+        let denyNextRequest = false;
+        const revoke = (value: chrome.permissions.Permissions) => {
+            value.origins?.forEach(origin => origins.delete(origin));
+            value.permissions?.forEach(permission => permissions.delete(permission));
+            removed.forEach(listener => listener(value));
+        };
         window.settingsPermissionMock = {
             requests: [], removals: [],
+            denyNextRequest: () => { denyNextRequest = true; },
+            revoke,
             restore: () => Object.assign(api, original),
         };
         Object.assign(api, {
@@ -45,6 +55,10 @@ export async function mockOptionalPermissionsForSettings(page: Page): Promise<vo
                 (value.permissions ?? []).every(permission => permissions.has(permission)),
             request: async (value: chrome.permissions.Permissions) => {
                 window.settingsPermissionMock.requests.push(structuredClone(value));
+                if (denyNextRequest) {
+                    denyNextRequest = false;
+                    return false;
+                }
                 value.origins?.forEach(origin => origins.add(origin));
                 value.permissions?.forEach(permission => permissions.add(permission));
                 added.forEach(listener => listener(value));
@@ -52,9 +66,7 @@ export async function mockOptionalPermissionsForSettings(page: Page): Promise<vo
             },
             remove: async (value: chrome.permissions.Permissions) => {
                 window.settingsPermissionMock.removals.push(structuredClone(value));
-                value.origins?.forEach(origin => origins.delete(origin));
-                value.permissions?.forEach(permission => permissions.delete(permission));
-                removed.forEach(listener => listener(value));
+                revoke(value);
                 return true;
             },
             onAdded: event(added), onRemoved: event(removed),

@@ -7,7 +7,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GoogleTranslationWebService } from '@/services/google-web';
 import { getServiceDefinition } from '@/services/base';
-import { TranslationError } from '@/utils/errors';
 
 // Mock fetch
 const fetchMock = vi.fn();
@@ -205,60 +204,17 @@ describe('GoogleTranslationWebService', () => {
             });
         });
 
-        it('throws SERVICE_UNAVAILABLE on non-200 response', async () => {
-            fetchMock.mockResolvedValue({
-                ok: false,
-                status: 503,
-                statusText: 'Service Unavailable',
-            });
-
-            await expect(
-                service.translate({
-                    text: 'test',
-                    sourceLang: 'en',
-                    targetLang: 'fr',
-                })
-            ).rejects.toThrow(TranslationError);
-
-            try {
-                await service.translate({
-                    text: 'test',
-                    sourceLang: 'en',
-                    targetLang: 'fr',
-                });
-            } catch (e) {
-                if (e instanceof TranslationError) {
-                    expect(e.code).toBe('SERVICE_UNAVAILABLE');
-                }
-            }
+        it('reports an unavailable mobile response once with its HTTP status', async () => {
+            fetchMock.mockResolvedValue(new Response(null, { status: 503 }));
+            await expect(service.translate({ text: 'test', sourceLang: 'en', targetLang: 'fr' }))
+                .rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', serviceId: 'google-web', httpStatus: 503 });
+            expect(fetchMock).toHaveBeenCalledTimes(1);
         });
 
-        it('throws WEB_REQUEST_FAILED when missing result container', async () => {
-            fetchMock.mockResolvedValue({
-                ok: true,
-                status: 200,
-                text: () => Promise.resolve('<html>No result here</html>'),
-            });
-
-            await expect(
-                service.translate({
-                    text: 'test',
-                    sourceLang: 'en',
-                    targetLang: 'fr',
-                })
-            ).rejects.toThrow(TranslationError);
-
-            try {
-                await service.translate({
-                    text: 'test',
-                    sourceLang: 'en',
-                    targetLang: 'fr',
-                });
-            } catch (e) {
-                if (e instanceof TranslationError) {
-                    expect(e.code).toBe('WEB_REQUEST_FAILED');
-                }
-            }
+        it('rejects a response without a translation result', async () => {
+            fetchMock.mockResolvedValue(new Response('<html>No result here</html>'));
+            await expect(service.translate({ text: 'test', sourceLang: 'en', targetLang: 'fr' }))
+                .rejects.toMatchObject({ code: 'WEB_REQUEST_FAILED', serviceId: 'google-web' });
         });
 
         it('handles network errors', async () => {
@@ -270,7 +226,7 @@ describe('GoogleTranslationWebService', () => {
                     sourceLang: 'en',
                     targetLang: 'fr',
                 })
-            ).rejects.toThrow(TranslationError);
+            ).rejects.toMatchObject({ code: 'NETWORK_ERROR', serviceId: 'google-web' });
         });
     });
 });

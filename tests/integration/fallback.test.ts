@@ -1,9 +1,9 @@
 /**
- * Unit Tests for Translation Orchestration
+ * Integration Tests for Translation Orchestration
  *
  * Tests translateWithFallback in services/index.ts
  *
- * @module tests/unit/services/fallback.test
+ * @module tests/integration/fallback.test
  */
 
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';

@@ -1,7 +1,7 @@
 /**
  * Unit Tests for Storage Wrapper
  *
- * @module tests/unit/storage.test
+ * @module tests/integration/storage.test
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';

@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, waitFor, within } from '@testing-library/preact';
 import { ServiceList } from '@/entrypoints/options/components/ServiceList';

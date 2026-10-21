@@ -8,9 +8,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
     parseOmniboxInput,
     formatSuggestionDescription,
-    formatLoadingDescription,
     formatErrorDescription,
-    normalizeTextForCache,
 } from '@/utils/omnibox-parser';
 
 // Mock browser global for i18n
@@ -174,34 +172,9 @@ describe('formatSuggestionDescription', () => {
     });
 });
 
-describe('formatLoadingDescription', () => {
-    it('formats loading state', () => {
-        const result = formatLoadingDescription('Hello world');
-        expect(result).toContain('<dim>');
-        expect(result).toContain('Translating:');
-        expect(result).toContain('Hello world');
-    });
-
-    it('truncates long text', () => {
-        const longText = 'A'.repeat(50);
-        const result = formatLoadingDescription(longText);
-        expect(result).toContain('...');
-    });
-});
-
 describe('formatErrorDescription', () => {
     it('formats error message', () => {
         const result = formatErrorDescription('Network error');
         expect(result).toBe('<dim>Error: Network error</dim>');
-    });
-});
-
-describe('normalizeTextForCache', () => {
-    it('lowercases text', () => {
-        expect(normalizeTextForCache('Hello World')).toBe('hello world');
-    });
-
-    it('trims whitespace', () => {
-        expect(normalizeTextForCache('  hello  ')).toBe('hello');
     });
 });

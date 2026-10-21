@@ -11,8 +11,10 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "pnpm build && playwright test",
     "lint": "eslint .",
     "typecheck": "wxt prepare && tsc --noEmit"
   },

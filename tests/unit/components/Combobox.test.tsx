@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 
 import { render, fireEvent, screen } from '@testing-library/preact';
 import { describe, it, expect, vi } from 'vitest';

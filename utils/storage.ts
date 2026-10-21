@@ -4,7 +4,6 @@
  * Type-safe utilities for Chrome storage operations.
  * - Preferences: always stored in sync storage
  * - API Keys: stored in sync OR local based on this device's selection
- * - Cache: stored in session storage
  *
  * @module utils/storage
  */
@@ -12,7 +11,6 @@
 import type {
     UserPreferences,
     StoredApiKeys,
-    CacheBackup,
     ApiCredential,
     ServiceId,
     CredentialStorageType,
@@ -22,7 +20,6 @@ import {
     SERVICE_IDS,
     SYNC_STORAGE_KEYS,
     LOCAL_STORAGE_KEYS,
-    SESSION_STORAGE_KEYS,
     SERVICE_TO_STORAGE_KEY,
 } from '@/src/types';
 
@@ -197,39 +194,6 @@ export async function switchCredentialStorage(toType: CredentialStorageType): Pr
             await chrome.storage.local.remove(LOCAL_STORAGE_KEYS.API_KEYS);
         }
     });
-}
-
-// =============================================================================
-// Cache Backup (Session Storage)
-// =============================================================================
-
-/**
- * Get cache backup from session storage.
- */
-export async function getCacheBackup(): Promise<CacheBackup | null> {
-    const result = await chrome.storage.session.get(
-        SESSION_STORAGE_KEYS.CACHE_BACKUP
-    );
-    const backup = result[SESSION_STORAGE_KEYS.CACHE_BACKUP] as
-        | CacheBackup
-        | undefined;
-    return backup ?? null;
-}
-
-/**
- * Save cache backup to session storage.
- */
-export async function setCacheBackup(backup: CacheBackup): Promise<void> {
-    await chrome.storage.session.set({
-        [SESSION_STORAGE_KEYS.CACHE_BACKUP]: backup,
-    });
-}
-
-/**
- * Clear cache backup from session storage.
- */
-export async function clearCacheBackup(): Promise<void> {
-    await chrome.storage.session.remove(SESSION_STORAGE_KEYS.CACHE_BACKUP);
 }
 
 // =============================================================================

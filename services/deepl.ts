@@ -18,13 +18,6 @@ import type {
     ValidationResult
 } from '@/src/types';
 
-interface DeepLResponse {
-    translations: {
-        text: string;
-        detected_source_language: string;
-    }[];
-}
-
 export class DeepLTranslationService extends BaseTranslationService {
     constructor(public readonly service: TranslationService) {
         super();
@@ -81,17 +74,21 @@ export class DeepLTranslationService extends BaseTranslationService {
                 }
 
                 throw new TranslationError(
-                    'SERVICE_UNAVAILABLE',
+                    response.status === 429 || response.status === 529 ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE',
                     `DeepL returned status ${response.status}`,
                     { serviceId: this.service.id, httpStatus: response.status }
                 );
             }
 
-            const data = await response.json() as DeepLResponse;
-
-            const result = data.translations?.[0];
-            if (!result) {
-                throw new TranslationError('SERVICE_UNAVAILABLE', 'No translation returned', { serviceId: this.service.id });
+            const data: unknown = await response.json();
+            const result: unknown = data && typeof data === 'object' &&
+                'translations' in data && Array.isArray(data.translations)
+                ? data.translations[0] : undefined;
+            if (!result || typeof result !== 'object' ||
+                !('text' in result) || typeof result.text !== 'string' || !result.text.trim() ||
+                !('detected_source_language' in result) || typeof result.detected_source_language !== 'string' ||
+                !result.detected_source_language.trim()) {
+                throw new TranslationError('SERVICE_UNAVAILABLE', 'Invalid DeepL translation response', { serviceId: this.service.id });
             }
 
             return {
@@ -103,6 +100,9 @@ export class DeepLTranslationService extends BaseTranslationService {
         } catch (error) {
             params.signal?.throwIfAborted();
             if (error instanceof TranslationError) throw error;
+            if (error instanceof SyntaxError) {
+                throw new TranslationError('SERVICE_UNAVAILABLE', 'Invalid DeepL translation response', { serviceId: this.service.id });
+            }
 
             throw new TranslationError(
                 'NETWORK_ERROR',

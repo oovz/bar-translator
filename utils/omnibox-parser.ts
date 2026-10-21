@@ -117,14 +117,6 @@ export function formatSuggestionDescription(translation: string): string {
 }
 
 /**
- * Format loading state for omnibox.
- */
-export function formatLoadingDescription(text: string): string {
-    const truncated = text.length > 40 ? text.substring(0, 40) + '...' : text;
-    return `<dim>Translating: ${escapeXml(truncated)}...</dim>`;
-}
-
-/**
  * Format error state for omnibox.
  */
 export function formatErrorDescription(errorMessage: string): string {
@@ -141,11 +133,4 @@ export function escapeXml(str: string): string {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
-}
-
-/**
- * Normalize text for cache key generation.
- */
-export function normalizeTextForCache(text: string): string {
-    return text.toLowerCase().trim();
 }

@@ -1,3 +1,4 @@
+/** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_PREFERENCES, type StoredApiKeys, type UserPreferences, type CredentialStorageType } from '@/src/types';
 import messages from '@/public/_locales/en/messages.json';
@@ -919,6 +920,27 @@ describe('optional access and omnibox actions', () => {
         await omnibox.onInputEntered.fire(warning!.content, 'currentTab');
         expect(chrome.runtime.openOptionsPage).toHaveBeenCalledTimes(1);
         expect(copiedText).not.toHaveBeenCalled();
+    });
+
+    it('keeps malformed provider data out of the preview and copies only an allowed fallback', async () => {
+        preferences = { ...preferences, fallbackOrder: ['lingva', 'google-web'] };
+        fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+            translation: { text: 'malformed-private-payload' },
+        }))).mockResolvedValueOnce(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+
+        expect(description()).toBe('<match>Bonjour</match>');
+        expect(fetchMock.mock.calls.map(([url]) => new URL(String(url)).hostname))
+            .toEqual(['lingva.ml', 'translate.google.com']);
+        const warning = suggestionRows().find(row => row.description.includes(messages.providerUnavailable.message));
+        expect(warning?.description).toContain('Warning: Lingva');
+        expect(JSON.stringify(suggestionRows())).not.toContain('malformed-private-payload');
+        expect(copiedText).not.toHaveBeenCalled();
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(copiedText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+        expect(chrome.runtime.openOptionsPage).not.toHaveBeenCalled();
+        expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain('malformed-private-payload');
     });
 
     it('attempts an untested key and reports rejection separately from a successful fallback', async () => {

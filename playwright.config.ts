@@ -6,17 +6,17 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
     testDir: './tests/e2e',
-    fullyParallel: false, // Extensions require sequential execution
+    fullyParallel: false,
     forbidOnly: !!process.env.CI,
     retries: process.env.CI ? 2 : 0,
-    workers: 1, // Chrome extensions require single worker
+    workers: 1,
     reporter: [['html'], ['list']],
     timeout: 60_000,
     expect: {
         timeout: 10_000,
     },
     use: {
-        headless: false, // Extensions require headed mode
+        headless: true, // The bundled Chromium channel supports extensions in headless mode.
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
     },

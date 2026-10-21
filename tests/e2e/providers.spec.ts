@@ -1,6 +1,5 @@
-import { test, expect } from './fixtures';
+import { test, expect, launchExtension } from './fixtures';
 import type { StoredApiKeys } from '@/src/types';
-import { chromium } from '@playwright/test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -163,14 +162,10 @@ test('persists successive provider reorders', async ({ context, extensionId }) =
     ]);
 });
 
-test('keeps disable-all after closing and restarting Chrome', async () => {
+test('keeps disable-all after closing and restarting Chrome', async ({ headless }) => {
     const profile = await mkdtemp(path.join(tmpdir(), 'bar-provider-restart-'));
-    const extensionPath = path.resolve('.output/chrome-mv3');
-    const launch = () => chromium.launchPersistentContext(profile, {
-        headless: false,
-        args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
-    });
-    let context = await launch();
+    let extension = await launchExtension(profile, headless);
+    let context = extension.context;
     try {
         const worker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
         const extensionId = new URL(worker.url()).host;
@@ -187,9 +182,10 @@ test('keeps disable-all after closing and restarting Chrome', async () => {
             const { preferences } = await chrome.storage.sync.get<{ preferences?: { fallbackOrder: string[] } }>('preferences');
             return preferences?.fallbackOrder;
         })).toEqual([]);
-        await context.close();
+        await extension.close();
 
-        context = await launch();
+        extension = await launchExtension(profile, headless);
+        context = extension.context;
         const restartedWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
         await restartedWorker.evaluate(() => chrome.runtime.openOptionsPage());
         const reopened = await settingsPage();
@@ -199,7 +195,73 @@ test('keeps disable-all after closing and restarting Chrome', async () => {
         await reopened.locator('[data-id="lingva"] [title="Enable service"]').click();
         await expect(reopened.locator('.service-item.enabled')).toHaveAttribute('data-id', 'lingva');
     } finally {
-        await context.close();
-        await rm(profile, { recursive: true, force: true });
+        try {
+            await extension.close();
+        } finally {
+            await rm(profile, { recursive: true, force: true });
+        }
     }
+});
+
+test('keeps a denied provider disabled and its key saved through the mocked permission boundary', async ({ context, extensionId }) => {
+    const page = await context.newPage();
+    await mockOptionalPermissionsForSettings(page);
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+    const labels = await page.evaluate(() => ({
+        apiKey: chrome.i18n.getMessage('apiKeyLabel'),
+        test: chrome.i18n.getMessage('testKey'),
+        denied: chrome.i18n.getMessage('permissionDenied'),
+    }));
+    const deepl = page.locator('[data-id="deepl"]');
+    await deepl.getByText(labels.apiKey, { exact: true }).click();
+    await deepl.locator('input').fill('saved-without-a-grant:fx');
+    await page.evaluate(() => window.settingsPermissionMock.denyNextRequest());
+    await deepl.locator('[title="Enable service"]').click();
+    await expect(page.getByRole('alert')).toContainText(labels.denied);
+    await expect(deepl).toHaveClass(/disabled-item/);
+    await expect(deepl.getByRole('button', { name: labels.test, exact: true })).toBeDisabled();
+    expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([{ origins: [
+        'https://api-free.deepl.com/*', 'https://api.deepl.com/*',
+    ] }]);
+
+    await page.reload();
+    await expect(deepl).toHaveClass(/disabled-item/);
+    await deepl.getByText(labels.apiKey, { exact: true }).click();
+    await expect(deepl.locator('input')).toHaveValue('saved-without-a-grant:fx');
+    await expect(deepl.getByRole('button', { name: labels.test, exact: true })).toBeDisabled();
+});
+
+test('updates an enabled provider after partial access revocation through the mocked permission boundary', async ({ context, extensionId }) => {
+    const page = await context.newPage();
+    await mockOptionalPermissionsForSettings(page);
+    await page.goto(`chrome-extension://${extensionId}/options.html`);
+    const labels = await page.evaluate(() => ({
+        apiKey: chrome.i18n.getMessage('apiKeyLabel'),
+        test: chrome.i18n.getMessage('testKey'),
+        required: chrome.i18n.getMessage('providerPermissionRequired'),
+        ready: chrome.i18n.getMessage('providerReady'),
+        grant: chrome.i18n.getMessage('grantAccess'),
+    }));
+    const deepl = page.locator('[data-id="deepl"]');
+    await deepl.getByText(labels.apiKey, { exact: true }).click();
+    await deepl.locator('input').fill('untested-key:fx');
+    await deepl.locator('[title="Enable service"]').click();
+    await expect(deepl.getByLabel(labels.ready)).toBeVisible();
+    await expect(deepl.getByRole('button', { name: labels.test, exact: true })).toBeEnabled();
+
+    await page.evaluate(() => window.settingsPermissionMock.revoke({ origins: ['https://api.deepl.com/*'] }));
+    await expect(deepl.getByText(labels.required, { exact: true })).toBeVisible();
+    await expect(deepl.getByRole('button', { name: labels.test, exact: true })).toBeDisabled();
+    await expect(deepl.getByLabel(labels.ready)).toHaveCount(0);
+    await expect(deepl).toHaveClass(/enabled/);
+    await expect(deepl.locator('input')).toHaveValue('untested-key:fx');
+
+    await deepl.getByRole('button', { name: labels.grant, exact: true }).click();
+    await expect(deepl.getByLabel(labels.ready)).toBeVisible();
+    await expect(deepl.getByRole('button', { name: labels.test, exact: true })).toBeEnabled();
+    expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toHaveLength(2);
+    expect(await page.evaluate(async () => {
+        const { apiKeys_local } = await chrome.storage.local.get<{ apiKeys_local: StoredApiKeys }>('apiKeys_local');
+        return apiKeys_local.deepl?.validated;
+    })).toBe(false);
 });
