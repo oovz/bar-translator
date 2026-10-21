@@ -1,52 +1,53 @@
-<img src="public/icons/icon-128.png" width="64" alt="Bar Translator icon" />
+<img src="public/icons/icon-128.png" width="64" alt="Bar Translator logo" />
 
 # Bar Translator
 
-Translate text from Chrome's address bar and optionally press Enter to copy the result, without leaving your current tab.
+Translate in Chrome's address bar and keep your page in view. Type your text, read the translation, and optionally press Enter to copy it.
 
-[![Available in the Chrome Web Store](https://user-images.githubusercontent.com/22908993/166417152-f870bfbd-1770-4c28-b69d-a7303aebc9a6.png)](https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno)
+**[Add Bar Translator to Chrome](https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno)** · [User guide](docs/usage.md) · [Development and testing](docs/testing.md)
 
-## Usage
+![Bar Translator: translate in your address bar](assets/chrome-web-store/marquee-1400x560.png)
 
-On a new installation, settings open automatically in their own tab. Grant access to your chosen providers and optionally enable **Enter to copy**. You can use translation previews without clipboard access.
+*Illustrative browser preview. Language shortcuts and copying are optional.*
 
-1. Focus the address bar with Ctrl+L (Windows/Linux) or Cmd+L (macOS).
-2. Type `t` followed by a space to enter translation mode.
-3. Enter your text to translate with your saved source and target languages.
-4. Wait for the translation preview, then press Enter to copy it if copying is enabled.
+## Translate with the languages you use
 
-The primary result contains only the translated text. Additional suggestions show copy actions and provider warnings. Select a settings action and press Enter to fix missing permissions or credentials. When a settings problem blocks translation, pressing Enter on the error also opens settings. Temporary network errors do not redirect you. After changing settings or permissions, edit the input or enter translation mode again to refresh completed suggestions.
+1. Choose your source and target languages in settings, then enable your preferred translation providers. Settings open when you first install the extension.
+2. Focus the address bar with **Ctrl+L** on Windows/Linux or **Cmd+L** on macOS. Type **`t`**, then **Space**.
+3. Enter your text. The preview uses your saved languages.
 
-| Input | Translation |
+For example, `t Hello world` translates “Hello world” to your saved target language. Choose **Auto-detect** as the source language if you want the provider to identify it.
+
+Wait for the completed translation before pressing Enter. Enable **Enter to copy** in settings when you want that shortcut; reading previews works on its own. Optional language prefixes let you change languages for one translation; the [user guide](docs/usage.md#language-shortcuts) has examples.
+
+## Small by design
+
+- Read translations while your current page stays open.
+- Keep the translation separate from copy instructions, warnings, and settings actions.
+- Choose which providers receive your text and the order in which they are tried.
+- Grant provider and clipboard access when you enable those features. Only extension storage is required at installation.
+
+Requests have time limits. If a provider fails, the extension tries the next one you enabled and shows a warning. A failed translation leaves your clipboard unchanged.
+
+## Privacy you can understand
+
+Bar Translator collects no usage analytics. Translation requests go directly to the providers you enable. Production logs exclude translation text and API keys.
+
+API keys are stored locally by default. You can choose key syncing separately on each device. Read the [permissions and storage guide](docs/usage.md#permissions-and-privacy) for details.
+
+## Choose your translation providers
+
+| Provider | What to expect |
 | --- | --- |
-| `t Hello world` | Uses your default target language. |
-| `t fr Hello world` | Translates to French. |
-| `t en>fr Hello world` | Uses English as the source and French as the target. |
+| Google Translate Web | Uses Google's mobile page without an API key. Google may require human verification on your network. |
+| Lingva | A public Google Translate proxy without an API key. Availability varies. |
+| DeepL | Uses the official API with your own API key. Testing the key is optional. |
 
-In settings, choose your source and target languages and preferred regional variants, such as mapping `zh` to `zh-TW`. Choose **Auto-detect** as the source language to detect it automatically. Language-code prefixes are optional shortcuts for overriding these settings for one translation.
-
-Previews start after a 300 ms pause in typing. The address bar shows loading text while a request is pending and an error if translation fails. Editing or clearing the input, or ending the interaction, cancels pending work.
-
-> [!NOTE]
-> Enter copies a completed result that matches your current input and settings. Pressing it before a result is ready ends the interaction, cancels the request, and leaves your clipboard unchanged.
-
-## Translation providers
-
-| Provider | Access |
-| --- | --- |
-| Google Translate | Public web endpoint; no API key required. |
-| Lingva Translate | Alternative frontend for Google Translate; no API key required. |
-| DeepL | Official API; requires a Free or Pro API key. |
-
-Enable the providers you allow to receive your text, then drag them into order in settings. Enabling Google or DeepL requests access to that provider’s domains; DeepL requires both its Free and Pro domains regardless of your plan. Lingva currently needs no host permission because its API supports cross-origin requests. Disabling a provider releases its host access. Permission grants apply to this device; synced provider choices may need access granted again on another device. The first available provider is tried first. If it fails, later enabled providers may receive the same text. Disabling every provider pauses translation; the selection is saved across settings and browser restarts.
-
-Each provider is attempted once, in sequence. An attempt has up to four seconds, including reading the response, within a ten-second total budget. A timeout aborts that request and moves to the next available provider with the remaining time. If translation fails, the clipboard stays unchanged. Public web endpoints can become unavailable or change their response format. Google uses its mobile web page, which can still redirect to verification or consent pages; those redirects are reported as service failures. Lingva is a best-effort public service whose availability can vary.
-
-You can enable DeepL before entering a key. Any supplied key is used for translation without a required test; rejected keys produce errors or fallback warnings. DeepL’s optional **Test** button checks your key through the authenticated [usage endpoint](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits), and is available only while DeepL is enabled and permitted. A failed test does not disable the provider.
+Public web services can be unavailable or change their responses. The preview shows failures and offers settings actions for problems you can fix there.
 
 ## Run locally
 
-With [Node.js](https://nodejs.org/) 24.15+ and [pnpm](https://pnpm.io/) 12.14.0 installed:
+Use Node.js 24.15+ (24.x) and pnpm 12.14.0:
 
 ```bash
 git clone https://github.com/oovz/bar-translator.git
@@ -55,20 +56,4 @@ pnpm install
 pnpm dev
 ```
 
-This launches a browser with the extension loaded.
-
-## Permissions and privacy
-
-Only extension storage is required at installation. Provider access and clipboard/offscreen access are optional. Clipboard access allows writing translations, not reading your clipboard. Turning off **Enter to copy** releases both clipboard and offscreen permissions. Settings do not open automatically on updates; missing access is shown in the address-bar preview.
-
-Translation requests go directly to your enabled providers. Translation content is sent only to those providers, and API keys go to their corresponding provider for translation and explicit key validation. Cancelling a request cannot undo text a provider has already received or any resulting billing.
-
-The extension collects no usage analytics and creates no analytics identity. Production logs exclude translation text, results, credentials, and provider response bodies. The maintainer uses Chrome Web Store reporting outside the extension.
-
-Settings sync across your Chrome instances. API keys default to local storage, and each device chooses its own **API Key Storage** setting:
-
-- **Sync** copies this device's keys to shared storage. It preserves keys for other providers already stored there; this device's key takes precedence for the same provider.
-- **Local** copies shared keys to this device and keeps the shared copy available to other devices.
-
-> [!IMPORTANT]
-> Both local and synced storage hold readable API keys.
+See [development and testing](docs/testing.md) for checks, browser coverage, and manual verification.
