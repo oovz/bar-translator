@@ -271,13 +271,15 @@ export function ServiceList({
         }
 
         return (
-            <div class="api-key-section">
+            <div class="api-key-section" id={`api-key-${serviceId}`}>
                 <div class="api-key-input">
                     <input
                         {...(showKeys[serviceId] ? { type: 'text' as const } : { type: 'password' as const })}
                         class="input"
                         placeholder={t('enterApiKey', [svc.name])}
                         aria-label={t('enterApiKey', [svc.name])}
+                        autoComplete="off"
+                        spellcheck={false}
                         value={apiKey}
                         onInput={(e) => handleApiKeyChange(serviceId, e.currentTarget.value)}
                         disabled={state === 'validating'}
@@ -300,7 +302,7 @@ export function ServiceList({
                     </button>
                 </div>
                 {testedKeys.current[serviceId] === apiKey && validationErrors[serviceId] && (
-                    <div role="alert" style="color: var(--danger-color); font-size: 10px; margin-top: 4px;">
+                    <div class="feedback feedback-error" role="alert">
                         {validationErrors[serviceId]}
                     </div>
                 )}
@@ -311,8 +313,8 @@ export function ServiceList({
     return (
         <div class="section" id="providers" tabIndex={-1}>
             <div class="section-title">{t('sectionTranslationServices')}</div>
-            {permissionError && <div role="alert">{permissionError}</div>}
-            <div style="font-size: 10px; color: var(--text-secondary); margin-bottom: 8px;">
+            {permissionError && <div class="feedback feedback-error" role="alert">{permissionError}</div>}
+            <div class="section-description">
                 {t('servicesDesc')}
             </div>
 
@@ -329,30 +331,32 @@ export function ServiceList({
                                 <span class="drag-handle" title="Drag to reorder">⋮⋮</span>
                                 <span class="service-index">{idx + 1}</span>
                                 <div class="service-info">
-                                    <span class="service-name">{svc.name}</span>
-                                    {idx === 0 && <span class="badge badge-primary">{t('primary')}</span>}
-                                    {ready ? (
-                                        <span class="badge badge-success" aria-label={t('providerReady')}>✓</span>
-                                    ) : !access[serviceId] ? (
-                                        <span class="badge badge-warning">{t('providerPermissionRequired')}</span>
-                                    ) : svc.requiresApiKey ? (
-                                        <span class="badge badge-warning">{t('keyNeeded')}</span>
-                                    ) : null}
+                                    <div class="service-heading">
+                                        <span class="service-name">{svc.name}</span>
+                                        {idx === 0 && <span class="badge badge-primary">{t('primary')}</span>}
+                                        {ready && <span class="badge badge-success" aria-label={t('providerReady')}>✓</span>}
+                                    </div>
+                                    {!ready && <span class="setting-hint service-status">
+                                        {!access[serviceId] ? t('providerPermissionRequired') : t('keyNeeded')}
+                                    </span>}
                                 </div>
                                 <div class="service-actions">
                                     {!access[serviceId] && <button class="btn btn-sm" disabled={busy !== null} onClick={() => grantAccess(serviceId)}>{t('grantAccess')}</button>}
                                     {svc.requiresApiKey && (
                                         <button
                                             class="btn btn-sm"
+                                            aria-expanded={isExpanded}
+                                            aria-controls={`api-key-${serviceId}`}
                                             onClick={() => setExpandedService(isExpanded ? null : serviceId)}
                                         >
-                                            {isExpanded ? '▲' : t('apiKeyLabel')}
+                                            {t('apiKeyLabel')}
                                         </button>
                                     )}
                                     <button
                                         class="btn btn-sm"
                                         onClick={() => toggleService(serviceId)}
                                         title="Disable service"
+                                        aria-label="Disable service"
                                         disabled={busy !== null}
                                     >
                                         ✕
@@ -379,7 +383,7 @@ export function ServiceList({
                             return (
                                 <li key={serviceId} class="service-item disabled-item" data-id={serviceId}>
                                     <div class="service-row">
-                                        <div class="service-info" style="flex: 1;">
+                                        <div class="service-info service-heading">
                                             <span class="service-name">{svc.name}</span>
                                             {svc.requiresApiKey ? (
                                                 <span class="badge badge-muted">{t('keyRequired')}</span>
@@ -392,15 +396,18 @@ export function ServiceList({
                                             {svc.requiresApiKey && (
                                                 <button
                                                     class="btn btn-sm"
+                                                    aria-expanded={isExpanded}
+                                                    aria-controls={`api-key-${serviceId}`}
                                                     onClick={() => setExpandedService(isExpanded ? null : serviceId)}
                                                 >
-                                                    {isExpanded ? '▲' : t('apiKeyLabel')}
+                                                    {t('apiKeyLabel')}
                                                 </button>
                                             )}
                                             <button
                                                 class="btn btn-sm btn-primary"
                                                 onClick={() => toggleService(serviceId)}
                                                 title="Enable service"
+                                                aria-label="Enable service"
                                                 disabled={busy !== null}
                                             >
                                                 +
@@ -416,7 +423,7 @@ export function ServiceList({
             )}
 
             {enabledServices.length === 0 && (
-                <div style="padding: 12px; background: rgba(245,158,11,0.1); border-radius: 4px; font-size: 11px; color: var(--warning-color);">
+                <div class="feedback feedback-warning">
                     {t('noServicesEnabled')}
                 </div>
             )}

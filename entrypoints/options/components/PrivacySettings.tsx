@@ -58,9 +58,9 @@ export function PrivacySettings({ storageType, changingStorage, changeStorageTyp
             </div>
 
             {failedType && (
-                <div role="alert">
-                    {t('storageChangeFailed')}
-                    <button class="btn" disabled={changingStorage} onClick={() => handleStorageTypeChange(failedType)}>
+                <div class="feedback feedback-error" role="alert">
+                    <span>{t('storageChangeFailed')}</span>
+                    <button class="btn btn-sm" disabled={changingStorage} onClick={() => handleStorageTypeChange(failedType)}>
                         {t('retry')}
                     </button>
                 </div>

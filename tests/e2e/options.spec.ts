@@ -184,3 +184,38 @@ test.describe('Options Page', () => {
         await expect(tooltip).toHaveAttribute('title', text.storageDesc);
     });
 });
+
+for (const colorScheme of ['light', 'dark'] as const) {
+    test(`keeps provider setup and the copy switch usable on a narrow ${colorScheme} page`, async ({ context, extensionId }, testInfo) => {
+        const page = await context.newPage();
+        await page.setViewportSize({ width: 360, height: 840 });
+        await page.emulateMedia({ colorScheme });
+        await mockOptionalPermissionsForSettings(page);
+        await page.goto(`chrome-extension://${extensionId}/options.html`);
+        const labels = await page.evaluate(() => ({
+            apiKey: chrome.i18n.getMessage('apiKeyLabel'),
+            copy: chrome.i18n.getMessage('enableCopy'),
+        }));
+        const setup = page.locator('[data-id="deepl"]');
+        const disclosure = setup.getByRole('button', { name: labels.apiKey, exact: true });
+        await disclosure.click();
+        await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
+        await expect(setup.locator('input')).toBeVisible();
+
+        const copy = page.getByRole('checkbox', { name: labels.copy, exact: true });
+        await copy.focus();
+        await copy.press('Space');
+        await expect(copy).toBeChecked();
+        await expect(copy).toBeFocused();
+        expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([
+            { permissions: ['clipboardWrite', 'offscreen'] },
+        ]);
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+        await copy.press('Space');
+        await expect(copy).not.toBeChecked();
+        expect(await page.evaluate(() => window.settingsPermissionMock.removals)).toEqual([
+            { permissions: ['clipboardWrite', 'offscreen'] },
+        ]);
+        await page.screenshot({ path: testInfo.outputPath(`narrow-${colorScheme}.png`), fullPage: true });
+    });
+}

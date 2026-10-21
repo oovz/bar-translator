@@ -46,12 +46,17 @@ export function CopySettings() {
     return (
         <div class="section" id="copy" tabIndex={-1}>
             <div class="section-title">{t('sectionCopy')}</div>
-            <p>{t('copySettingsDesc')}</p>
-            <label>
-                <input type="checkbox" checked={allowed} disabled={busy} onChange={toggle} />
-                {' '}{t('enableCopy')}
-            </label>
-            {error && <div role="alert">{error}</div>}
+            <div class="setting-row">
+                <div class="setting-info">
+                    <label class="setting-label" htmlFor="enable-copy">{t('enableCopy')}</label>
+                    <div class="setting-hint" id="copy-description">{t('copySettingsDesc')}</div>
+                </div>
+                <label class="toggle-switch">
+                    <input id="enable-copy" type="checkbox" aria-describedby="copy-description" checked={allowed} disabled={busy} onChange={toggle} />
+                    <span class="toggle-slider" aria-hidden="true" />
+                </label>
+            </div>
+            {error && <div class="feedback feedback-error" role="alert">{error}</div>}
         </div>
     );
 }

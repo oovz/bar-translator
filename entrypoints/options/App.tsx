@@ -74,7 +74,7 @@ export default function App() {
 
     return (
         <div>
-            {error && <div role="alert">{error}</div>}
+            {error && <div class="feedback feedback-error" role="alert">{error}</div>}
             {/* Languages */}
             <div class="section">
                 <div class="section-title">{t('sectionDefaultLanguages')}</div>
@@ -101,7 +101,7 @@ export default function App() {
             {/* Regional Dialects */}
             <div class="section">
                 <div class="section-title">{t('sectionRegionalDialects')}</div>
-                <div style="margin-bottom: 16px; color: var(--text-secondary); font-size: 13px;">
+                <div class="section-description">
                     {t('regionalDialectsDesc')}
                 </div>
                 <div class="form-row">
