@@ -4,11 +4,11 @@
 
 Translate in Chrome's address bar and keep your page in view. Type your text, read the translation, and optionally press Enter to copy it.
 
-**[Add Bar Translator to Chrome](https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno)** · [User guide](docs/usage.md) · [Development and testing](docs/testing.md)
+[![Available in the Chrome Web Store](https://user-images.githubusercontent.com/22908993/166417152-f870bfbd-1770-4c28-b69d-a7303aebc9a6.png)](https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno)
+
+[User guide](docs/usage.md) · [Development and testing](docs/testing.md)
 
 ![Bar Translator: translate in your address bar](assets/chrome-web-store/marquee-1400x560.png)
-
-*Illustrative browser preview. Language shortcuts and copying are optional.*
 
 ## Translate with the languages you use
 
@@ -18,7 +18,7 @@ Translate in Chrome's address bar and keep your page in view. Type your text, re
 
 For example, `t Hello world` translates “Hello world” to your saved target language. Choose **Auto-detect** as the source language if you want the provider to identify it.
 
-Wait for the completed translation before pressing Enter. Enable **Enter to copy** in settings when you want that shortcut; reading previews works on its own. Optional language prefixes let you change languages for one translation; the [user guide](docs/usage.md#language-shortcuts) has examples.
+Enable **Enter to copy** in settings to copy a completed translation with Enter. Optional language prefixes let you change languages for one translation; the [user guide](docs/usage.md#language-shortcuts) has examples.
 
 ## Small by design
 
@@ -27,7 +27,7 @@ Wait for the completed translation before pressing Enter. Enable **Enter to copy
 - Choose which providers receive your text and the order in which they are tried.
 - Grant provider and clipboard access when you enable those features. Only extension storage is required at installation.
 
-Requests have time limits. If a provider fails, the extension tries the next one you enabled and shows a warning. A failed translation leaves your clipboard unchanged.
+Fallback follows your chosen provider order, with status messages alongside the translation preview.
 
 ## Privacy you can understand
 
@@ -39,11 +39,9 @@ API keys are stored locally by default. You can choose key syncing separately on
 
 | Provider | What to expect |
 | --- | --- |
-| Google Translate Web | Uses Google's mobile page without an API key. Google may require human verification on your network. |
-| Lingva | A public Google Translate proxy without an API key. Availability varies. |
+| Google Translate Web | Uses Google's mobile page without an API key. |
+| Lingva | A public Google Translate proxy without an API key. |
 | DeepL | Uses the official API with your own API key. Testing the key is optional. |
-
-Public web services can be unavailable or change their responses. The preview shows failures and offers settings actions for problems you can fix there.
 
 ## Run locally
 
