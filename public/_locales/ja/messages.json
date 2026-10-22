@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "今のページを開いたまま、Chromeのアドレスバーで翻訳。"
+        "message": "今のページを開いたまま、ブラウザーのアドレスバーで翻訳。"
     },
     "loading": {
         "message": "読み込み中..."
@@ -140,6 +140,9 @@
     },
     "footerUsage": {
         "message": "<code>t hello</code> と入力すると、保存済みの翻訳元・翻訳先言語で翻訳します。任意で <code>t fr hello</code> と入力するとフランス語に翻訳できます。"
+    },
+    "omniboxFirefoxPrompt": {
+        "message": "翻訳が完了すると下に表示されます。結果が出てからEnterでコピーしてください。"
     },
     "omniboxSuggestion": {
         "message": "テキストを入力すると、保存済みの言語設定で翻訳します。<dim>任意のショートカット：fr Hello → フランス語。</dim>"

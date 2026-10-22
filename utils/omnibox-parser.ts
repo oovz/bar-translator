@@ -134,3 +134,13 @@ export function escapeXml(str: string): string {
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;');
 }
+
+/** Convert our escaped Chromium descriptions to Firefox's plain-text format. */
+export function browserDescription(description: string): string {
+    if (!import.meta.env.FIREFOX) return description;
+    // Strip only formatting we emit, before decoding literal user/provider text.
+    return description.replace(/<\/?(?:match|dim|url)>/g, '')
+        .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+        .replace(/&amp;/g, '&');
+}

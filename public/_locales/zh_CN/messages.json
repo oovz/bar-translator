@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "直接在 Chrome 地址栏翻译，让思路留在当前页面。"
+        "message": "直接在浏览器地址栏翻译，让思路留在当前页面。"
     },
     "loading": {
         "message": "加载中..."
@@ -140,6 +140,9 @@
     },
     "footerUsage": {
         "message": "在地址栏输入 <code>t hello</code>，即可按已保存的源语言和目标语言翻译。可选：输入 <code>t fr hello</code> 可翻译为法语。"
+    },
+    "omniboxFirefoxPrompt": {
+        "message": "翻译完成后会显示在下方。请等待结果后再按 Enter 复制。"
     },
     "omniboxSuggestion": {
         "message": "输入文本，即可按已保存的语言设置翻译。<dim>可选快捷用法：fr Hello → 法语。</dim>"

@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "Traduce desde la barra de direcciones de Chrome sin perder de vista tu página."
+        "message": "Traduce desde la barra de direcciones del navegador sin perder de vista tu página."
     },
     "loading": {
         "message": "Cargando..."
@@ -140,6 +140,9 @@
     },
     "footerUsage": {
         "message": "Escribe <code>t hello</code> para traducir con los idiomas de origen y destino guardados. Opcional: <code>t fr hello</code> traduce al francés."
+    },
+    "omniboxFirefoxPrompt": {
+        "message": "La traducción aparecerá abajo cuando esté lista. Espera el resultado antes de pulsar Intro para copiar."
     },
     "omniboxSuggestion": {
         "message": "Escribe el texto para traducir con tus idiomas guardados. <dim>Atajo opcional: fr Hello → francés.</dim>"

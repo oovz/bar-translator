@@ -3,7 +3,7 @@ import { translateWithFallback } from '@/services/index';
 import { getServiceDefinition } from '@/services/base';
 import { t } from '@/utils/i18n';
 import { getPreferences, getApiKeys } from '@/utils/storage';
-import { parseOmniboxInput, formatSuggestionDescription, formatErrorDescription, escapeXml } from '@/utils/omnibox-parser';
+import { parseOmniboxInput, formatSuggestionDescription, formatErrorDescription, escapeXml, browserDescription } from '@/utils/omnibox-parser';
 import { copyToClipboard } from '@/utils/clipboard';
 import { hasCopyAccess, hasProviderAccess, removeCopyAccess, removeProviderAccess, COPY_PERMISSIONS } from '@/utils/permissions';
 import { TranslationError } from '@/utils/errors';
@@ -62,6 +62,13 @@ function issueMessage(issue: TranslationWarning): string {
     return issue.serviceId ? `${getServiceDefinition(issue.serviceId).name}: ${message}` : message;
 }
 
+function setDefaultSuggestion(suggestion: { description: string }) {
+    // Firefox does not refresh the current default row. Keep it as stable guidance;
+    // completed results and errors are delivered in the single suggestion batch.
+    if (import.meta.env.FIREFOX) return Promise.resolve();
+    return browser.omnibox.setDefaultSuggestion({ description: browserDescription(suggestion.description) });
+}
+
 export default defineBackground(() => {
     let current: Interaction | undefined;
     let completed: CompletedTranslation | undefined;
@@ -73,7 +80,10 @@ export default defineBackground(() => {
     void getPreferences().catch(() => console.error('[Background] Could not load preferences'));
 
     function showPrompt() {
-        return browser.omnibox.setDefaultSuggestion({ description: t('omniboxSuggestion') });
+        if (import.meta.env.FIREFOX) {
+            return browser.omnibox.setDefaultSuggestion({ description: t('omniboxFirefoxPrompt') });
+        }
+        return setDefaultSuggestion({ description: t('omniboxSuggestion') });
     }
     function clearResults() {
         completed = undefined;
@@ -108,19 +118,23 @@ export default defineBackground(() => {
     }
     function sendSuggestions(interaction: Interaction, rows: chrome.omnibox.SuggestResult[]) {
         // Chrome accepts one set per input request, including an empty set.
-        interaction.suggest?.(rows);
+        interaction.suggest?.(rows.map(row => ({ ...row, description: browserDescription(row.description) })));
         interaction.suggest = undefined;
         interaction.presented = true;
     }
     async function showError(error: unknown, interaction?: Interaction) {
         const issue = error instanceof TranslationError ? error : undefined;
-        await browser.omnibox.setDefaultSuggestion({
+        await setDefaultSuggestion({
             description: formatErrorDescription(issue ? issueMessage(issue) : t(interaction ? 'omniboxAllFailed' : 'omniboxCopyFailed')),
         });
         if (interaction && isCurrent(interaction)) {
             if (issue && needsSettings(issue)) defaultSettingsInput = interaction.input;
             const warnings = issue?.warnings ?? [];
             const rows = warningRows(warnings.filter(warning => warning.code !== issue?.code || warning.serviceId !== issue?.serviceId));
+            if (import.meta.env.FIREFOX) {
+                rows.unshift(actionRow(issue && needsSettings(issue) ? 'settings' : 'none',
+                    issue ? issueMessage(issue) : t('omniboxAllFailed')));
+            }
             if (issue && needsSettings(issue)) rows.unshift(actionRow('settings', t('omniboxSettingsAction')));
             sendSuggestions(interaction, rows);
         }
@@ -139,10 +153,11 @@ export default defineBackground(() => {
             const result = await translateWithFallback({ ...context.params, signal: interaction.controller.signal }, preferences, apiKeys);
             const canCopy = await hasCopyAccess();
             if (isCurrent(interaction) && !interaction.committed) {
-                await browser.omnibox.setDefaultSuggestion({ description: formatSuggestionDescription(result.translation) });
+                await setDefaultSuggestion({ description: formatSuggestionDescription(result.translation) });
                 if (!isCurrent(interaction)) return;
                 completed = { input: interaction.input, context: context.identity, translation: result.translation, serviceId: result.serviceId };
                 sendSuggestions(interaction, [
+                    ...(import.meta.env.FIREFOX ? [actionRow(canCopy ? 'copy' : 'none', result.translation)] : []),
                     actionRow(canCopy ? 'copy' : 'settings', t(canCopy ? 'omniboxCopyAction' : 'omniboxCopyOff')),
                     ...warningRows(result.warnings),
                 ]);
@@ -160,7 +175,7 @@ export default defineBackground(() => {
             void Promise.resolve(showPrompt()).then(() => { if (isCurrent(interaction)) sendSuggestions(interaction, []); });
             return;
         }
-        browser.omnibox.setDefaultSuggestion({ description: t('omniboxTranslating') });
+        setDefaultSuggestion({ description: t('omniboxTranslating') });
         debounceTimer = setTimeout(() => { void preview(interaction); }, DEBOUNCE_DELAY);
     }
 
@@ -195,7 +210,7 @@ export default defineBackground(() => {
             const copied = await copyToClipboard(result.translation, interaction.controller.signal);
             if (!isCurrent(interaction)) return;
             if (!copied) throw new Error(t('omniboxCopyFailed'));
-            browser.omnibox.setDefaultSuggestion({ description: t('omniboxCopied', [escapeXml(result.translation)]) });
+            setDefaultSuggestion({ description: t('omniboxCopied', [escapeXml(result.translation)]) });
             feedbackTimer = setTimeout(showPrompt, 3000);
         } catch (error) {
             if (current === interaction) await showError(error);

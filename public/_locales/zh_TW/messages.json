@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "直接在 Chrome 網址列翻譯，思緒留在眼前的頁面。"
+        "message": "直接在瀏覽器網址列翻譯，思緒留在眼前的頁面。"
     },
     "loading": {
         "message": "載入中..."
@@ -140,6 +140,9 @@
     },
     "footerUsage": {
         "message": "在網址列輸入 <code>t hello</code>，即可依已儲存的來源語言與目標語言翻譯。選用：輸入 <code>t fr hello</code> 可翻譯為法文。"
+    },
+    "omniboxFirefoxPrompt": {
+        "message": "翻譯完成後會顯示在下方。請等待結果後再按 Enter 複製。"
     },
     "omniboxSuggestion": {
         "message": "輸入文字，即可依已儲存的語言設定翻譯。<dim>選用快捷用法：fr Hello → 法文。</dim>"

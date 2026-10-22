@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "지금 보는 페이지는 그대로 두고 Chrome 주소창에서 번역하세요."
+        "message": "지금 보는 페이지는 그대로 두고 브라우저 주소창에서 번역하세요."
     },
     "loading": {
         "message": "로딩 중..."
@@ -140,6 +140,9 @@
     },
     "footerUsage": {
         "message": "<code>t hello</code>를 입력하면 저장된 원본 및 대상 언어로 번역합니다. 선택 사항으로 <code>t fr hello</code>를 입력하면 프랑스어로 번역합니다."
+    },
+    "omniboxFirefoxPrompt": {
+        "message": "번역이 완료되면 아래에 표시됩니다. 결과가 나온 뒤 Enter를 눌러 복사하세요."
     },
     "omniboxSuggestion": {
         "message": "텍스트를 입력하면 저장된 언어 설정으로 번역합니다. <dim>선택 사항: fr Hello → 프랑스어.</dim>"

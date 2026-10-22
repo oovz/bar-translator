@@ -4,7 +4,7 @@
         "description": "Extension name"
     },
     "extDescription": {
-        "message": "Traduisez depuis la barre d’adresse de Chrome et gardez votre page sous les yeux.",
+        "message": "Traduisez depuis la barre d’adresse du navigateur et gardez votre page sous les yeux.",
         "description": "Extension description"
     },
     "loading": {
@@ -142,6 +142,9 @@
     },
     "footerUsage": {
         "message": "Saisissez <code>t hello</code> pour traduire avec vos langues source et cible enregistrées. Facultatif : <code>t fr hello</code> traduit en français."
+    },
+    "omniboxFirefoxPrompt": {
+        "message": "La traduction apparaîtra ci-dessous. Attendez le résultat avant d’appuyer sur Entrée pour copier."
     },
     "omniboxSuggestion": {
         "message": "Saisissez le texte à traduire avec vos langues enregistrées. <dim>Raccourci facultatif : fr Hello → français.</dim>"

@@ -134,6 +134,7 @@ afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
 });
 
 async function change(text: string) {
@@ -1093,5 +1094,104 @@ describe('offscreen document creation', () => {
         expect(await copyToClipboard('Next result')).toBe(true);
         expect(chrome.offscreen.createDocument).toHaveBeenCalledTimes(2);
         expect(copiedText).toHaveBeenCalledExactlyOnceWith('Next result');
+    });
+});
+
+describe('Firefox background document', () => {
+    let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;
+
+    beforeEach(async () => {
+        vi.stubEnv('FIREFOX', 'true');
+        vi.resetModules();
+        Object.assign(omnibox, {
+            onInputStarted: event<[]>(),
+            onInputChanged: event<[string, (suggestions: chrome.omnibox.SuggestResult[]) => void]>(),
+            onInputEntered: event<[string, string]>(),
+            onInputCancelled: event<[]>(),
+        });
+        writeText = vi.fn(async () => {});
+        Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+        const { default: background } = await import('@/entrypoints/background');
+        (background as unknown as () => void)();
+        await omnibox.onInputStarted.fire();
+    });
+
+    afterEach(() => { Reflect.deleteProperty(navigator, 'clipboard'); });
+
+    it('preserves literal translation markup when displaying and copying in Firefox', async () => {
+        expect(description()).not.toMatch(/<\/?(?:dim|match)>/);
+        preferences = { ...preferences, fallbackOrder: ['lingva'] };
+        fetchMock.mockResolvedValue(new Response(JSON.stringify({ translation: '<dim>A & B</dim> &lt;' })));
+        await change('fr Hello');
+        expect(description()).not.toContain('<dim>');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(suggestionRows()[0]!.description).toBe('<dim>A & B</dim> &lt;');
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('<dim>A & B</dim> &lt;');
+        expect(chrome.runtime.getContexts).not.toHaveBeenCalled();
+        expect(chrome.offscreen.createDocument).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('keeps preview-only use available without clipboard permission', async () => {
+        vi.mocked(chrome.permissions.contains).mockImplementation(async query => !query.permissions);
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(suggestionRows()[0]!.description).toBe('Bonjour');
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(writeText).not.toHaveBeenCalled();
+    });
+
+    it('keeps blocking-error rows plain text and opens settings on Enter', async () => {
+        preferences = { ...preferences, fallbackOrder: [] };
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(suggestionRows().every(row => !/<\/?(?:dim|match)>/.test(row.description))).toBe(true);
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(chrome.runtime.openOptionsPage).toHaveBeenCalled();
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(writeText).not.toHaveBeenCalled();
+    });
+
+    it('cancels a pending result on Enter without copying it later', async () => {
+        const response = deferred<Response>();
+        fetchMock.mockReturnValue(response.promise);
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        response.resolve(googleResponse('Bonjour'));
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(writeText).not.toHaveBeenCalled();
+    });
+
+    it('copies the newer result after a fast edit, never the earlier completion', async () => {
+        const old = deferred<Response>();
+        fetchMock.mockReturnValueOnce(old.promise).mockResolvedValueOnce(googleResponse('Nouveau'));
+        await change('fr Old');
+        await vi.advanceTimersByTimeAsync(300);
+        await change('fr New');
+        await vi.advanceTimersByTimeAsync(300);
+        old.resolve(googleResponse('Ancien'));
+        await vi.advanceTimersByTimeAsync(0);
+        expect(suggestionRows()[0]!.description).toBe('Nouveau');
+        await omnibox.onInputCancelled.fire();
+        await omnibox.onInputEntered.fire('fr New', 'currentTab');
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Nouveau');
+    });
+
+    it('handles a rejected Firefox clipboard write without retrying', async () => {
+        const copy = deferred<void>();
+        writeText.mockReturnValue(copy.promise);
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        const entering = omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        await vi.advanceTimersByTimeAsync(0);
+        copy.reject(new Error('Clipboard denied'));
+        await entering;
+        expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+        expect(console.error).toHaveBeenCalled();
+        expect(description()).not.toContain('<dim>');
     });
 });

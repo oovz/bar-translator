@@ -7,7 +7,8 @@ export const PROVIDER_ORIGINS: Record<ServiceId, string[]> = {
     deepl: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'],
 };
 
-export const COPY_PERMISSIONS: chrome.runtime.ManifestPermission[] = ['clipboardWrite', 'offscreen'];
+export const COPY_PERMISSIONS: chrome.runtime.ManifestPermission[] = import.meta.env.FIREFOX
+    ? ['clipboardWrite'] : ['clipboardWrite', 'offscreen'];
 
 export function hasProviderAccess(serviceId: ServiceId): Promise<boolean> {
     const origins = PROVIDER_ORIGINS[serviceId];
@@ -42,7 +43,7 @@ export function requestCopyAccess(): Promise<boolean> {
 
 export async function removeCopyAccess(): Promise<void> {
     // Close the document while we still have the offscreen API permission.
-    if (await chrome.permissions.contains({ permissions: ['offscreen'] })) {
+    if (!import.meta.env.FIREFOX && await chrome.permissions.contains({ permissions: ['offscreen'] })) {
         const contexts = await chrome.runtime.getContexts({ contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT] });
         if (contexts.length) await chrome.offscreen.closeDocument();
     }

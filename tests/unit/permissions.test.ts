@@ -34,7 +34,7 @@ beforeEach(() => {
     });
 });
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('provider access boundaries', () => {
     it('requires both DeepL domains and requests them directly before returning', async () => {
@@ -114,5 +114,22 @@ describe('clipboard resource cleanup', () => {
         permissions.add('clipboardWrite');
         remove.mockResolvedValue(false);
         await expect(removeCopyAccess()).rejects.toThrow();
+    });
+});
+
+describe('Firefox clipboard permission', () => {
+    it('requests and releases only clipboardWrite without Chromium offscreen APIs', async () => {
+        vi.stubEnv('FIREFOX', 'true');
+        vi.resetModules();
+        const firefox = await import('@/utils/permissions');
+        permissions.add('clipboardWrite');
+        expect(await firefox.hasCopyAccess()).toBe(true);
+        await firefox.requestCopyAccess();
+        expect(chrome.permissions.request).toHaveBeenCalledExactlyOnceWith({ permissions: ['clipboardWrite'] });
+        await firefox.removeCopyAccess();
+        expect(chrome.runtime.getContexts).not.toHaveBeenCalled();
+        expect(closeDocument).not.toHaveBeenCalled();
+        expect(remove).toHaveBeenCalledExactlyOnceWith({ permissions: ['clipboardWrite'] });
+        expect(await firefox.hasCopyAccess()).toBe(false);
     });
 });

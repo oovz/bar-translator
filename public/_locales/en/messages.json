@@ -4,7 +4,7 @@
         "description": "Extension name"
     },
     "extDescription": {
-        "message": "Translate from Chrome’s address bar and keep your place on the page.",
+        "message": "Translate from your browser’s address bar and keep your place on the page.",
         "description": "Extension description"
     },
     "loading": {
@@ -145,6 +145,9 @@
     },
     "footerUsage": {
         "message": "Type <code>t hello</code> to translate with your saved source and target languages. Optional: <code>t fr hello</code> translates to French."
+    },
+    "omniboxFirefoxPrompt": {
+        "message": "Translation appears below when ready. Wait for the result before pressing Enter to copy."
     },
     "omniboxSuggestion": {
         "message": "Type text to translate with your saved languages. <dim>Optional shortcut: fr Hello → French.</dim>"

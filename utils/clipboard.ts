@@ -1,8 +1,7 @@
 /**
  * Clipboard Helper
  *
- * Service worker side utilities for clipboard operations.
- * Uses the offscreen document for actual clipboard access.
+ * Firefox writes from its background document; Chromium uses an offscreen document.
  *
  * @module utils/clipboard
  */
@@ -47,6 +46,10 @@ export async function copyToClipboard(text: string, signal?: AbortSignal): Promi
         signal?.throwIfAborted();
         if (!await hasCopyAccess()) return false;
         signal?.throwIfAborted();
+        if (import.meta.env.FIREFOX) {
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
         await ensureOffscreenDocument(signal);
         signal?.throwIfAborted();
 
@@ -77,6 +80,7 @@ export async function copyToClipboard(text: string, signal?: AbortSignal): Promi
  * Call this after clipboard operations if you want to clean up.
  */
 export async function closeOffscreenDocument(): Promise<void> {
+    if (import.meta.env.FIREFOX) return;
     const contexts = await chrome.runtime.getContexts({ contextTypes: [chrome.runtime.ContextType.OFFSCREEN_DOCUMENT] });
     if (contexts.length) await chrome.offscreen.closeDocument();
 }
