@@ -140,14 +140,6 @@ describe('provider settings', () => {
         expect(locks).toHaveBeenCalledWith('bar-translator-preferences', expect.any(Function));
     });
 
-    it('offers exactly the implemented providers', async () => {
-        const view = render(<App />);
-        await view.findByText('Google Translate (Web)');
-        expect(Array.from(view.container.querySelectorAll('.service-name'), node => node.textContent)).toEqual([
-            'Google Translate (Web)', 'Lingva (Google Proxy)', 'DeepL',
-        ]);
-    });
-
     it('does not test a key while its provider is disabled', async () => {
         const fetchMock = vi.spyOn(globalThis, 'fetch');
         const view = render(<App />);

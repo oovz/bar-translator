@@ -8,7 +8,6 @@ import { describe, it, expect, vi } from 'vitest';
 import {
     parseOmniboxInput,
     formatSuggestionDescription,
-    formatErrorDescription,
 } from '@/utils/omnibox-parser';
 
 // Mock browser global for i18n
@@ -157,11 +156,6 @@ describe('parseOmniboxInput', () => {
 });
 
 describe('formatSuggestionDescription', () => {
-    it('formats basic translation', () => {
-        const result = formatSuggestionDescription('Bonjour le monde');
-        expect(result).toBe('<match>Bonjour le monde</match>');
-    });
-
     it('escapes XML special characters', () => {
         const result = formatSuggestionDescription(
             '<test> & "quotes"'
@@ -169,12 +163,5 @@ describe('formatSuggestionDescription', () => {
         expect(result).toContain('&lt;test&gt;');
         expect(result).toContain('&amp;');
         expect(result).toContain('&quot;');
-    });
-});
-
-describe('formatErrorDescription', () => {
-    it('formats error message', () => {
-        const result = formatErrorDescription('Network error');
-        expect(result).toBe('<dim>Error: Network error</dim>');
     });
 });

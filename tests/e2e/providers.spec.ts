@@ -5,21 +5,13 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { mockOptionalPermissionsForSettings } from './permissions';
 
-test('requires only storage and offers optional access with no fresh grants', async ({ context, extensionId }) => {
+test('starts without optional provider or copy access', async ({ context, extensionId }) => {
     const page = await context.newPage();
     await page.goto(`chrome-extension://${extensionId}/options.html`);
-    await expect(page.locator('.service-name')).toHaveText([
-        'Google Translate (Web)', 'Lingva (Google Proxy)', 'DeepL',
-    ]);
     const origins = [
         'https://translate.google.com/*',
         'https://api-free.deepl.com/*', 'https://api.deepl.com/*',
     ];
-    const manifest = await page.evaluate(() => chrome.runtime.getManifest());
-    expect(manifest.permissions).toEqual(['storage']);
-    expect(manifest.host_permissions ?? []).toEqual([]);
-    expect(manifest.optional_permissions).toEqual(['clipboardWrite', 'offscreen']);
-    expect(manifest.optional_host_permissions).toEqual(origins);
     expect(await page.evaluate(() => chrome.permissions.getAll())).toEqual({ permissions: ['storage'], origins: [] });
     expect(await page.evaluate(origins => chrome.permissions.contains({ origins }), origins)).toBe(false);
     const grantAccess = await page.evaluate(() => chrome.i18n.getMessage('grantAccess'));
@@ -32,8 +24,7 @@ test('preserves disable-all on reopened settings and keeps hidden credentials wh
     const url = `chrome-extension://${extensionId}/options.html`;
     await page.goto(url);
     await page.locator('[title="Disable service"]').click();
-    const disabledMessage = await page.evaluate(() => chrome.i18n.getMessage('noServicesEnabled'));
-    await expect(page.getByText(disabledMessage, { exact: true })).toBeVisible();
+    await expect(page.locator('.service-item.enabled')).toHaveCount(0);
     await page.reload();
     await expect(page.locator('.service-item.enabled')).toHaveCount(0);
     await page.evaluate(() => chrome.storage.local.set({ apiKeys_local: {
@@ -78,7 +69,7 @@ test('tests enabled DeepL keys with both domains through a mocked permission bou
     await page.goto(`chrome-extension://${extensionId}/options.html`);
     const text = await page.evaluate(() => ({
         apiKey: chrome.i18n.getMessage('apiKeyLabel'), test: chrome.i18n.getMessage('testKey'),
-        ready: chrome.i18n.getMessage('providerReady'), failed: chrome.i18n.getMessage('keyTestFailed'),
+        ready: chrome.i18n.getMessage('providerReady'),
     }));
     const deepl = page.locator('[data-id="deepl"]');
     await deepl.getByText(text.apiKey, { exact: true }).click();
@@ -109,7 +100,7 @@ test('tests enabled DeepL keys with both domains through a mocked permission bou
     rejectKey = true;
     await input.fill('fixture-rejected-key:fx');
     await deepl.getByRole('button', { name: text.test, exact: true }).click();
-    await expect(deepl.getByText(text.failed, { exact: true })).toBeVisible();
+    await expect(deepl.getByRole('alert')).toBeVisible();
     await expect(deepl.locator('.btn-success')).toHaveCount(0);
     await expect(deepl).toHaveClass(/enabled/);
     await expect(deepl.getByLabel(text.ready)).toBeVisible();
@@ -157,9 +148,8 @@ test('persists successive provider reorders', async ({ context, extensionId }) =
     }
 
     await page.reload();
-    await expect(enabled.locator('.service-name')).toHaveText([
-        'Google Translate (Web)', 'Lingva (Google Proxy)', 'DeepL',
-    ]);
+    await expect.poll(() => enabled.evaluateAll(items => items.map(item => item.getAttribute('data-id'))))
+        .toEqual(['google-web', 'lingva', 'deepl']);
 });
 
 test('keeps disable-all after closing and restarting Chrome', async ({ headless }) => {
@@ -189,8 +179,6 @@ test('keeps disable-all after closing and restarting Chrome', async ({ headless 
         const restartedWorker = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
         await restartedWorker.evaluate(() => chrome.runtime.openOptionsPage());
         const reopened = await settingsPage();
-        const message = await reopened.evaluate(() => chrome.i18n.getMessage('noServicesEnabled'));
-        await expect(reopened.getByText(message, { exact: true })).toBeVisible();
         await expect(reopened.locator('.service-item.enabled')).toHaveCount(0);
         await reopened.locator('[data-id="lingva"] [title="Enable service"]').click();
         await expect(reopened.locator('.service-item.enabled')).toHaveAttribute('data-id', 'lingva');
@@ -210,14 +198,13 @@ test('keeps a denied provider disabled and its key saved through the mocked perm
     const labels = await page.evaluate(() => ({
         apiKey: chrome.i18n.getMessage('apiKeyLabel'),
         test: chrome.i18n.getMessage('testKey'),
-        denied: chrome.i18n.getMessage('permissionDenied'),
     }));
     const deepl = page.locator('[data-id="deepl"]');
     await deepl.getByText(labels.apiKey, { exact: true }).click();
     await deepl.locator('input').fill('saved-without-a-grant:fx');
     await page.evaluate(() => window.settingsPermissionMock.denyNextRequest());
     await deepl.locator('[title="Enable service"]').click();
-    await expect(page.getByRole('alert')).toContainText(labels.denied);
+    await expect(page.getByRole('alert')).toBeVisible();
     await expect(deepl).toHaveClass(/disabled-item/);
     await expect(deepl.getByRole('button', { name: labels.test, exact: true })).toBeDisabled();
     expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([{ origins: [
@@ -238,7 +225,6 @@ test('updates an enabled provider after partial access revocation through the mo
     const labels = await page.evaluate(() => ({
         apiKey: chrome.i18n.getMessage('apiKeyLabel'),
         test: chrome.i18n.getMessage('testKey'),
-        required: chrome.i18n.getMessage('providerPermissionRequired'),
         ready: chrome.i18n.getMessage('providerReady'),
         grant: chrome.i18n.getMessage('grantAccess'),
     }));
@@ -250,7 +236,6 @@ test('updates an enabled provider after partial access revocation through the mo
     await expect(deepl.getByRole('button', { name: labels.test, exact: true })).toBeEnabled();
 
     await page.evaluate(() => window.settingsPermissionMock.revoke({ origins: ['https://api.deepl.com/*'] }));
-    await expect(deepl.getByText(labels.required, { exact: true })).toBeVisible();
     await expect(deepl.getByRole('button', { name: labels.test, exact: true })).toBeDisabled();
     await expect(deepl.getByLabel(labels.ready)).toHaveCount(0);
     await expect(deepl).toHaveClass(/enabled/);

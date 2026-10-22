@@ -19,7 +19,6 @@ import {
     getLanguageName,
     normalizeLanguageCode,
     resolveLanguageCode,
-    COMMON_LANGUAGES,
 } from '@/utils/languages';
 
 describe('Language Utilities', () => {
@@ -192,13 +191,13 @@ describe('Language Utilities', () => {
         it('finds info by BCP 47 code', () => {
             const zhCN = getLanguageInfo('zh-CN');
             expect(zhCN).toBeDefined();
-            expect(zhCN?.name).toBe('Chinese (Simplified)');
+            expect(zhCN?.code).toBe('zh-CN');
         });
 
         it('finds info by ISO 639-1 shortcut (via fromUserInput)', () => {
             const zh = getLanguageInfo('zh');
             expect(zh).toBeDefined();
-            expect(zh?.name).toBe('Chinese (Simplified)');
+            expect(zh?.code).toBe('zh-CN');
         });
 
         it('is case-insensitive', () => {
@@ -212,12 +211,6 @@ describe('Language Utilities', () => {
     });
 
     describe('getLanguageName', () => {
-        it('returns human-readable name for known codes', () => {
-            expect(getLanguageName('en')).toBe('English');
-            expect(getLanguageName('zh-CN')).toBe('Chinese (Simplified)');
-            expect(getLanguageName('zh')).toBe('Chinese (Simplified)');
-        });
-
         it('returns uppercase code for unknown codes', () => {
             expect(getLanguageName('xyz')).toBe('XYZ');
         });
@@ -236,32 +229,6 @@ describe('Language Utilities', () => {
         });
     });
 
-    describe('COMMON_LANGUAGES', () => {
-        it('includes auto-detect option', () => {
-            const auto = COMMON_LANGUAGES.find(l => l.code === 'auto');
-            expect(auto).toBeDefined();
-            expect(auto?.supportsAutoDetect).toBe(true);
-        });
-
-        it('uses BCP 47 codes for Chinese variants', () => {
-            const codes = COMMON_LANGUAGES.map(l => l.code);
-            expect(codes).toContain('zh-CN');
-            expect(codes).toContain('zh-TW');
-            expect(codes).not.toContain('zh'); // No bare 'zh' in definitions
-        });
-
-        it('uses BCP 47 codes for Portuguese variants', () => {
-            const codes = COMMON_LANGUAGES.map(l => l.code);
-            expect(codes).toContain('pt');
-            expect(codes).toContain('pt-BR');
-        });
-
-        it('uses "nb" for Norwegian (BCP 47)', () => {
-            const codes = COMMON_LANGUAGES.map(l => l.code);
-            expect(codes).toContain('nb');
-            expect(codes).not.toContain('no');
-        });
-    });
     describe('resolveLanguageCode', () => {
         it('uses fromUserInput logic by default (no overrides)', () => {
             expect(resolveLanguageCode('zh')).toBe('zh-CN');

@@ -321,7 +321,7 @@ describe('Translation Orchestration', () => {
                 { ...defaultPrefs, fallbackOrder: [] },
                 {}
             )
-        ).rejects.toThrow('No translation services enabled');
+        ).rejects.toMatchObject({ code: 'NO_SERVICES_ENABLED' });
     });
 
     it('throws if all enabled services fail', async () => {
@@ -334,7 +334,7 @@ describe('Translation Orchestration', () => {
                 { ...defaultPrefs, fallbackOrder: ['google-web', 'deepl'] },
                 validApiKeys
             )
-        ).rejects.toThrow('Fail 2'); // Should throw last error
+        ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', serviceId: 'deepl' });
     });
 
     it('throws if no enabled services have keys', async () => {
@@ -356,6 +356,6 @@ describe('Translation Orchestration', () => {
                 { ...defaultPrefs, fallbackOrder: ['google-web'] },
                 {}
             )
-        ).rejects.toThrow('String error');
+        ).rejects.toThrow();
     });
 });

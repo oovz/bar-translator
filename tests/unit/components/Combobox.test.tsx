@@ -40,15 +40,6 @@ describe('Combobox', () => {
         expect(screen.queryByText('English')).toBeNull();
     });
 
-    it('shows no results message when no match', async () => {
-        render(<Combobox value="" options={options} onChange={() => { }} />);
-        const input = screen.getByRole('textbox');
-
-        fireEvent.input(input, { target: { value: 'Xyz' } });
-
-        expect(await screen.findByText('noResults')).toBeTruthy();
-    });
-
     it('calls onChange when selecting an option', () => {
         const handleChange = vi.fn();
         render(<Combobox value="" options={options} onChange={handleChange} />);

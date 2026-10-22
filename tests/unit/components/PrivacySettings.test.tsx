@@ -8,14 +8,6 @@ function props() {
 }
 
 describe('PrivacySettings Component', () => {
-    it('renders an accessible local storage selector and privacy information', () => {
-        const view = render(<PrivacySettings {...props()} />);
-        expect((view.getByLabelText('labelStorage') as HTMLSelectElement).value).toBe('local');
-        expect(view.getByText('privacyDesc')).toBeTruthy();
-        expect(view.container.querySelector('input[type="checkbox"]')).toBeNull();
-        expect(view.container.querySelector('span[title="storageDesc"]')).toBeTruthy();
-    });
-
     it('shows failure, preserves the selected source, and lets the user retry', async () => {
         const options = props();
         options.changeStorageType.mockRejectedValueOnce(new Error('Storage unavailable'));

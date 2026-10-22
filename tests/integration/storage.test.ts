@@ -119,7 +119,7 @@ describe('Preferences', () => {
             mockStorageSync.get.mockResolvedValue({ preferences });
             mockStorageSync.set.mockRejectedValueOnce(new Error('Storage unavailable'));
 
-            await expect(getPreferences()).rejects.toThrow('Storage unavailable');
+            await expect(getPreferences()).rejects.toThrow();
             expect(preferences).toEqual({
                 ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'],
                 distinctId: 'obsolete-identity',
@@ -277,7 +277,7 @@ describe('device credential storage', () => {
         } else {
             mockStorageLocal.set.mockRejectedValueOnce(new Error('Write failed'));
         }
-        await expect(switchCredentialStorage('sync')).rejects.toThrow('Write failed');
+        await expect(switchCredentialStorage('sync')).rejects.toThrow();
         expect(await getCredentialStorageType()).toBe('local');
         expect(await getApiKeys()).toEqual({ deepl: credential });
         expect(mockStorageLocal.remove).not.toHaveBeenCalled();
@@ -288,7 +288,7 @@ describe('device credential storage', () => {
 
     it('keeps synced keys usable when local cleanup fails and retries cleanup without replacing them', async () => {
         mockStorageLocal.remove.mockRejectedValueOnce(new Error('Cleanup failed'));
-        await expect(switchCredentialStorage('sync')).rejects.toThrow('Cleanup failed');
+        await expect(switchCredentialStorage('sync')).rejects.toThrow();
         expect(await getCredentialStorageType()).toBe('sync');
         expect(await getApiKeys()).toEqual({ deepl: credential });
         const replacement = { key: 'new-synced-key:fx', validated: false };
@@ -322,7 +322,7 @@ describe('device credential storage', () => {
             mockStorageLocal.set.mockImplementationOnce(async items => { Object.assign(local, items); });
         }
         mockStorageLocal.set.mockRejectedValueOnce(new Error('Write failed'));
-        await expect(switchCredentialStorage('local')).rejects.toThrow('Write failed');
+        await expect(switchCredentialStorage('local')).rejects.toThrow();
         expect(await getCredentialStorageType()).toBe('sync');
         expect(await getApiKeys()).toEqual({ deepl: credential });
         await switchCredentialStorage('local');

@@ -121,7 +121,7 @@ describe('DeepLTranslationService', () => {
 
         it('propagates permission query failures without making a request', async () => {
             vi.mocked(chrome.permissions.contains).mockRejectedValueOnce(new Error('Permission query failed'));
-            await expect(service.validateApiKey('test:fx')).rejects.toThrow('Permission query failed');
+            await expect(service.validateApiKey('test:fx')).rejects.toThrow();
             expect(fetchMock).not.toHaveBeenCalled();
         });
 

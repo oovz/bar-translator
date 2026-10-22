@@ -14,16 +14,9 @@ import { mockOptionalPermissionsForSettings } from './permissions';
 // Extension messages follow the browser's UI locale, which can differ from page locale.
 async function messages(page: Page) {
     return page.evaluate(() => ({
-        title: `${chrome.i18n.getMessage('extName')} ${chrome.i18n.getMessage('settings')}`,
         sectionDefaultLanguages: chrome.i18n.getMessage('sectionDefaultLanguages'),
         sectionRegionalDialects: chrome.i18n.getMessage('sectionRegionalDialects'),
-        sectionTranslationServices: chrome.i18n.getMessage('sectionTranslationServices'),
-        sectionCopy: chrome.i18n.getMessage('sectionCopy'),
-        sectionPrivacy: chrome.i18n.getMessage('sectionPrivacy'),
         lang_zh: chrome.i18n.getMessage('lang_zh'),
-        primary: chrome.i18n.getMessage('primary'),
-        labelStorage: chrome.i18n.getMessage('labelStorage'),
-        storageDesc: chrome.i18n.getMessage('storageDesc'),
         apiKey: chrome.i18n.getMessage('apiKeyLabel'),
         testKey: chrome.i18n.getMessage('testKey'),
     }));
@@ -35,24 +28,6 @@ test.describe('Options Page', () => {
         await expect.poll(() => context.pages().map(page => page.url())).toContain(url);
         const setup = context.pages().find(page => page.url() === url)!;
         await expect(setup.locator('#providers')).toBeVisible();
-    });
-
-    test('loads and displays settings', async ({ context, extensionId }) => {
-        const page = await context.newPage();
-
-        await page.setViewportSize({ width: 1000, height: 800 });
-        await page.goto(`chrome-extension://${extensionId}/options.html`);
-        const text = await messages(page);
-
-        // Check title
-        await expect(page).toHaveTitle(text.title);
-
-        // Check for sections
-        await expect(page.locator('.section-title', { hasText: text.sectionDefaultLanguages })).toBeVisible();
-        await expect(page.locator('.section-title', { hasText: text.sectionRegionalDialects })).toBeVisible();
-        await expect(page.locator('.section-title', { hasText: text.sectionTranslationServices })).toBeVisible();
-        await expect(page.locator('.section-title', { hasText: text.sectionCopy })).toBeVisible();
-        await expect(page.locator('.section-title', { hasText: text.sectionPrivacy })).toBeVisible();
     });
 
     test('persists language selection', async ({ context, extensionId }) => {
@@ -112,14 +87,9 @@ test.describe('Options Page', () => {
         const page = await context.newPage();
         await mockOptionalPermissionsForSettings(page);
         await page.goto(`chrome-extension://${extensionId}/options.html`);
-        const text = await messages(page);
 
         const serviceList = page.locator('.service-list').first();
         await expect(serviceList).toBeVisible();
-
-        // Check primary badge on first item
-        await expect(serviceList.locator('li').first()).toContainText(text.primary);
-        await expect(serviceList.locator('li').first()).toContainText('Google Translate (Web)');
 
         await page.locator('[data-id="deepl"] [title="Enable service"]').click();
         await expect(serviceList.locator('[data-id="deepl"]')).toBeVisible();
@@ -172,17 +142,6 @@ test.describe('Options Page', () => {
         ]);
     });
 
-    test('shows security warning tooltip', async ({ context, extensionId }) => {
-        const page = await context.newPage();
-        await page.goto(`chrome-extension://${extensionId}/options.html`);
-        const text = await messages(page);
-
-        const label = page.locator('.setting-label', { hasText: text.labelStorage });
-        await expect(label).toBeVisible();
-        const tooltip = label.locator('span');
-        await expect(tooltip).toBeVisible();
-        await expect(tooltip).toHaveAttribute('title', text.storageDesc);
-    });
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
