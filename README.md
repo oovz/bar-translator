@@ -2,11 +2,13 @@
 
 # Bar Translator
 
-Translate in Chrome's address bar and keep your page in view. Type your text, read the translation, and optionally press Enter to copy it.
+Translate in your browser's address bar and keep your page in view. Type your text, read the translation, and optionally press Enter to copy it.
 
 [![Available in the Chrome Web Store](https://user-images.githubusercontent.com/22908993/166417152-f870bfbd-1770-4c28-b69d-a7303aebc9a6.png)](https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno)
 
 [User guide](docs/usage.md) · [Development and testing](docs/testing.md)
+
+Desktop builds are available for **Chrome, Firefox, and Microsoft Edge**. Firefox and Edge can be built locally using the [browser setup instructions](docs/testing.md#browser-builds). Safari is unsupported because it does not provide the extension address-bar API this workflow needs.
 
 ![Bar Translator: translate in your address bar](assets/chrome-web-store/marquee-1400x560.png)
 
@@ -25,7 +27,7 @@ Enable **Enter to copy** in settings to copy a completed translation with Enter.
 - Read translations while your current page stays open.
 - Keep the translation separate from copy instructions, warnings, and settings actions.
 - Choose which providers receive your text and the order in which they are tried.
-- Grant provider and clipboard access when you enable those features. Only extension storage is required at installation.
+- Grant provider and clipboard access when you enable those features. Only the storage API permission is required at installation; Firefox also declares transmission of translation text and credentials to your chosen providers.
 
 Fallback follows your chosen provider order, with status messages alongside the translation preview.
 

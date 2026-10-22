@@ -1,10 +1,12 @@
 # Using Bar Translator
 
-Bar Translator translates text from Chrome's address bar. Set your usual source and target languages once, then type ordinary text to use them.
+Bar Translator translates text from the address bar in desktop Chrome, Firefox, and Microsoft Edge. Set your usual source and target languages once, then type ordinary text to use them. Safari is unsupported because it lacks the required extension address-bar API.
+
+Firefox displays a stable instruction in the default address-bar row and the completed translation in a suggestion below it. Wait until that result appears before pressing Enter. Selecting the translation row also copies it when copying is enabled. Firefox's default row cannot refresh asynchronously, so it does not show changing loading text or post-copy success/failure text; Chrome and Edge retain their default-row preview.
 
 ## First-time setup
 
-Settings open in a dedicated tab after a new installation. You can reopen them through the extension's options in Chrome.
+Settings open in a dedicated tab after a new installation. You can reopen them through the extension's options in your browser.
 
 1. Choose a source and target language. **Auto-detect** is available as a source choice.
 2. Enable the translation providers you allow to receive your text. Grant the requested domain access for Google or DeepL.
@@ -81,9 +83,12 @@ Only `storage` is required at installation.
 | --- | --- |
 | Google Translate Web | `https://translate.google.com/*` |
 | DeepL | Both `https://api-free.deepl.com/*` and `https://api.deepl.com/*` |
-| Enter to copy | `clipboardWrite` and `offscreen`, requested together |
+| Enter to copy in Chrome/Edge | `clipboardWrite` and `offscreen`, requested together |
+| Enter to copy in Firefox | `clipboardWrite` |
 
-Clipboard access allows writing translations. The extension does not read your clipboard. Turning off **Enter to copy** releases its two permissions and closes the offscreen document used for copying.
+Clipboard access allows writing translations. The extension does not read your clipboard. Turning off **Enter to copy** releases clipboard access. Chrome and Edge also release the offscreen permission and close the document used for copying; Firefox copies from its background document.
+
+Firefox's installation consent declares translation text and authentication information because enabled providers receive your text and, where required, your supplied API key. This does not enable analytics or grant provider host access. You still choose providers and whether to supply credentials.
 
 Translation requests go directly to enabled providers. A fallback may send the same text to each enabled provider reached in your chosen order. API keys go to their corresponding provider for translation and explicit tests. Each provider's own data-handling terms apply to those requests.
 
@@ -91,12 +96,12 @@ The extension collects no usage analytics and creates no analytics identity. Pro
 
 ### API key storage
 
-Settings sync across your Chrome instances. API keys default to local storage, and each device independently chooses **Local** or **Sync** under **API Key Storage**.
+Settings use your browser's sync storage. Account synchronization must be enabled in that browser; it does not synchronize across Chrome, Firefox and Edge. API keys default to local storage, and each device independently chooses **Local** or **Sync** under **API Key Storage**.
 
 - **Sync** copies this device's keys into shared storage. It preserves keys for other providers already there; this device's key takes precedence for the same provider. The local copies are then removed.
 - **Local** copies shared keys to this device and keeps the shared copy available to other devices.
 
 > [!IMPORTANT]
-> Both local and synced extension storage hold readable API keys. Choose syncing only if you want Chrome to share those credentials across your signed-in Chrome instances.
+> Both local and synced extension storage hold readable API keys. Choose syncing only if you want your browser to share those credentials across its signed-in instances.
 
 [Back to the README](../README.md)
