@@ -27,5 +27,9 @@ export default defineConfig({
                 ...devices['Desktop Chrome'],
             },
         },
+        {
+            name: 'edge-extension',
+            use: { ...devices['Desktop Edge'] },
+        },
     ],
 });

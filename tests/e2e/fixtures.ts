@@ -3,9 +3,11 @@ import path from 'node:path';
 
 /** Load the built extension in a disposable context with controlled network access. */
 export async function launchExtension(userDataDir: string, headless: boolean) {
-    const extensionPath = path.resolve('.output/chrome-mv3');
+    const edge = test.info().project.name === 'edge-extension';
+    const extensionPath = path.resolve(edge ? '.output/edge-mv3' : '.output/chrome-mv3');
     const context = await chromium.launchPersistentContext(userDataDir, {
-        channel: 'chromium',
+        channel: edge ? 'msedge' : 'chromium',
+        ...(edge && process.env.EDGE_EXECUTABLE_PATH ? { executablePath: process.env.EDGE_EXECUTABLE_PATH } : {}),
         headless,
         args: [
             `--disable-extensions-except=${extensionPath}`,

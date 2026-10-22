@@ -18,7 +18,8 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "test:watch": "vitest",
-    "test:e2e": "pnpm build && playwright test",
+    "test:e2e": "pnpm build && playwright test --project=chromium-extension",
+    "test:e2e:edge": "pnpm build:edge && playwright test --project=edge-extension",
     "lint": "eslint .",
     "typecheck": "wxt prepare && tsc --noEmit"
   },
