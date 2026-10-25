@@ -15,7 +15,8 @@ import type {
     TranslationService,
     TranslateParams,
     TranslateResult,
-    ValidationResult
+    ValidationResult,
+    ApiTier
 } from '@/src/types';
 
 export class DeepLTranslationService extends BaseTranslationService {
@@ -50,6 +51,7 @@ export class DeepLTranslationService extends BaseTranslationService {
         try {
             const response = await fetch(endpoint, {
                 method: 'POST',
+                redirect: 'error',
                 signal: params.signal,
                 headers: {
                     'Authorization': `DeepL-Auth-Key ${apiKey}`,
@@ -112,7 +114,7 @@ export class DeepLTranslationService extends BaseTranslationService {
         }
     }
 
-    override async validateApiKey(apiKey: string): Promise<ValidationResult> {
+    override async validateApiKey(apiKey: string, tier?: ApiTier, signal = AbortSignal.timeout(4000)): Promise<ValidationResult> {
         if (!apiKey) return { valid: false, error: 'Empty key' };
         if (!await hasProviderAccess(this.service.id)) {
             return { valid: false, error: 'DeepL access required. Allow provider access in settings before testing.' };
@@ -120,7 +122,7 @@ export class DeepLTranslationService extends BaseTranslationService {
 
         // Lightweight check: Get Usage or Translate trivial text
         // Usage endpoint: GET /v2/usage
-        const isFreeKey = apiKey.endsWith(':fx');
+        const isFreeKey = tier === 'free' || (!tier && apiKey.endsWith(':fx'));
         const endpoint = isFreeKey
             ? 'https://api-free.deepl.com/v2/usage'
             : 'https://api.deepl.com/v2/usage';
@@ -128,6 +130,8 @@ export class DeepLTranslationService extends BaseTranslationService {
         try {
             const response = await fetch(endpoint, {
                 method: 'GET',
+                redirect: 'error',
+                signal,
                 headers: {
                     'Authorization': `DeepL-Auth-Key ${apiKey}`
                 }
@@ -136,10 +140,10 @@ export class DeepLTranslationService extends BaseTranslationService {
             if (response.ok) {
                 return { valid: true, tier: isFreeKey ? 'free' : 'pro' };
             } else {
-                return { valid: false, error: `Validation failed: ${response.statusText}`, tier: isFreeKey ? 'free' : 'pro' };
+                return { valid: false, error: 'DeepL rejected the test request.', tier: isFreeKey ? 'free' : 'pro' };
             }
-        } catch (e) {
-            return { valid: false, error: e instanceof Error ? e.message : 'Network error' };
+        } catch {
+            return { valid: false, error: 'Could not complete the DeepL test.' };
         }
     }
 }

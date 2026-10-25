@@ -1,8 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-    hasProviderAccess, requestProviderAccess, removeProviderAccess,
+    getInstanceOrigins, hasInstanceAccess, requestInstanceAccess, releaseUnusedInstanceAccess,
     hasCopyAccess, requestCopyAccess, removeCopyAccess,
 } from '@/utils/permissions';
+import { createDefaultSetup } from '@/utils/instances';
+import type { TranslationInstance } from '@/src/types';
+
+const google = { id: 'google-web', providerId: 'google-web' } as const;
+const lingva = { id: 'lingva', providerId: 'lingva' } as const;
+const deepl = { id: 'deepl', providerId: 'deepl', name: 'DeepL' } as const;
+function removeAccess(instance: TranslationInstance) {
+    const previous = createDefaultSetup();
+    previous.instances = [instance];
+    previous.preferences.fallbackOrder = [instance.id];
+    const next = { ...previous, preferences: { ...previous.preferences, fallbackOrder: [] } };
+    return releaseUnusedInstanceAccess(previous, next);
+}
 
 let origins: Set<string>;
 let permissions: Set<string>;
@@ -39,11 +52,11 @@ afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 describe('provider access boundaries', () => {
     it('requires both DeepL domains and requests them directly before returning', async () => {
         origins.add('https://api-free.deepl.com/*');
-        expect(await hasProviderAccess('deepl')).toBe(false);
+        expect(await hasInstanceAccess(deepl)).toBe(false);
         origins.add('https://api.deepl.com/*');
-        expect(await hasProviderAccess('deepl')).toBe(true);
+        expect(await hasInstanceAccess(deepl)).toBe(true);
 
-        const pending = requestProviderAccess('deepl');
+        const pending = requestInstanceAccess(deepl);
         expect(chrome.permissions.request).toHaveBeenCalledExactlyOnceWith({ origins: [
             'https://api-free.deepl.com/*', 'https://api.deepl.com/*',
         ] });
@@ -51,9 +64,9 @@ describe('provider access boundaries', () => {
     });
 
     it('uses Lingva without checking, requesting or removing a host grant', async () => {
-        expect(await hasProviderAccess('lingva')).toBe(true);
-        expect(await requestProviderAccess('lingva')).toBe(true);
-        await removeProviderAccess('lingva');
+        expect(await hasInstanceAccess(lingva)).toBe(true);
+        expect(await requestInstanceAccess(lingva)).toBe(true);
+        await removeAccess(lingva);
         expect(chrome.permissions.contains).not.toHaveBeenCalled();
         expect(chrome.permissions.request).not.toHaveBeenCalled();
         expect(remove).not.toHaveBeenCalled();
@@ -62,12 +75,12 @@ describe('provider access boundaries', () => {
     it('reports a failed release when either DeepL domain remains granted', async () => {
         origins.add('https://api.deepl.com/*');
         remove.mockResolvedValue(false);
-        await expect(removeProviderAccess('deepl')).rejects.toThrow();
+        await expect(removeAccess(deepl)).rejects.toThrow();
     });
 
     it('accepts a release that reports false when access is already absent', async () => {
         remove.mockResolvedValue(false);
-        await expect(removeProviderAccess('google-web')).resolves.toBeUndefined();
+        await expect(removeAccess(google)).resolves.toBeUndefined();
     });
 });
 
@@ -131,5 +144,55 @@ describe('Firefox clipboard permission', () => {
         expect(closeDocument).not.toHaveBeenCalled();
         expect(remove).toHaveBeenCalledExactlyOnceWith({ permissions: ['clipboardWrite'] });
         expect(await firefox.hasCopyAccess()).toBe(false);
+    });
+});
+
+
+describe('configured instance grants', () => {
+    const home: TranslationInstance = { id: 'home', providerId: 'libretranslate', name: 'Home', hosting: 'custom', endpoint: 'http://localhost:5000/libre' };
+    it('requests a selected local host without granting unrelated hosts or claiming port/path isolation', async () => {
+        expect(getInstanceOrigins(home)).toEqual(['http://localhost/*']);
+        const pending = requestInstanceAccess(home);
+        expect(chrome.permissions.request).toHaveBeenCalledExactlyOnceWith({ origins: ['http://localhost/*'] });
+        expect(await pending).toBe(false);
+        origins.add('http://localhost/*');
+        expect(await hasInstanceAccess(home)).toBe(true);
+    });
+
+    it('retains a shared host until the last enabled instance is disabled', async () => {
+        origins.add('http://localhost/*');
+        const other: TranslationInstance = { ...home, id: 'other', name: 'Other', endpoint: 'http://localhost:9000/another' };
+        const previous = createDefaultSetup();
+        previous.instances = [home, other];
+        previous.preferences.fallbackOrder = ['home', 'other'];
+        const next = { ...previous, preferences: { ...previous.preferences, fallbackOrder: ['other'] } };
+        await releaseUnusedInstanceAccess(previous, next);
+        expect(remove).not.toHaveBeenCalled();
+        expect(await hasInstanceAccess(other)).toBe(true);
+        await releaseUnusedInstanceAccess(next, { ...next, preferences: { ...next.preferences, fallbackOrder: [] } });
+        expect(remove).toHaveBeenCalledExactlyOnceWith({ origins: ['http://localhost/*'] });
+    });
+
+    it('preserves DeepL access while another account still owns the complete grant', async () => {
+        origins = new Set(['https://api-free.deepl.com/*', 'https://api.deepl.com/*']);
+        const previous = createDefaultSetup();
+        previous.instances = [deepl, { ...deepl, id: 'work', name: 'Work' }];
+        previous.preferences.fallbackOrder = ['deepl', 'work'];
+        const next = { ...previous, preferences: { ...previous.preferences, fallbackOrder: ['work'] } };
+        await releaseUnusedInstanceAccess(previous, next);
+        expect(remove).not.toHaveBeenCalled();
+        expect(await hasInstanceAccess(deepl)).toBe(true);
+    });
+
+    it('releases an old endpoint on a setup switch while retaining an overlapping grant', async () => {
+        origins = new Set(['http://localhost/*', 'https://libretranslate.com/*']);
+        const managed: TranslationInstance = { ...home, id: 'managed', name: 'Managed', hosting: 'managed', endpoint: 'https://libretranslate.com' };
+        const previous = createDefaultSetup();
+        previous.instances = [home, managed];
+        previous.preferences.fallbackOrder = ['home', 'managed'];
+        const next = { ...previous, preferences: { ...previous.preferences, fallbackOrder: ['managed'] } };
+        await releaseUnusedInstanceAccess(previous, next);
+        expect(remove).toHaveBeenCalledExactlyOnceWith({ origins: ['http://localhost/*'] });
+        expect(await hasInstanceAccess(managed)).toBe(true);
     });
 });

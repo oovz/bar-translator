@@ -40,10 +40,7 @@
         "message": "Translation Services"
     },
     "servicesDesc": {
-        "message": "Enable only providers you allow to receive your text. The first available provider is tried first; later enabled providers may receive the same text if it fails. Drag to reorder."
-    },
-    "availableServices": {
-        "message": "Available services (click + to enable):"
+        "message": "Enable only instances you allow to receive your text. They are tried in order; later enabled instances may receive the same text if an earlier one fails. Drag or use the arrows to reorder."
     },
     "primary": {
         "message": "PRIMARY"
@@ -120,10 +117,10 @@
         "message": "Privacy & Storage"
     },
     "labelStorage": {
-        "message": "API Key Storage"
+        "message": "Settings storage"
     },
     "storageDesc": {
-        "message": "Synced storage is unencrypted. API keys may be visible to other extensions or if your Google account is compromised. Use Local storage for better security."
+        "message": "Choose where to store the entire setup, including languages, instances, server URLs, API keys, fallback order and copying preference. Stored keys are readable."
     },
     "storageSync": {
         "message": "Sync across devices"
@@ -132,13 +129,13 @@
         "message": "Local only"
     },
     "storageSyncWarning": {
-        "message": "⚠️ Keys sync across devices (less secure)"
+        "message": "All settings and credentials sync through your browser account. Local server URLs may refer to different services on another device."
     },
     "storageLocalHint": {
-        "message": "This device uses local keys. Previously synced keys remain available to other devices."
+        "message": "All settings stay on this device. Previously synced settings remain available to other devices."
     },
     "storageChangeFailed": {
-        "message": "Could not finish changing key storage. Check the selected storage and retry."
+        "message": "Could not finish changing settings storage. The active setup is shown; retry to continue."
     },
     "privacyDesc": {
         "message": "Bar Translator collects no usage analytics. Text is sent to the enabled translation providers in your chosen order. API keys are sent to their provider for translation and validation."
@@ -382,12 +379,195 @@
         "message": "Copy translation"
     },
     "copySettingsDesc": {
-        "message": "Allow Enter to copy translations on this device. Translation previews remain available when copying is off."
+        "message": "Choose whether Enter copies a completed translation. This preference follows your storage choice; clipboard access must be granted on each device."
     },
     "enableCopy": {
         "message": "Enable Enter to copy"
     },
     "removeAccess": {
         "message": "Remove access"
+    },
+    "settingsLoadFailed": {
+        "message": "Could not load settings. Please retry."
+    },
+    "instanceName": {
+        "message": "Instance name"
+    },
+    "instanceNameInvalid": {
+        "message": "Enter a name of 1–128 characters."
+    },
+    "instanceChanged": {
+        "message": "This instance changed. Review its current settings and retry."
+    },
+    "instanceSaved": {
+        "message": "Settings saved."
+    },
+    "libreHosting": {
+        "message": "Hosting"
+    },
+    "libreManaged": {
+        "message": "Managed LibreTranslate"
+    },
+    "libreCustom": {
+        "message": "Custom server"
+    },
+    "instanceEndpoint": {
+        "message": "Server base URL"
+    },
+    "endpointDescription": {
+        "message": "Use a base URL, including its port and path prefix if needed."
+    },
+    "httpEndpointWarning": {
+        "message": "HTTP sends translation text and any API key without encryption."
+    },
+    "endpointKeyReset": {
+        "message": "Save the new endpoint before entering its API key."
+    },
+    "optionalApiKey": {
+        "message": "API key (optional)"
+    },
+    "deepLTier": {
+        "message": "DeepL API plan"
+    },
+    "saveInstance": {
+        "message": "Save changes"
+    },
+    "saveBeforeTesting": {
+        "message": "Save changes before testing."
+    },
+    "instanceTestDescription": {
+        "message": "Testing sends a fixed sample request. It is optional and does not enable or disable this instance."
+    },
+    "configureNamedInstance": {
+        "message": "Configure $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "configureInstance": {
+        "message": "Configure"
+    },
+    "enableInstance": {
+        "message": "Enable $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "disableInstance": {
+        "message": "Disable $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteNamedInstance": {
+        "message": "Delete $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteInstance": {
+        "message": "Delete"
+    },
+    "moveInstanceUp": {
+        "message": "Move $1 up",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "moveInstanceDown": {
+        "message": "Move $1 down",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "setupConflictTitle": {
+        "message": "Choose which setup to use"
+    },
+    "setupConflictDesc": {
+        "message": "Different setups are saved. Choose the saved setup or replace it with your current setup. Credentials are included, but are not shown here."
+    },
+    "currentSetup": {
+        "message": "Current setup"
+    },
+    "savedSetup": {
+        "message": "Saved setup"
+    },
+    "useSavedSetup": {
+        "message": "Use saved setup"
+    },
+    "replaceSavedSetup": {
+        "message": "Replace with current setup"
+    },
+    "providerLanguageUnsupported": {
+        "message": "This instance does not support the requested language pair"
+    },
+    "providerTextTooLong": {
+        "message": "This instance cannot accept text of this length"
+    },
+    "omniboxCopyPermissionRequired": {
+        "message": "Copying needs permission on this device — Open settings"
+    },
+    "instanceEndpointInvalid": {
+        "message": "Use a complete HTTP or HTTPS base URL without credentials, a query or a fragment."
+    },
+    "setupMigrationPending": {
+        "message": "Could not finish updating your saved settings. Your previous setup is still active. Retry before editing."
+    },
+    "availableProviders": {
+        "message": "Add a provider"
+    },
+    "instanceConfigurations": {
+        "message": "Configurations"
+    },
+    "draftInstance": {
+        "message": "Not saved"
+    },
+    "cancel": {
+        "message": "Cancel"
+    },
+    "addProviderInstance": {
+        "message": "Add $1"
+    },
+    "googleProviderDescription": {
+        "message": "Google’s web service. No API key required."
+    },
+    "lingvaProviderDescription": {
+        "message": "A public translation proxy. No API key required."
+    },
+    "deepLProviderDescription": {
+        "message": "Use your API key; keep accounts as separate named instances."
+    },
+    "libreProviderDescription": {
+        "message": "Use the managed service or connect your own server."
+    },
+    "newInstanceDescription": {
+        "message": "Save this configuration, then enable it to include it in your translation order."
+    },
+    "connect": {
+        "message": "Connect"
+    },
+    "connectInstance": {
+        "message": "Connect $1"
+    },
+    "customConnectionDescription": {
+        "message": "Connect contacts this server during setup without sending translation text or a key. Allow local-network access for your browser if asked."
+    },
+    "instanceConnected": {
+        "message": "Connected to $1."
+    },
+    "customConnectionFailed": {
+        "message": "Connection to $1 could not be confirmed. If prompted, allow local-network access for this browser, then use Test to try again."
     }
 }

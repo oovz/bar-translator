@@ -1,180 +1,77 @@
-/**
- * E2E Tests for Options Page
- *
- * Tests the options page UI, settings persistence, and service configuration.
- *
- * @module tests/e2e/options.spec
- */
-
 import { test, expect } from './fixtures';
-import type { Page } from '@playwright/test';
-import type { UserPreferences } from '@/src/types';
-import { mockOptionalPermissionsForSettings } from './permissions';
+import { configure, instanceRow, languageInput, message, openSettings, chooseLanguage, observeSettings } from './setup-ui';
 
-// Extension messages follow the browser's UI locale, which can differ from page locale.
-async function messages(page: Page) {
-    return page.evaluate(() => ({
-        sectionDefaultLanguages: chrome.i18n.getMessage('sectionDefaultLanguages'),
-        sectionRegionalDialects: chrome.i18n.getMessage('sectionRegionalDialects'),
-        lang_zh: chrome.i18n.getMessage('lang_zh'),
-        apiKey: chrome.i18n.getMessage('apiKeyLabel'),
-        testKey: chrome.i18n.getMessage('testKey'),
-    }));
-}
+test('opens first-install setup in a dedicated extension tab', async ({ context, extensionId }) => {
+    const url = `chrome-extension://${extensionId}/options.html`;
+    await expect.poll(() => context.pages().map(page => page.url())).toContain(url);
+    const setup = context.pages().find(page => page.url() === url)!;
+    await expect(setup.locator('#providers')).toBeVisible();
+});
 
-test.describe('Options Page', () => {
-    test('opens first-install setup in a dedicated extension tab', async ({ context, extensionId }) => {
-        const url = `chrome-extension://${extensionId}/options.html`;
-        await expect.poll(() => context.pages().map(page => page.url())).toContain(url);
-        const setup = context.pages().find(page => page.url() === url)!;
-        await expect(setup.locator('#providers')).toBeVisible();
+test('persists source and target language choices in the local setup', async ({ context, extensionId }) => {
+    const page = await openSettings(context, extensionId);
+    await chooseLanguage(page, 'source', 'French');
+    await chooseLanguage(page, 'target', 'Spanish');
+    await page.reload();
+    await expect(await languageInput(page, 'source')).toHaveValue('French');
+    await expect(await languageInput(page, 'target')).toHaveValue('Spanish');
+});
+
+test('persists regional language overrides', async ({ context, extensionId }) => {
+    const page = await openSettings(context, extensionId);
+    const section = page.locator('.section', { hasText: await message(page, 'sectionRegionalDialects') });
+    const chinese = section.locator('.form-group', { hasText: `${await message(page, 'lang_zh')} (zh)` }).locator('select');
+    await chinese.selectOption('zh-TW');
+    await observeSettings(page, async observer => {
+        const otherSection = observer.locator('.section', { hasText: await message(observer, 'sectionRegionalDialects') });
+        await expect(otherSection.locator('.form-group', { hasText: `${await message(observer, 'lang_zh')} (zh)` }).locator('select')).toHaveValue('zh-TW');
     });
+    await page.reload();
+    await expect(chinese).toHaveValue('zh-TW');
+});
 
-    test('persists language selection', async ({ context, extensionId }) => {
-        const page = await context.newPage();
-        await page.goto(`chrome-extension://${extensionId}/options.html`);
-        const text = await messages(page);
+test('keeps copy intent after access revocation and offers repair through the mocked permission boundary', async ({ context, extensionId }) => {
+    const page = await openSettings(context, extensionId, true);
+    const copy = page.locator('#copy input[type="checkbox"]');
+    await expect(copy).not.toBeChecked();
+    await copy.click();
+    await expect(copy).toBeChecked();
+    expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([
+        { permissions: ['clipboardWrite', 'offscreen'] },
+    ]);
 
-        // Locate Source Language Combobox within Default Languages section
-        const defaultLangsSection = page.locator('.section', { hasText: text.sectionDefaultLanguages });
-        // Source is the first form-group input
-        const sourceInput = defaultLangsSection.locator('input').first();
-
-        // Select 'French'
-        await sourceInput.click();
-        await sourceInput.fill('French');
-
-        // Wait for and click the option
-        const frenchOption = page.locator('.combobox-option').filter({ has: page.getByText('French', { exact: true }) });
-        await frenchOption.click();
-
-        await expect.poll(() => page.evaluate(async () => {
-            const { preferences } = await chrome.storage.sync.get<{ preferences: UserPreferences }>('preferences');
-            return preferences?.defaultSourceLang;
-        })).toBe('fr');
-
-        await page.reload();
-
-        const reloadedSourceInput = page.locator('.section', { hasText: text.sectionDefaultLanguages }).locator('input').first();
-        await expect(reloadedSourceInput).toHaveValue('French');
-    });
-
-    test('persists regional dialect overrides', async ({ context, extensionId }) => {
-        const page = await context.newPage();
-        await page.goto(`chrome-extension://${extensionId}/options.html`);
-        const text = await messages(page);
-
-        const regionalSection = page.locator('.section', { hasText: text.sectionRegionalDialects });
-        // Find Chinese (zh) select
-        const zhSelect = regionalSection.locator('.form-group', { hasText: `${text.lang_zh} (zh)` }).locator('select');
-
-        await zhSelect.scrollIntoViewIfNeeded();
-        // Select 'zh-TW'
-        await zhSelect.selectOption('zh-TW');
-
-        await expect.poll(() => page.evaluate(async () => {
-            const { preferences } = await chrome.storage.sync.get<{ preferences: UserPreferences }>('preferences');
-            return preferences?.languageOverrides?.zh;
-        })).toBe('zh-TW');
-
-        await page.reload();
-
-        const reloadedZhSelect = page.locator('.section', { hasText: text.sectionRegionalDialects }).locator('.form-group', { hasText: `${text.lang_zh} (zh)` }).locator('select');
-        await expect(reloadedZhSelect).toHaveValue('zh-TW');
-    });
-
-    test('can enable a translation provider through a mocked permission boundary', async ({ context, extensionId }) => {
-        const page = await context.newPage();
-        await mockOptionalPermissionsForSettings(page);
-        await page.goto(`chrome-extension://${extensionId}/options.html`);
-
-        const serviceList = page.locator('.service-list').first();
-        await expect(serviceList).toBeVisible();
-
-        await page.locator('[data-id="deepl"] [title="Enable service"]').click();
-        await expect(serviceList.locator('[data-id="deepl"]')).toBeVisible();
-        expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([{ origins: [
-            'https://api-free.deepl.com/*', 'https://api.deepl.com/*',
-        ] }]);
-    });
-
-    test('can enter a DeepL key while disabled before enabling with mocked access', async ({ context, extensionId }) => {
-        const page = await context.newPage();
-        await mockOptionalPermissionsForSettings(page);
-        await page.goto(`chrome-extension://${extensionId}/options.html`);
-        const text = await messages(page);
-
-        // Wait for service lists to render
-        await page.waitForSelector('.service-list');
-
-        const deepl = page.locator('[data-id="deepl"]');
-        const apiKeyBtn = deepl.getByRole('button', { name: text.apiKey, exact: true });
-        await apiKeyBtn.click();
-
-        const keyInput = deepl.locator('input');
-        await expect(keyInput).toBeVisible();
-
-        await keyInput.fill('test-api-key');
-        await expect(keyInput).toHaveValue('test-api-key');
-        await expect(deepl.getByRole('button', { name: text.testKey, exact: true })).toBeDisabled();
-        expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([]);
-        await deepl.locator('[title="Enable service"]').click();
-        await expect(deepl).toHaveClass(/enabled/);
-        await expect(keyInput).toHaveValue('test-api-key');
-        await expect(deepl.getByRole('button', { name: text.testKey, exact: true })).toBeEnabled();
-    });
-
-    test('grants and removes copy access through a mocked permission boundary', async ({ context, extensionId }) => {
-        const page = await context.newPage();
-        await mockOptionalPermissionsForSettings(page);
-        await page.goto(`chrome-extension://${extensionId}/options.html`);
-        const copy = page.locator('#copy input[type="checkbox"]');
-        await expect(copy).not.toBeChecked();
-        await copy.check();
-        await expect(copy).toBeChecked();
-        expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([
-            { permissions: ['clipboardWrite', 'offscreen'] },
-        ]);
-        await copy.uncheck();
-        await expect(copy).not.toBeChecked();
-        expect(await page.evaluate(() => window.settingsPermissionMock.removals)).toEqual([
-            { permissions: ['clipboardWrite', 'offscreen'] },
-        ]);
-    });
-
+    await page.evaluate(() => window.settingsPermissionMock.revoke({ permissions: ['clipboardWrite'] }));
+    await expect(copy).toBeChecked();
+    const grant = page.locator('#copy').getByRole('button', { name: await message(page, 'grantAccess'), exact: true });
+    await expect(grant).toBeVisible();
+    await grant.click();
+    await expect(grant).toHaveCount(0);
+    await copy.click();
+    await expect(copy).not.toBeChecked();
+    expect(await page.evaluate(() => window.settingsPermissionMock.removals)).toEqual([
+        { permissions: ['clipboardWrite', 'offscreen'] },
+    ]);
+    await page.reload();
+    await expect(copy).not.toBeChecked();
 });
 
 for (const colorScheme of ['light', 'dark'] as const) {
-    test(`keeps provider setup and the copy switch usable on a narrow ${colorScheme} page`, async ({ context, extensionId }, testInfo) => {
-        const page = await context.newPage();
+    test(`keeps configuration and copying keyboard-usable on a narrow ${colorScheme} page`, async ({ context, extensionId }, testInfo) => {
+        const page = await openSettings(context, extensionId, true);
         await page.setViewportSize({ width: 360, height: 840 });
         await page.emulateMedia({ colorScheme });
-        await mockOptionalPermissionsForSettings(page);
-        await page.goto(`chrome-extension://${extensionId}/options.html`);
-        const labels = await page.evaluate(() => ({
-            apiKey: chrome.i18n.getMessage('apiKeyLabel'),
-            copy: chrome.i18n.getMessage('enableCopy'),
-        }));
-        const setup = page.locator('[data-id="deepl"]');
-        const disclosure = setup.getByRole('button', { name: labels.apiKey, exact: true });
-        await disclosure.click();
-        await expect(disclosure).toHaveAttribute('aria-expanded', 'true');
-        await expect(setup.locator('input')).toBeVisible();
+        const deepl = instanceRow(page, 'deepl');
+        await configure(page, deepl);
+        await expect(deepl.getByLabel(await message(page, 'instanceName'), { exact: true })).toBeVisible();
 
-        const copy = page.getByRole('checkbox', { name: labels.copy, exact: true });
+        const copy = page.getByRole('checkbox', { name: await message(page, 'enableCopy'), exact: true });
         await copy.focus();
         await copy.press('Space');
         await expect(copy).toBeChecked();
         await expect(copy).toBeFocused();
-        expect(await page.evaluate(() => window.settingsPermissionMock.requests)).toEqual([
-            { permissions: ['clipboardWrite', 'offscreen'] },
-        ]);
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
         await copy.press('Space');
         await expect(copy).not.toBeChecked();
-        expect(await page.evaluate(() => window.settingsPermissionMock.removals)).toEqual([
-            { permissions: ['clipboardWrite', 'offscreen'] },
-        ]);
         await page.screenshot({ path: testInfo.outputPath(`narrow-${colorScheme}.png`), fullPage: true });
     });
 }

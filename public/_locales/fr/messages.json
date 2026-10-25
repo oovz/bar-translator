@@ -37,10 +37,7 @@
         "message": "Services de traduction"
     },
     "servicesDesc": {
-        "message": "Activez uniquement les fournisseurs autorisés à recevoir votre texte. Le premier fournisseur disponible est essayé en premier ; en cas d’échec, les suivants peuvent recevoir le même texte. Faites glisser pour modifier l’ordre."
-    },
-    "availableServices": {
-        "message": "Services disponibles (cliquez sur + pour activer) :"
+        "message": "Activez uniquement les instances autorisées à recevoir votre texte. Elles sont essayées dans l’ordre ; les suivantes peuvent recevoir le même texte si une précédente échoue. Faites-les glisser ou utilisez les flèches pour changer l’ordre."
     },
     "primary": {
         "message": "PRINCIPAL"
@@ -117,10 +114,10 @@
         "message": "Confidentialité et stockage"
     },
     "labelStorage": {
-        "message": "Stockage des clés API"
+        "message": "Stockage des paramètres"
     },
     "storageDesc": {
-        "message": "Le stockage synchronisé n'est pas chiffré. Les clés API peuvent être visibles par d'autres extensions ou si votre compte Google est compromis. Utilisez le stockage local pour une meilleure sécurité."
+        "message": "Choisissez où stocker toute la configuration : langues, instances, URL des serveurs, clés API, ordre de secours et préférence de copie. Les clés enregistrées sont lisibles."
     },
     "storageSync": {
         "message": "Sync entre appareils"
@@ -129,13 +126,13 @@
         "message": "Local uniquement"
     },
     "storageSyncWarning": {
-        "message": "⚠️ Les clés se synchronisent entre les appareils (moins sécurisé)"
+        "message": "Tous les paramètres et identifiants sont synchronisés via votre compte de navigateur. Une URL locale peut désigner un autre service sur un autre appareil."
     },
     "storageLocalHint": {
-        "message": "Cet appareil utilise des clés locales. Les clés déjà synchronisées restent disponibles sur les autres appareils."
+        "message": "Tous les paramètres restent sur cet appareil. Les paramètres déjà synchronisés restent disponibles sur les autres appareils."
     },
     "storageChangeFailed": {
-        "message": "Impossible de terminer le changement de stockage des clés. Vérifiez le stockage sélectionné et réessayez."
+        "message": "Impossible de terminer le changement de stockage. La configuration active est affichée ; réessayez."
     },
     "privacyDesc": {
         "message": "Bar Translator ne collecte aucune statistique d’utilisation. Le texte est envoyé aux fournisseurs de traduction activés dans l’ordre choisi. Les clés API sont envoyées à leur fournisseur pour la traduction et la validation."
@@ -376,12 +373,195 @@
         "message": "Copier la traduction"
     },
     "copySettingsDesc": {
-        "message": "Autorisez Entrée à copier les traductions sur cet appareil. Les aperçus restent disponibles si la copie est désactivée."
+        "message": "Choisissez si Entrée copie une traduction terminée. Cette préférence suit votre choix de stockage ; l’accès au presse-papiers doit être autorisé sur chaque appareil."
     },
     "enableCopy": {
         "message": "Activer la copie avec Entrée"
     },
     "removeAccess": {
         "message": "Retirer l’autorisation"
+    },
+    "settingsLoadFailed": {
+        "message": "Impossible de charger les paramètres. Réessayez."
+    },
+    "instanceName": {
+        "message": "Nom de l’instance"
+    },
+    "instanceNameInvalid": {
+        "message": "Saisissez un nom de 1 à 128 caractères."
+    },
+    "instanceChanged": {
+        "message": "Cette instance a changé. Vérifiez ses paramètres actuels et réessayez."
+    },
+    "instanceSaved": {
+        "message": "Paramètres enregistrés."
+    },
+    "libreHosting": {
+        "message": "Hébergement"
+    },
+    "libreManaged": {
+        "message": "LibreTranslate géré"
+    },
+    "libreCustom": {
+        "message": "Serveur personnalisé"
+    },
+    "instanceEndpoint": {
+        "message": "URL de base du serveur"
+    },
+    "endpointDescription": {
+        "message": "Utilisez une URL de base, avec le port et le préfixe de chemin si nécessaire."
+    },
+    "httpEndpointWarning": {
+        "message": "HTTP transmet le texte et toute clé API sans chiffrement."
+    },
+    "endpointKeyReset": {
+        "message": "Enregistrez la nouvelle URL avant de saisir sa clé API."
+    },
+    "optionalApiKey": {
+        "message": "Clé API (facultative)"
+    },
+    "deepLTier": {
+        "message": "Offre API DeepL"
+    },
+    "saveInstance": {
+        "message": "Enregistrer les modifications"
+    },
+    "saveBeforeTesting": {
+        "message": "Enregistrez les modifications avant le test."
+    },
+    "instanceTestDescription": {
+        "message": "Le test envoie une requête d’exemple fixe. Il est facultatif et n’active ni ne désactive cette instance."
+    },
+    "configureNamedInstance": {
+        "message": "Configurer $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "configureInstance": {
+        "message": "Configurer"
+    },
+    "enableInstance": {
+        "message": "Activer $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "disableInstance": {
+        "message": "Désactiver $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteNamedInstance": {
+        "message": "Supprimer $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteInstance": {
+        "message": "Supprimer"
+    },
+    "moveInstanceUp": {
+        "message": "Monter $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "moveInstanceDown": {
+        "message": "Descendre $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "setupConflictTitle": {
+        "message": "Choisir la configuration à utiliser"
+    },
+    "setupConflictDesc": {
+        "message": "Des configurations différentes sont enregistrées. Utilisez la configuration enregistrée ou remplacez-la par la configuration actuelle. Les identifiants sont inclus, mais ne sont pas affichés ici."
+    },
+    "currentSetup": {
+        "message": "Configuration actuelle"
+    },
+    "savedSetup": {
+        "message": "Configuration enregistrée"
+    },
+    "useSavedSetup": {
+        "message": "Utiliser la configuration enregistrée"
+    },
+    "replaceSavedSetup": {
+        "message": "Remplacer par la configuration actuelle"
+    },
+    "providerLanguageUnsupported": {
+        "message": "Cette instance ne prend pas en charge la paire de langues demandée"
+    },
+    "providerTextTooLong": {
+        "message": "Cette instance ne peut pas accepter un texte de cette longueur"
+    },
+    "omniboxCopyPermissionRequired": {
+        "message": "La copie nécessite une autorisation sur cet appareil — Ouvrir les paramètres"
+    },
+    "instanceEndpointInvalid": {
+        "message": "Utilisez une URL de base HTTP ou HTTPS complète, sans identifiants, paramètres de requête ni fragment."
+    },
+    "setupMigrationPending": {
+        "message": "Impossible de terminer la mise à jour des paramètres enregistrés. Votre configuration précédente reste active. Réessayez avant de la modifier."
+    },
+    "availableProviders": {
+        "message": "Ajouter un fournisseur"
+    },
+    "instanceConfigurations": {
+        "message": "Configurations"
+    },
+    "draftInstance": {
+        "message": "Non enregistré"
+    },
+    "cancel": {
+        "message": "Annuler"
+    },
+    "addProviderInstance": {
+        "message": "Ajouter $1"
+    },
+    "googleProviderDescription": {
+        "message": "Le service web de Google, sans clé API."
+    },
+    "lingvaProviderDescription": {
+        "message": "Un proxy de traduction public, sans clé API."
+    },
+    "deepLProviderDescription": {
+        "message": "Utilisez votre clé API et nommez séparément chaque compte."
+    },
+    "libreProviderDescription": {
+        "message": "Utilisez le service géré ou connectez votre propre serveur."
+    },
+    "newInstanceDescription": {
+        "message": "Enregistrez cette configuration, puis activez-la pour l’ajouter à l’ordre de traduction."
+    },
+    "connect": {
+        "message": "Connecter"
+    },
+    "connectInstance": {
+        "message": "Connecter $1"
+    },
+    "customConnectionDescription": {
+        "message": "La connexion contacte ce serveur pendant la configuration sans envoyer de texte ni de clé. Autorisez l’accès de votre navigateur au réseau local si cela est demandé."
+    },
+    "instanceConnected": {
+        "message": "Connexion à $1 établie."
+    },
+    "customConnectionFailed": {
+        "message": "La connexion à $1 n’a pas pu être confirmée. Si demandé, autorisez l’accès du navigateur au réseau local, puis réessayez avec Tester."
     }
 }

@@ -148,15 +148,24 @@ describe('DeepLTranslationService', () => {
             fetchMock.mockResolvedValue(new Response(null, { status: 403, statusText: 'Unauthorized' }));
             const result = await service.validateApiKey('bad-key');
             expect(result.valid).toBe(false);
-            expect(result.error).toContain('Unauthorized');
+            expect(result.error).toBeTruthy();
+            expect(result.error).not.toContain('Unauthorized');
         });
 
         it('checks a Pro key against its usage endpoint without submitting translation text', async () => {
             fetchMock.mockResolvedValue(new Response('{}'));
             expect(await service.validateApiKey('test-pro-key')).toEqual({ valid: true, tier: 'pro' });
             expect(fetchMock).toHaveBeenCalledExactlyOnceWith('https://api.deepl.com/v2/usage', {
-                method: 'GET', headers: { Authorization: 'DeepL-Auth-Key test-pro-key' },
+                method: 'GET', headers: { Authorization: 'DeepL-Auth-Key test-pro-key' }, redirect: 'error', signal: expect.any(AbortSignal),
             });
+        });
+
+        it('respects the configured tier when testing a key instead of relying on its suffix', async () => {
+            fetchMock.mockResolvedValue(new Response('{}'));
+            expect(await service.validateApiKey('custom-free-key', 'free')).toMatchObject({ valid: true, tier: 'free' });
+            expect(fetchMock).toHaveBeenCalledWith('https://api-free.deepl.com/v2/usage', expect.objectContaining({
+                redirect: 'error', signal: expect.any(AbortSignal),
+            }));
         });
 
         it('rejects an empty key without a request', async () => {

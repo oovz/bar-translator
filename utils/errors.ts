@@ -6,7 +6,7 @@
  * @module utils/errors
  */
 
-import type { TranslationErrorCode, ServiceId, TranslationWarning } from '@/src/types';
+import type { TranslationErrorCode, ServiceId, InstanceId, TranslationWarning } from '@/src/types';
 import { isRetryableError, shouldFallback } from '@/src/types';
 
 /**
@@ -15,6 +15,8 @@ import { isRetryableError, shouldFallback } from '@/src/types';
 export class TranslationError extends Error {
     readonly code: TranslationErrorCode;
     readonly serviceId?: ServiceId;
+    readonly instanceId?: InstanceId;
+    readonly instanceName?: string;
     readonly retryable: boolean;
     readonly httpStatus?: number;
     readonly warnings: readonly TranslationWarning[];
@@ -24,6 +26,8 @@ export class TranslationError extends Error {
         message: string,
         options?: {
             serviceId?: ServiceId;
+            instanceId?: InstanceId;
+            instanceName?: string;
             httpStatus?: number;
             warnings?: readonly TranslationWarning[];
         }
@@ -32,6 +36,8 @@ export class TranslationError extends Error {
         this.name = 'TranslationError';
         this.code = code;
         this.serviceId = options?.serviceId;
+        this.instanceId = options?.instanceId;
+        this.instanceName = options?.instanceName;
         this.httpStatus = options?.httpStatus;
         this.warnings = options?.warnings ?? [];
         this.retryable = isRetryableError(code);
@@ -67,6 +73,10 @@ export class TranslationError extends Error {
                 return 'Too many requests. Please wait a moment.';
             case 'SERVICE_UNAVAILABLE':
                 return 'Translation service is temporarily unavailable.';
+            case 'INSTANCE_TEXT_TOO_LONG':
+                return 'This translation instance cannot accept this much text.';
+            case 'INSTANCE_LANGUAGE_UNSUPPORTED':
+                return 'This translation instance does not support the requested language pair.';
             case 'INVALID_LANGUAGE':
                 return 'Unsupported language code.';
             case 'TEXT_TOO_LONG':

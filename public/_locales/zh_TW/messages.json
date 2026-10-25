@@ -35,10 +35,7 @@
         "message": "翻譯服務"
     },
     "servicesDesc": {
-        "message": "僅啟用您允許接收文字的服務。優先嘗試第一個可用服務；如果失敗，後續啟用的服務可能會收到相同文字。拖曳可調整順序。"
-    },
-    "availableServices": {
-        "message": "可用服務（點擊 + 啟用）："
+        "message": "僅啟用您允許接收文字的執行個體。系統依序嘗試；先前的執行個體失敗時，後續執行個體也可能收到相同文字。可拖曳或使用箭頭調整順序。"
     },
     "primary": {
         "message": "首選"
@@ -115,10 +112,10 @@
         "message": "隱私與儲存"
     },
     "labelStorage": {
-        "message": "API 金鑰儲存"
+        "message": "設定儲存位置"
     },
     "storageDesc": {
-        "message": "同步儲存未加密。API 金鑰可能對其他擴充功能可見，或者如果您的 Google 帳戶遭到入侵，金鑰可能會洩露。使用本地儲存以獲得更好的安全性。"
+        "message": "選擇整份設定的儲存位置，包括語言、執行個體、伺服器 URL、API 金鑰、備援順序和複製偏好。已儲存的金鑰可被讀取。"
     },
     "storageSync": {
         "message": "跨裝置同步"
@@ -127,13 +124,13 @@
         "message": "僅本地"
     },
     "storageSyncWarning": {
-        "message": "⚠️ 金鑰將在裝置間同步（安全性較低）"
+        "message": "所有設定和認證資料都會透過瀏覽器帳號同步。本機伺服器 URL 在其他裝置上可能指向不同的服務。"
     },
     "storageLocalHint": {
-        "message": "此裝置使用本機金鑰。先前同步的金鑰仍可供其他裝置使用。"
+        "message": "所有設定僅保存在此裝置。先前同步的設定仍可供其他裝置使用。"
     },
     "storageChangeFailed": {
-        "message": "無法完成金鑰儲存位置的變更。請檢查所選儲存位置並重試。"
+        "message": "無法完成設定儲存位置的切換。仍會顯示目前生效的設定，請重試。"
     },
     "privacyDesc": {
         "message": "Bar Translator 不收集使用分析資料。文字會依您選擇的順序傳送給已啟用的翻譯服務。API 金鑰會傳送給對應的服務，用於翻譯和驗證。"
@@ -374,12 +371,195 @@
         "message": "複製翻譯"
     },
     "copySettingsDesc": {
-        "message": "允許在此裝置上按 Enter 複製翻譯。關閉複製後，仍可使用翻譯預覽。"
+        "message": "選擇是否按 Enter 複製已完成的翻譯。此偏好遵循所選儲存方式；剪貼簿權限仍須在每台裝置分別授予。"
     },
     "enableCopy": {
         "message": "啟用 Enter 複製"
     },
     "removeAccess": {
         "message": "移除存取權限"
+    },
+    "settingsLoadFailed": {
+        "message": "無法載入設定，請重試。"
+    },
+    "instanceName": {
+        "message": "執行個體名稱"
+    },
+    "instanceNameInvalid": {
+        "message": "請輸入1至128個字元的名稱。"
+    },
+    "instanceChanged": {
+        "message": "此執行個體已變更。請檢查目前設定後重試。"
+    },
+    "instanceSaved": {
+        "message": "設定已儲存。"
+    },
+    "libreHosting": {
+        "message": "託管方式"
+    },
+    "libreManaged": {
+        "message": "託管版 LibreTranslate"
+    },
+    "libreCustom": {
+        "message": "自訂伺服器"
+    },
+    "instanceEndpoint": {
+        "message": "伺服器基底 URL"
+    },
+    "endpointDescription": {
+        "message": "填入基底 URL，可視需要包含連接埠和路徑前綴。"
+    },
+    "httpEndpointWarning": {
+        "message": "HTTP 會以未加密方式傳送翻譯文字和 API 金鑰。"
+    },
+    "endpointKeyReset": {
+        "message": "請先儲存新位址，再輸入其 API 金鑰。"
+    },
+    "optionalApiKey": {
+        "message": "API 金鑰（選填）"
+    },
+    "deepLTier": {
+        "message": "DeepL API 方案"
+    },
+    "saveInstance": {
+        "message": "儲存變更"
+    },
+    "saveBeforeTesting": {
+        "message": "請先儲存變更，再進行測試。"
+    },
+    "instanceTestDescription": {
+        "message": "測試會傳送固定的範例要求。測試為選用，不會啟用或停用此執行個體。"
+    },
+    "configureNamedInstance": {
+        "message": "設定 $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "configureInstance": {
+        "message": "設定"
+    },
+    "enableInstance": {
+        "message": "啟用 $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "disableInstance": {
+        "message": "停用 $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteNamedInstance": {
+        "message": "刪除 $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteInstance": {
+        "message": "刪除"
+    },
+    "moveInstanceUp": {
+        "message": "上移 $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "moveInstanceDown": {
+        "message": "下移 $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "setupConflictTitle": {
+        "message": "選擇要使用的設定"
+    },
+    "setupConflictDesc": {
+        "message": "已儲存的設定不同。請選擇使用已儲存的設定，或以目前設定取代。認證資料也包含在內，但不會在此顯示。"
+    },
+    "currentSetup": {
+        "message": "目前設定"
+    },
+    "savedSetup": {
+        "message": "已儲存的設定"
+    },
+    "useSavedSetup": {
+        "message": "使用已儲存的設定"
+    },
+    "replaceSavedSetup": {
+        "message": "以目前設定取代"
+    },
+    "providerLanguageUnsupported": {
+        "message": "此執行個體不支援要求的語言組合"
+    },
+    "providerTextTooLong": {
+        "message": "此執行個體無法處理此長度的文字"
+    },
+    "omniboxCopyPermissionRequired": {
+        "message": "此裝置需要複製權限 — 開啟設定"
+    },
+    "instanceEndpointInvalid": {
+        "message": "請輸入完整的 HTTP 或 HTTPS 基底 URL，不要包含認證資料、查詢參數或片段。"
+    },
+    "setupMigrationPending": {
+        "message": "無法完成已儲存設定的升級。原有設定仍在使用，請重試後再編輯。"
+    },
+    "availableProviders": {
+        "message": "新增提供者"
+    },
+    "instanceConfigurations": {
+        "message": "實例設定"
+    },
+    "draftInstance": {
+        "message": "尚未儲存"
+    },
+    "cancel": {
+        "message": "取消"
+    },
+    "addProviderInstance": {
+        "message": "新增 $1"
+    },
+    "googleProviderDescription": {
+        "message": "使用 Google 網頁服務，無需 API 金鑰。"
+    },
+    "lingvaProviderDescription": {
+        "message": "使用公開翻譯代理，無需 API 金鑰。"
+    },
+    "deepLProviderDescription": {
+        "message": "使用您的 API 金鑰，為不同帳戶建立獨立命名的實例。"
+    },
+    "libreProviderDescription": {
+        "message": "使用託管服務，或連線至您自己的伺服器。"
+    },
+    "newInstanceDescription": {
+        "message": "先儲存設定，再啟用以將其加入翻譯順序。"
+    },
+    "connect": {
+        "message": "連線"
+    },
+    "connectInstance": {
+        "message": "連線至 $1"
+    },
+    "customConnectionDescription": {
+        "message": "連線會在設定過程中聯繫此伺服器，但不會傳送翻譯文字或金鑰。如有提示，請允許瀏覽器存取區域網路。"
+    },
+    "instanceConnected": {
+        "message": "已連線至 $1。"
+    },
+    "customConnectionFailed": {
+        "message": "無法確認與 $1 的連線。如有提示，請允許瀏覽器存取區域網路，然後再次點選測試。"
     }
 }

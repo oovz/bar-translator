@@ -2,12 +2,12 @@
 import { translateWithFallback } from '@/services/index';
 import { getServiceDefinition } from '@/services/base';
 import { t } from '@/utils/i18n';
-import { getPreferences, getApiKeys } from '@/utils/storage';
+import { getSetup, isSetupStorageChange, reconcileSetupAccess } from '@/utils/storage';
 import { parseOmniboxInput, formatSuggestionDescription, formatErrorDescription, escapeXml, browserDescription } from '@/utils/omnibox-parser';
 import { copyToClipboard } from '@/utils/clipboard';
-import { hasCopyAccess, hasProviderAccess, removeCopyAccess, removeProviderAccess, COPY_PERMISSIONS } from '@/utils/permissions';
+import { hasCopyAccess, hasInstanceAccess, removeCopyAccess, COPY_PERMISSIONS } from '@/utils/permissions';
 import { TranslationError } from '@/utils/errors';
-import type { UserPreferences, StoredApiKeys, ServiceId, TranslationWarning, TranslationErrorCode } from '@/src/types';
+import type { UserPreferences, TranslationSetup, TranslationWarning, TranslationErrorCode } from '@/src/types';
 
 const DEBOUNCE_DELAY = 300;
 
@@ -16,7 +16,7 @@ interface CompletedTranslation {
     input: string;
     context: string;
     translation: string;
-    serviceId: ServiceId;
+    instanceId: string;
 }
 interface Interaction {
     input: string;
@@ -29,7 +29,8 @@ interface Interaction {
 function languageContext(preferences: Partial<UserPreferences> = {}) {
     return [preferences.defaultSourceLang, preferences.defaultTargetLang, preferences.languageOverrides];
 }
-function translationContext(input: string, preferences: UserPreferences, apiKeys: StoredApiKeys) {
+function translationContext(input: string, setup: TranslationSetup) {
+    const preferences = setup.preferences;
     const parsed = parseOmniboxInput(input, preferences);
     if (parsed.isLanguageQuery) return;
     const params = {
@@ -39,7 +40,12 @@ function translationContext(input: string, preferences: UserPreferences, apiKeys
     };
     return {
         params,
-        identity: JSON.stringify([params, languageContext(preferences), preferences.fallbackOrder, apiKeys]),
+        identity: JSON.stringify([params, languageContext(preferences), preferences.fallbackOrder, setup.copyEnabled,
+            setup.instances.map(instance => ({
+                ...instance, ...('name' in instance ? { name: undefined } : {}),
+                ...('credential' in instance ? { credential: instance.credential && { key: instance.credential.key, tier: instance.credential.tier } } : {}),
+            })),
+        ]),
     };
 }
 function needsSettings(issue: TranslationWarning) {
@@ -56,10 +62,13 @@ function issueMessage(issue: TranslationWarning): string {
         NETWORK_ERROR: 'providerNetworkError',
         SERVICE_UNAVAILABLE: 'providerUnavailable',
         RATE_LIMITED: 'providerUnavailable',
+        INSTANCE_LANGUAGE_UNSUPPORTED: 'providerLanguageUnsupported',
+        INSTANCE_TEXT_TOO_LONG: 'providerTextTooLong',
         WEB_REQUEST_FAILED: 'providerResponseError',
     };
     const message = t(keys[issue.code] ?? 'omniboxAllFailed');
-    return issue.serviceId ? `${getServiceDefinition(issue.serviceId).name}: ${message}` : message;
+    const name = issue.instanceName ?? (issue.serviceId ? getServiceDefinition(issue.serviceId).name : undefined);
+    return name ? `${name}: ${message}` : message;
 }
 
 function setDefaultSuggestion(suggestion: { description: string }) {
@@ -77,7 +86,7 @@ export default defineBackground(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | undefined;
     let feedbackTimer: ReturnType<typeof setTimeout> | undefined;
 
-    void getPreferences().catch(() => console.error('[Background] Could not load preferences'));
+    void reconcileSetupAccess().catch(() => console.error('[Background] Could not reconcile saved access'));
 
     function showPrompt() {
         if (import.meta.env.FIREFOX) {
@@ -130,7 +139,7 @@ export default defineBackground(() => {
         if (interaction && isCurrent(interaction)) {
             if (issue && needsSettings(issue)) defaultSettingsInput = interaction.input;
             const warnings = issue?.warnings ?? [];
-            const rows = warningRows(warnings.filter(warning => warning.code !== issue?.code || warning.serviceId !== issue?.serviceId));
+            const rows = warningRows(warnings.filter(warning => warning.code !== issue?.code || warning.instanceId !== issue?.instanceId));
             if (import.meta.env.FIREFOX) {
                 rows.unshift(actionRow(issue && needsSettings(issue) ? 'settings' : 'none',
                     issue ? issueMessage(issue) : t('omniboxAllFailed')));
@@ -141,24 +150,23 @@ export default defineBackground(() => {
     }
     async function preview(interaction: Interaction) {
         try {
-            const preferences = await getPreferences();
-            const apiKeys = await getApiKeys();
+            const setup = await getSetup();
             if (!isCurrent(interaction)) return;
-            const context = translationContext(interaction.input, preferences, apiKeys);
+            const context = translationContext(interaction.input, setup);
             if (!context) {
                 await showPrompt();
                 if (isCurrent(interaction)) sendSuggestions(interaction, []);
                 return;
             }
-            const result = await translateWithFallback({ ...context.params, signal: interaction.controller.signal }, preferences, apiKeys);
-            const canCopy = await hasCopyAccess();
+            const result = await translateWithFallback({ ...context.params, signal: interaction.controller.signal }, setup);
+            const canCopy = setup.copyEnabled && await hasCopyAccess();
             if (isCurrent(interaction) && !interaction.committed) {
                 await setDefaultSuggestion({ description: formatSuggestionDescription(result.translation) });
                 if (!isCurrent(interaction)) return;
-                completed = { input: interaction.input, context: context.identity, translation: result.translation, serviceId: result.serviceId };
+                completed = { input: interaction.input, context: context.identity, translation: result.translation, instanceId: result.instanceId };
                 sendSuggestions(interaction, [
                     ...(import.meta.env.FIREFOX ? [actionRow(canCopy ? 'copy' : 'none', result.translation)] : []),
-                    actionRow(canCopy ? 'copy' : 'settings', t(canCopy ? 'omniboxCopyAction' : 'omniboxCopyOff')),
+                    actionRow(canCopy ? 'copy' : 'settings', t(canCopy ? 'omniboxCopyAction' : setup.copyEnabled ? 'omniboxCopyPermissionRequired' : 'omniboxCopyOff')),
                     ...warningRows(result.warnings),
                 ]);
             }
@@ -199,13 +207,14 @@ export default defineBackground(() => {
         const interaction: Interaction = { input: result.input, committed: true, controller: new AbortController() };
         current = interaction;
         try {
-            const preferences = await getPreferences();
-            const apiKeys = await getApiKeys();
+            const setup = await getSetup();
             if (!isCurrent(interaction)) return;
-            if (translationContext(result.input, preferences, apiKeys)?.identity !== result.context) {
+            if (translationContext(result.input, setup)?.identity !== result.context) {
                 invalidate(); showPrompt(); return;
             }
-            const [canCopy, canUseProvider] = await Promise.all([hasCopyAccess(), hasProviderAccess(result.serviceId)]);
+            const instance = setup.instances.find(candidate => candidate.id === result.instanceId);
+            if (!setup.copyEnabled || !instance || !setup.preferences.fallbackOrder.includes(instance.id)) return;
+            const [canCopy, canUseProvider] = await Promise.all([hasCopyAccess(), hasInstanceAccess(instance)]);
             if (!isCurrent(interaction) || !canCopy || !canUseProvider) return;
             const copied = await copyToClipboard(result.translation, interaction.controller.signal);
             if (!isCurrent(interaction)) return;
@@ -237,20 +246,10 @@ export default defineBackground(() => {
         }
     });
     browser.storage.onChanged.addListener((changes, area) => {
-        const preferenceChange = area === 'sync' ? changes.preferences : undefined;
-        const previousPreferences = preferenceChange?.oldValue as Partial<UserPreferences> | undefined;
-        const nextPreferences = preferenceChange?.newValue as Partial<UserPreferences> | undefined;
-        if (preferenceChange) {
-            const removed = previousPreferences?.fallbackOrder?.filter(id => !nextPreferences?.fallbackOrder?.includes(id)) ?? [];
-            void Promise.all(removed.map(removeProviderAccess)).catch(() => console.error('[Background] Could not release provider access'));
-        }
-        const contextChanged = preferenceChange && (
-            JSON.stringify(languageContext(previousPreferences)) !== JSON.stringify(languageContext(nextPreferences)) ||
-            JSON.stringify(previousPreferences?.fallbackOrder) !== JSON.stringify(nextPreferences?.fallbackOrder)
-        );
-        const credentialsChanged = (area === 'sync' && changes.apiKeys) || (area === 'local' && changes.apiKeys_local);
-        const storageSelectionChanged = area === 'local' && changes.credentialStorageType;
-        if (contextChanged || credentialsChanged || storageSelectionChanged) refreshPreview();
+        if (!isSetupStorageChange(changes, area)) return;
+        // Invalidate synchronously; a slow storage read cannot leave an old copy eligible.
+        refreshPreview();
+        void reconcileSetupAccess().catch(() => console.error('[Background] Could not refresh settings or release access'));
     });
     chrome.runtime.onInstalled.addListener(async details => {
         if (details.reason === 'install') await chrome.runtime.openOptionsPage();

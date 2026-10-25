@@ -1,8 +1,28 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_PREFERENCES, type StoredApiKeys, type UserPreferences, type CredentialStorageType } from '@/src/types';
+import { DEFAULT_PREFERENCES, type StoredApiKeys, type UserPreferences, type CredentialStorageType, type TranslationInstance } from '@/src/types';
 import messages from '@/public/_locales/en/messages.json';
-import { switchCredentialStorage } from '@/utils/storage';
+import { createDefaultSetup } from '@/utils/instances';
+
+// The omnibox integration boundary provides coherent setup snapshots. Migration,
+// commit failures and Local/Sync conflicts are exercised by storage.test.ts.
+vi.mock('@/utils/storage', () => ({
+    // Worker-restart cleanup uses the real storage boundary in setup-access.test.tsx.
+    reconcileSetupAccess: vi.fn(async () => {}),
+    getSetup: vi.fn(async () => {
+        const shared = await chrome.storage.sync.get<{ preferences?: UserPreferences; apiKeys?: StoredApiKeys }>(['preferences', 'apiKeys']);
+        const local = await chrome.storage.local.get<{ credentialStorageType?: CredentialStorageType; apiKeys_local?: StoredApiKeys }>(['credentialStorageType', 'apiKeys_local']);
+        const keys = local.credentialStorageType === 'sync' ? shared.apiKeys : local.apiKeys_local;
+        const setup = createDefaultSetup(copyEnabled);
+        setup.preferences = structuredClone(shared.preferences ?? DEFAULT_PREFERENCES);
+        const deepl = setup.instances.find(instance => instance.providerId === 'deepl')!;
+        if (deepl.providerId === 'deepl' && keys?.deepl) deepl.credential = structuredClone(keys.deepl);
+        setup.instances.push(...structuredClone(extraInstances));
+        return setup;
+    }),
+    isSetupStorageChange: (changes: Record<string, unknown>) =>
+        ['preferences', 'apiKeys', 'apiKeys_local', 'credentialStorageType', 'setupV2'].some(key => key in changes),
+}));
 
 function event<Args extends unknown[]>() {
     const listeners: ((...args: Args) => unknown)[] = [];
@@ -24,6 +44,8 @@ function googleResponse(translation: string) {
 }
 
 let preferences: UserPreferences;
+let copyEnabled: boolean;
+let extraInstances: TranslationInstance[];
 let apiKeys: StoredApiKeys;
 let syncedApiKeys: StoredApiKeys;
 let storageType: CredentialStorageType;
@@ -52,6 +74,8 @@ beforeEach(async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     preferences = { ...DEFAULT_PREFERENCES, languageOverrides: {} };
     apiKeys = {};
+    copyEnabled = true;
+    extraInstances = [];
     syncedApiKeys = {};
     storageType = 'local';
     omnibox = {
@@ -785,15 +809,13 @@ describe('copy confirmation and failure feedback', () => {
 });
 
 
-describe('translation after credential storage changes', () => {
-    it.each(['success', 'destination', 'selection', 'cleanup'])('can translate and copy after a storage switch with %s outcome', async outcome => {
+describe('translation after setup storage changes', () => {
+    it('uses the selected setup snapshot after a whole-setup storage change', async () => {
         preferences = { ...preferences, fallbackOrder: ['deepl'] };
-        apiKeys = { deepl: { key: 'configured-key:fx', validated: true, tier: 'free' } };
-        if (outcome === 'destination') vi.mocked(chrome.storage.sync.set).mockRejectedValueOnce(new Error('Write failed'));
-        if (outcome === 'selection') vi.mocked(chrome.storage.local.set).mockRejectedValueOnce(new Error('Write failed'));
-        if (outcome === 'cleanup') vi.mocked(chrome.storage.local.remove).mockRejectedValueOnce(new Error('Cleanup failed'));
-        if (outcome === 'success') await switchCredentialStorage('sync');
-        else await expect(switchCredentialStorage('sync')).rejects.toThrow();
+        apiKeys = { deepl: { key: 'local-key:fx', validated: false, tier: 'free' } };
+        syncedApiKeys = { deepl: { key: 'configured-key:fx', validated: false, tier: 'free' } };
+        storageType = 'sync';
+        await storageChanged.fire({ credentialStorageType: { oldValue: 'local', newValue: 'sync' } }, 'local');
         fetchMock.mockResolvedValue(new Response(JSON.stringify({ translations: [{ text: 'Bonjour', detected_source_language: 'EN' }] })));
         await change('fr Hello');
         await vi.advanceTimersByTimeAsync(300);
@@ -1021,12 +1043,6 @@ describe('optional access and omnibox actions', () => {
         expect(copiedText).toHaveBeenCalledExactlyOnceWith('Hola');
     });
 
-    it('releases a provider grant when its synced selection is disabled', async () => {
-        const previous = { ...preferences, fallbackOrder: ['google-web', 'deepl'] };
-        await storageChanged.fire({ preferences: { oldValue: previous, newValue: preferences } }, 'sync');
-        expect(chrome.permissions.remove).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
-    });
-
     it('opens setup on installation and leaves updates untouched', async () => {
         await installed.fire({ reason: 'install' });
         expect(chrome.runtime.openOptionsPage).toHaveBeenCalledTimes(1);
@@ -1193,5 +1209,43 @@ describe('Firefox background document', () => {
         expect(writeText).toHaveBeenCalledExactlyOnceWith('Bonjour');
         expect(console.error).toHaveBeenCalled();
         expect(description()).not.toContain('<dim>');
+    });
+});
+
+
+describe('instance configuration and stored copy intent', () => {
+    it('does not copy when saved intent is off even when clipboard permission remains granted', async () => {
+        copyEnabled = false;
+        fetchMock.mockResolvedValue(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(description()).toBe('<match>Bonjour</match>');
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(copiedText).not.toHaveBeenCalled();
+        expect(sendMessage).not.toHaveBeenCalled();
+    });
+
+    it('rejects a retained preview after its instance endpoint changes before a storage event', async () => {
+        extraInstances = [{ id: 'home', providerId: 'libretranslate', name: 'Home', endpoint: 'http://localhost:5000/libre', hosting: 'custom' }];
+        preferences = { ...preferences, fallbackOrder: ['home'] };
+        fetchMock.mockResolvedValue(new Response(JSON.stringify({ translatedText: 'Bonjour' })));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        extraInstances = [{ ...extraInstances[0]!, providerId: 'libretranslate', name: 'Home', hosting: 'custom', endpoint: 'http://localhost:9000/another' }];
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(copiedText).not.toHaveBeenCalled();
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps independent account names in fallback warnings without interpreting their markup', async () => {
+        extraInstances = [{ id: 'work', providerId: 'deepl', name: '<Work> & account', credential: { key: 'work:fx', validated: false } }];
+        preferences = { ...preferences, fallbackOrder: ['work', 'google-web'] };
+        fetchMock.mockResolvedValueOnce(new Response(null, { status: 403 })).mockResolvedValueOnce(googleResponse('Bonjour'));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        expect(description()).toBe('<match>Bonjour</match>');
+        const warning = suggestionRows().find(row => row.description.includes('Work'))!;
+        expect(warning.description).toContain('&lt;Work&gt; &amp; account');
+        expect(warning.description).not.toContain('<Work>');
     });
 });

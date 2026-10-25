@@ -125,6 +125,16 @@ export const TRANSLATION_SERVICES: readonly TranslationService[] = [
         maxTextLength: 5000,
     },
     {
+        id: 'libretranslate',
+        name: 'LibreTranslate',
+        type: 'api',
+        requiresApiKey: false,
+        authMethod: 'none',
+        httpMethod: 'POST',
+        endpoint: 'https://libretranslate.com',
+        maxTextLength: 5000,
+    },
+    {
         id: 'deepl',
         name: 'DeepL',
         type: 'api',

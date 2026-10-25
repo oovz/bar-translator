@@ -35,10 +35,7 @@
         "message": "翻訳サービス"
     },
     "servicesDesc": {
-        "message": "テキストの送信を許可するサービスだけを有効にしてください。最初の利用可能なサービスを試し、失敗した場合は後続の有効なサービスに同じテキストを送信します。ドラッグして順序を変更できます。"
-    },
-    "availableServices": {
-        "message": "利用可能なサービス（+をクリックして有効化）："
+        "message": "テキストの送信を許可するインスタンスのみ有効にしてください。順番に試行し、失敗した場合は後続の有効なインスタンスにも同じテキストが送信されます。ドラッグまたは矢印で順番を変更できます。"
     },
     "primary": {
         "message": "優先"
@@ -115,10 +112,10 @@
         "message": "プライバシーとストレージ"
     },
     "labelStorage": {
-        "message": "APIキーの保存先"
+        "message": "設定の保存先"
     },
     "storageDesc": {
-        "message": "同期ストレージは暗号化されていません。APIキーは他の拡張機能から見える可能性があり、Googleアカウントが侵害された場合に漏洩する可能性があります。より安全なローカルストレージを使用してください。"
+        "message": "言語、インスタンス、サーバーURL、APIキー、フォールバック順序、コピー設定を含むすべての設定の保存先を選択します。保存したキーは読み取り可能です。"
     },
     "storageSync": {
         "message": "デバイス間で同期"
@@ -127,13 +124,13 @@
         "message": "ローカルのみ"
     },
     "storageSyncWarning": {
-        "message": "⚠️ キーはデバイス間で同期されます（セキュリティ低）"
+        "message": "すべての設定と認証情報がブラウザーアカウントを通じて同期されます。ローカルURLは別の端末では別のサービスを指す場合があります。"
     },
     "storageLocalHint": {
-        "message": "この端末はローカルのキーを使用します。同期済みのキーは他の端末で引き続き利用できます。"
+        "message": "すべての設定はこの端末に保存されます。以前に同期した設定は他の端末で引き続き利用できます。"
     },
     "storageChangeFailed": {
-        "message": "キーの保存先の変更を完了できませんでした。選択した保存先を確認して、もう一度お試しください。"
+        "message": "保存先の変更を完了できませんでした。現在使用中の設定が表示されています。再試行してください。"
     },
     "privacyDesc": {
         "message": "Bar Translator は利用状況の分析データを収集しません。テキストは有効にした翻訳プロバイダーに指定した順序で送信されます。API キーは翻訳と検証のために対応するプロバイダーに送信されます。"
@@ -374,12 +371,195 @@
         "message": "翻訳をコピー"
     },
     "copySettingsDesc": {
-        "message": "このデバイスで Enter による翻訳のコピーを許可します。コピーが無効でも翻訳プレビューは利用できます。"
+        "message": "翻訳完了後にEnterでコピーするか選択します。この設定は選択した保存先に従います。クリップボードへのアクセスは各端末で許可してください。"
     },
     "enableCopy": {
         "message": "Enter でコピーを有効にする"
     },
     "removeAccess": {
         "message": "アクセス許可を削除"
+    },
+    "settingsLoadFailed": {
+        "message": "設定を読み込めませんでした。再試行してください。"
+    },
+    "instanceName": {
+        "message": "インスタンス名"
+    },
+    "instanceNameInvalid": {
+        "message": "1～128文字の名前を入力してください。"
+    },
+    "instanceChanged": {
+        "message": "このインスタンスは変更されました。現在の設定を確認して再試行してください。"
+    },
+    "instanceSaved": {
+        "message": "設定を保存しました。"
+    },
+    "libreHosting": {
+        "message": "ホスティング"
+    },
+    "libreManaged": {
+        "message": "マネージド LibreTranslate"
+    },
+    "libreCustom": {
+        "message": "カスタムサーバー"
+    },
+    "instanceEndpoint": {
+        "message": "サーバーのベースURL"
+    },
+    "endpointDescription": {
+        "message": "必要に応じてポートとパスの接頭辞を含むベースURLを指定します。"
+    },
+    "httpEndpointWarning": {
+        "message": "HTTPでは翻訳テキストとAPIキーが暗号化されずに送信されます。"
+    },
+    "endpointKeyReset": {
+        "message": "新しいURLを保存してからAPIキーを入力してください。"
+    },
+    "optionalApiKey": {
+        "message": "APIキー（任意）"
+    },
+    "deepLTier": {
+        "message": "DeepL APIプラン"
+    },
+    "saveInstance": {
+        "message": "変更を保存"
+    },
+    "saveBeforeTesting": {
+        "message": "テストの前に変更を保存してください。"
+    },
+    "instanceTestDescription": {
+        "message": "テストでは固定のサンプルリクエストを送信します。テストは任意で、インスタンスの有効・無効は変わりません。"
+    },
+    "configureNamedInstance": {
+        "message": "$1を設定",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "configureInstance": {
+        "message": "設定"
+    },
+    "enableInstance": {
+        "message": "$1を有効化",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "disableInstance": {
+        "message": "$1を無効化",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteNamedInstance": {
+        "message": "$1を削除",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteInstance": {
+        "message": "削除"
+    },
+    "moveInstanceUp": {
+        "message": "$1を上へ移動",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "moveInstanceDown": {
+        "message": "$1を下へ移動",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "setupConflictTitle": {
+        "message": "使用する設定を選択"
+    },
+    "setupConflictDesc": {
+        "message": "異なる設定が保存されています。保存済みの設定を使用するか、現在の設定で置き換えてください。認証情報も含まれますが、ここには表示されません。"
+    },
+    "currentSetup": {
+        "message": "現在の設定"
+    },
+    "savedSetup": {
+        "message": "保存済みの設定"
+    },
+    "useSavedSetup": {
+        "message": "保存済みの設定を使用"
+    },
+    "replaceSavedSetup": {
+        "message": "現在の設定で置き換える"
+    },
+    "providerLanguageUnsupported": {
+        "message": "このインスタンスは指定された言語の組み合わせに対応していません"
+    },
+    "providerTextTooLong": {
+        "message": "このインスタンスではこの長さのテキストを処理できません"
+    },
+    "omniboxCopyPermissionRequired": {
+        "message": "この端末でコピーの許可が必要です — 設定を開く"
+    },
+    "instanceEndpointInvalid": {
+        "message": "認証情報、クエリ、フラグメントを含まない完全なHTTPまたはHTTPSのベースURLを入力してください。"
+    },
+    "setupMigrationPending": {
+        "message": "保存済み設定の更新を完了できませんでした。以前の設定は引き続き有効です。編集する前に再試行してください。"
+    },
+    "availableProviders": {
+        "message": "プロバイダーを追加"
+    },
+    "instanceConfigurations": {
+        "message": "インスタンス設定"
+    },
+    "draftInstance": {
+        "message": "未保存"
+    },
+    "cancel": {
+        "message": "キャンセル"
+    },
+    "addProviderInstance": {
+        "message": "$1 を追加"
+    },
+    "googleProviderDescription": {
+        "message": "API キー不要の Google ウェブサービスです。"
+    },
+    "lingvaProviderDescription": {
+        "message": "API キー不要の公開翻訳プロキシです。"
+    },
+    "deepLProviderDescription": {
+        "message": "API キーを使用し、アカウントごとに名前付きインスタンスを作成できます。"
+    },
+    "libreProviderDescription": {
+        "message": "管理サービスを使用するか、ご自分のサーバーに接続できます。"
+    },
+    "newInstanceDescription": {
+        "message": "この設定を保存してから有効にすると、翻訳の優先順位に追加されます。"
+    },
+    "connect": {
+        "message": "接続"
+    },
+    "connectInstance": {
+        "message": "$1 に接続"
+    },
+    "customConnectionDescription": {
+        "message": "接続時にこのサーバーへアクセスしますが、翻訳テキストやキーは送信しません。確認が表示された場合は、ブラウザーのローカルネットワークへのアクセスを許可してください。"
+    },
+    "instanceConnected": {
+        "message": "$1 に接続しました。"
+    },
+    "customConnectionFailed": {
+        "message": "$1 への接続を確認できませんでした。確認が表示された場合はブラウザーのローカルネットワークへのアクセスを許可し、テストを再実行してください。"
     }
 }

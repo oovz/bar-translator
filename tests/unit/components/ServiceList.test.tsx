@@ -1,194 +1,266 @@
 /** @vitest-environment jsdom */
-import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { useState } from 'preact/hooks';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, fireEvent, waitFor, within } from '@testing-library/preact';
 import { ServiceList } from '@/entrypoints/options/components/ServiceList';
-import { DEFAULT_PREFERENCES } from '@/src/types';
-import type { PreferenceUpdate } from '@/entrypoints/options/hooks/usePreferences';
-import type { TranslationService, UserPreferences } from '@/src/types';
+import { createDefaultSetup } from '@/utils/instances';
+import { testInstance } from '@/services';
+import type { SetupUpdate } from '@/entrypoints/options/hooks/usePreferences';
+import type { TranslationSetup } from '@/src/types';
 
-// Mock SortableJS since it needs DOM access
-vi.mock('sortablejs', () => ({
-    default: {
-        create: vi.fn(() => ({
-            destroy: vi.fn(),
-        })),
-    },
+vi.mock('sortablejs', () => ({ default: { create: vi.fn(() => ({ destroy: vi.fn() })) } }));
+vi.mock('@/utils/storage', () => ({
+    reconcileSetupAccess: vi.fn(async (previous: TranslationSetup) => {
+        const { releaseUnusedInstanceAccess } = await import('@/utils/permissions');
+        await releaseUnusedInstanceAccess(previous, saved);
+    }),
 }));
+vi.mock('@/services', () => ({ testInstance: vi.fn() }));
 
-describe('ServiceList Component', () => {
-    let savedPreferences: UserPreferences;
-    beforeEach(() => {
-        vi.clearAllMocks();
-        savedPreferences = { ...DEFAULT_PREFERENCES, fallbackOrder: [...DEFAULT_PREFERENCES.fallbackOrder] };
-        vi.mocked(chrome.permissions.contains).mockImplementation(async () => true);
-        vi.mocked(chrome.permissions.request).mockImplementation(async () => true);
-    });
-    const mockServices: TranslationService[] = [
-        {
-            id: 'google-web',
-            name: 'Google Translate (Web)',
-            type: 'web',
-            requiresApiKey: false,
-            authMethod: 'none',
-            httpMethod: 'GET',
-        },
-        {
-            id: 'deepl',
-            name: 'DeepL',
-            type: 'api',
-            requiresApiKey: true,
-            authMethod: 'header-auth-key',
-            httpMethod: 'POST',
-        },
-    ];
-
-    const mockProps = {
-        services: mockServices,
-        preferences: DEFAULT_PREFERENCES,
-        apiKeys: {}, // StoredApiKeys
-        updatePreferences: vi.fn(async (update: PreferenceUpdate) => {
-            const patch = typeof update === 'function' ? update(savedPreferences) : update;
-            savedPreferences = { ...savedPreferences, ...patch };
+let saved: TranslationSetup;
+let saveFails = false;
+let origins: Set<string>;
+function Harness() {
+    const [setup, setSetup] = useState(saved);
+    const updateSetup = async (updater: SetupUpdate) => {
+        if (saveFails) return false;
+        try {
+            saved = await updater(structuredClone(saved));
+            setSetup(saved);
             return true;
-        }),
-        saveApiKey: vi.fn(),
-        updateKeyValidation: vi.fn(),
+        } catch { return false; }
     };
+    return <ServiceList setup={setup} updateSetup={updateSetup} />;
+}
+function row(view: ReturnType<typeof render>, id: string) {
+    return within(view.container.querySelector(`[data-id="${id}"]`)! as HTMLElement);
+}
 
-    it('enabling DeepL requests both domains before saving, even without a key', async () => {
-        const { getAllByTitle } = render(<ServiceList {...mockProps} />);
-        const enableButtons = getAllByTitle('Enable service');
-        fireEvent.click(enableButtons[0]!);
+beforeEach(() => {
+    vi.clearAllMocks();
+    saved = createDefaultSetup();
+    saveFails = false;
+    origins = new Set(['https://translate.google.com/*', 'https://api-free.deepl.com/*', 'https://api.deepl.com/*']);
+    vi.mocked(chrome.permissions.contains).mockImplementation(async value => (value.origins ?? []).every(origin => origins.has(origin)));
+    vi.mocked(chrome.permissions.request).mockImplementation(async value => { value.origins?.forEach(origin => origins.add(origin)); return true; });
+    vi.mocked(chrome.permissions.remove).mockImplementation(async value => { value.origins?.forEach(origin => origins.delete(origin)); return true; });
+    vi.mocked(testInstance).mockResolvedValue({ valid: true });
+});
 
+afterEach(() => vi.restoreAllMocks());
+
+describe('translation instances', () => {
+    it('keeps custom-server intent and credentials when first contact cannot be confirmed', async () => {
+        const credential = { key: 'saved-key', validated: true, lastValidated: 123 };
+        saved.instances.push({ id: 'home', providerId: 'libretranslate', name: 'Home', hosting: 'custom', endpoint: 'http://192.168.1.4:5000', credential });
+        vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Local network access not ready'));
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'home').getByRole('button', { name: 'connectInstance' }));
+        await waitFor(() => expect(saved.preferences.fallbackOrder).toContain('home'));
+        expect(saved.instances.find(instance => instance.id === 'home')).toMatchObject({ credential });
+        await view.findByText('customConnectionFailed');
+        expect(testInstance).not.toHaveBeenCalled();
+    });
+
+    it('preserves a migrated Pro credential and its routing when only the name changes', async () => {
+        const credential = { key: 'synthetic-pro-key', validated: true, lastValidated: 123 };
+        saved.instances = saved.instances.map(instance => instance.providerId === 'deepl'
+            ? { ...instance, credential } : instance);
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
+        expect((view.getByLabelText('deepLTier') as HTMLSelectElement).value).toBe('pro');
+        fireEvent.input(view.getByLabelText('instanceName'), { target: { value: 'Renamed account' } });
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('instanceSaved');
+        expect(saved.instances.find(instance => instance.id === 'deepl')).toEqual({
+            id: 'deepl', providerId: 'deepl', name: 'Renamed account', credential,
+        });
+    });
+
+    it('has fixed singleton labels and creates independently named disabled DeepL instances', async () => {
+        const view = render(<Harness />);
+        expect(row(view, 'google-web').queryByText('configureInstance')).toBeNull();
+        expect(row(view, 'lingva').queryByText('configureInstance')).toBeNull();
+        const add = () => within(view.container.querySelector('[data-provider="deepl"]')! as HTMLElement).getByRole('button');
+        const previousCount = saved.instances.length;
+        fireEvent.click(add());
+        await view.findByLabelText('instanceName');
+        expect(saved.instances).toHaveLength(previousCount);
+        expect(chrome.permissions.request).not.toHaveBeenCalled();
+        fireEvent.click(view.getByText('cancel'));
+        expect(view.queryByLabelText('instanceName')).toBeNull();
+        expect(saved.instances).toHaveLength(previousCount);
+        fireEvent.click(add());
+        const name = await view.findByLabelText('instanceName');
+        fireEvent.input(name, { target: { value: '<Home account>' } });
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('<Home account>');
+        expect(view.container.querySelector('Home')).toBeNull();
+        const added = saved.instances.find(instance => instance.id !== 'deepl' && instance.providerId === 'deepl')!;
+        expect(saved.preferences.fallbackOrder).not.toContain(added.id);
+        fireEvent.click(row(view, added.id).getByRole('button', { name: 'enableInstance' }));
         expect(chrome.permissions.request).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
-        await waitFor(() => expect(savedPreferences.fallbackOrder).toEqual(['google-web', 'deepl']));
+        await waitFor(() => expect(saved.preferences.fallbackOrder).toEqual(['google-web', added.id]));
+        expect(saved.instances.filter(instance => instance.providerId === 'deepl')).toHaveLength(2);
     });
 
-    it('shows api key input when expanded', () => {
-        const { getAllByText, getByPlaceholderText } = render(<ServiceList {...mockProps} />);
-        const apiKeyButtons = getAllByText('apiKeyLabel');
-        fireEvent.click(apiKeyButtons[0]!); // Expand DeepL
-
-        expect(getByPlaceholderText('enterApiKey')).toBeTruthy();
-    });
-    it('keeps a denied provider disabled and preserves the error after access refresh', async () => {
+    it('keeps a denied instance disabled without submitting its configuration', async () => {
         vi.mocked(chrome.permissions.request).mockImplementation(async () => false);
-        const view = render(<ServiceList {...mockProps} />);
-        fireEvent.click(view.getByTitle('Enable service'));
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByRole('button', { name: 'enableInstance' }));
         await view.findByRole('alert');
-        expect(mockProps.updatePreferences).not.toHaveBeenCalled();
-        const listener = vi.mocked(chrome.permissions.onAdded.addListener).mock.calls.at(-1)![0];
-        listener({});
-        await waitFor(() => expect(view.getByRole('alert')).toBeTruthy());
+        expect(saved.preferences.fallbackOrder).toEqual(['google-web']);
+        expect(testInstance).not.toHaveBeenCalled();
     });
 
-    it('treats an unvalidated nonempty key as ready and disables testing after access revocation', async () => {
-        const props = { ...mockProps, preferences: { ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'] as const }, apiKeys: { deepl: { key: 'untested', validated: false } } };
-        const view = render(<ServiceList {...props} preferences={{ ...props.preferences, fallbackOrder: ['deepl'] }} />);
-        await view.findByLabelText('providerReady');
-        fireEvent.click(view.getByText('apiKeyLabel'));
-        expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false);
-        vi.mocked(chrome.permissions.contains).mockImplementation(async () => false);
-        vi.mocked(chrome.permissions.onRemoved.addListener).mock.calls.at(-1)![0]({});
-        await view.findByText('providerPermissionRequired');
-        expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(true);
-        expect(view.queryByLabelText('providerReady')).toBeNull();
+    it('keeps an instance disabled if access is removed before its enablement can be saved', async () => {
+        vi.mocked(chrome.permissions.request).mockImplementation(async () => { origins.clear(); return true; });
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByRole('button', { name: 'enableInstance' }));
+        await view.findByRole('alert');
+        expect(saved.preferences.fallbackOrder).toEqual(['google-web']);
     });
 
-    it('offers access repair for an enabled provider and keeps credentials editable while disabled', async () => {
-        vi.mocked(chrome.permissions.contains).mockImplementation(async () => false);
-        const view = render(<ServiceList {...mockProps} />);
-        await view.findByText('providerPermissionRequired');
-        fireEvent.click(view.getByText('grantAccess'));
-        await view.findByLabelText('providerReady');
-        fireEvent.click(view.getByText('apiKeyLabel'));
-        expect((view.getByPlaceholderText('enterApiKey') as HTMLInputElement).disabled).toBe(false);
-        expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(true);
+    it('releases a newly granted origin when enablement fails to save', async () => {
+        saveFails = true;
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByRole('button', { name: 'enableInstance' }));
+        await view.findByRole('alert');
+        expect(chrome.permissions.remove).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
+        expect(saved.preferences.fallbackOrder).toEqual(['google-web']);
     });
 
-    it('removes a disabled provider domain and saves selection', async () => {
-        const view = render(<ServiceList {...mockProps} />);
-        await view.findByLabelText('providerReady');
-        vi.mocked(chrome.permissions.contains).mockImplementation(async () => false);
-        fireEvent.click(within(view.getByText('Google Translate (Web)').closest('li')!).getByTitle('Disable service'));
-        await waitFor(() => expect(chrome.permissions.remove).toHaveBeenCalledWith({ origins: ['https://translate.google.com/*'] }));
-        await waitFor(() => expect(savedPreferences.fallbackOrder).toEqual([]));
+    it('retains a shared DeepL grant until its last enabled instance is disabled', async () => {
+        saved.instances.push({ id: 'work', providerId: 'deepl', name: 'Work' });
+        saved.preferences.fallbackOrder = ['deepl', 'work'];
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByRole('button', { name: 'disableInstance' }));
+        await waitFor(() => expect(saved.preferences.fallbackOrder).toEqual(['work']));
+        expect(chrome.permissions.remove).not.toHaveBeenCalled();
+        fireEvent.click(row(view, 'work').getByRole('button', { name: 'disableInstance' }));
+        await waitFor(() => expect(chrome.permissions.remove).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] }));
+        expect(saved.preferences.fallbackOrder).toEqual([]);
     });
 
-    it('saves a disabled provider even if its access cannot be removed, and reports the retained grant', async () => {
-        vi.mocked(chrome.permissions.remove).mockRejectedValueOnce(new Error('Browser refused removal'));
-        const view = render(<ServiceList {...mockProps} />);
-        fireEvent.click(view.getByTitle('Disable service'));
+    it('allows disabling even when grant removal fails, and reports the retained permission', async () => {
+        vi.mocked(chrome.permissions.remove).mockRejectedValue(new Error('Denied'));
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'google-web').getByRole('button', { name: 'disableInstance' }));
         await view.findByText('permissionRemoveFailed');
-        expect(savedPreferences.fallbackOrder).toEqual([]);
+        expect(saved.preferences.fallbackOrder).toEqual([]);
     });
 
-    it('rechecks access before an explicit key test and never sends a key after revocation', async () => {
-        const fetchMock = vi.spyOn(globalThis, 'fetch');
-        const view = render(<ServiceList {...mockProps} preferences={{ ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'] }} apiKeys={{ deepl: { key: 'untested', validated: false } }} />);
-        await view.findByLabelText('providerReady');
-        fireEvent.click(view.getByText('apiKeyLabel'));
-        vi.mocked(chrome.permissions.contains).mockImplementation(async () => false);
+    it('can remove a partial grant retained for a disabled instance', async () => {
+        origins.delete('https://api.deepl.com/*');
+        const view = render(<Harness />);
+        fireEvent.click(await row(view, 'deepl').findByText('removeAccess'));
+        await waitFor(() => expect(origins.has('https://api-free.deepl.com/*')).toBe(false));
+        expect(saved.preferences.fallbackOrder).toEqual(['google-web']);
+    });
+
+    it('preserves ports and prefixes, warns for HTTP, and never carries a key to a changed endpoint', async () => {
+        saved.instances.push({ id: 'home', providerId: 'libretranslate', name: 'Home', endpoint: 'https://old.example/libre', hosting: 'custom', credential: { key: 'old-key', validated: false } });
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'home').getByText('configureInstance'));
+        fireEvent.input(view.getByLabelText('instanceEndpoint'), { target: { value: 'http://192.168.1.4:5000/libre/' } });
+        expect((view.getByLabelText('optionalApiKey') as HTMLInputElement).value).toBe('');
+        expect((view.getByLabelText('optionalApiKey') as HTMLInputElement).disabled).toBe(true);
+        expect(view.getByText('httpEndpointWarning')).toBeTruthy();
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('instanceSaved');
+        expect(saved.instances.find(instance => instance.id === 'home')).toEqual({ id: 'home', providerId: 'libretranslate', name: 'Home', endpoint: 'http://192.168.1.4:5000/libre', hosting: 'custom', credential: undefined });
+        expect(testInstance).not.toHaveBeenCalled();
+        await waitFor(() => expect((view.getByLabelText('optionalApiKey') as HTMLInputElement).disabled).toBe(false));
+        fireEvent.input(view.getByLabelText('optionalApiKey'), { target: { value: 'old-key' } });
+        fireEvent.click(view.getByText('saveInstance'));
+        await waitFor(() => expect(saved.instances.find(instance => instance.id === 'home')).toMatchObject({ credential: { key: 'old-key', validated: false } }));
+    });
+
+    it('does not test disabled or unsaved configurations and leaves a failed test enabled', async () => {
+        const deepL = saved.instances.find(instance => instance.providerId === 'deepl')!;
+        if (deepL.providerId === 'deepl') deepL.credential = { key: 'key:fx', tier: 'free', validated: false };
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
+        expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.click(row(view, 'deepl').getByRole('button', { name: 'enableInstance' }));
+        await waitFor(() => expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false));
+        fireEvent.input(view.getByLabelText('instanceName'), { target: { value: 'Changed' } });
+        expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('instanceSaved');
+        vi.mocked(testInstance).mockResolvedValueOnce({ valid: false });
         fireEvent.click(view.getByText('testKey'));
         await view.findByText('keyTestFailed');
-        expect(fetchMock).not.toHaveBeenCalled();
-        fetchMock.mockRestore();
+        expect(saved.preferences.fallbackOrder).toContain('deepl');
+        expect(saved.instances.find(instance => instance.id === 'deepl')).toMatchObject({ credential: { validated: false } });
     });
 
-    it('allows retained access to be removed while the provider stays disabled', async () => {
-        const view = render(<ServiceList {...mockProps} />);
-        const deepl = within(view.getByText('DeepL').closest('li')!);
-        fireEvent.click(await deepl.findByText('removeAccess'));
-        await waitFor(() => expect(chrome.permissions.remove).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] }));
-        await waitFor(() => expect(deepl.queryByText('removeAccess')).toBeNull());
-        expect(mockProps.updatePreferences).not.toHaveBeenCalled();
-    });
-
-    it('does not label an externally replaced key as tested', async () => {
-        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'));
-        const preferences = { ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'] as import('@/src/types').ServiceId[] };
-        const view = render(<ServiceList {...mockProps} preferences={preferences} apiKeys={{ deepl: { key: 'original', validated: false } }} />);
-        await view.findByLabelText('providerReady');
-        fireEvent.click(view.getByText('apiKeyLabel'));
+    it('ignores an older test after the stored key is replaced', async () => {
+        saved.preferences.fallbackOrder = ['deepl'];
+        const deepL = saved.instances.find(instance => instance.providerId === 'deepl')!;
+        if (deepL.providerId === 'deepl') deepL.credential = { key: 'original', tier: 'pro', validated: false };
+        let finish!: (value: { valid: boolean }) => void;
+        vi.mocked(testInstance).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+        const update = vi.fn(async (updater: SetupUpdate) => { saved = await updater(saved); return true; });
+        const view = render(<ServiceList setup={saved} updateSetup={update} />);
+        fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
+        await waitFor(() => expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false));
         fireEvent.click(view.getByText('testKey'));
-        await view.findByText('valid');
-        view.rerender(<ServiceList {...mockProps} preferences={preferences} apiKeys={{ deepl: { key: 'replacement', validated: false } }} />);
+        const replacement = structuredClone(saved);
+        const current = replacement.instances.find(instance => instance.providerId === 'deepl')!;
+        if (current.providerId === 'deepl') current.credential = { key: 'replacement', validated: false, tier: 'pro' };
+        saved = replacement;
+        view.rerender(<ServiceList setup={replacement} updateSetup={update} />);
+        finish({ valid: true });
+        await waitFor(() => expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false));
+        expect(update).not.toHaveBeenCalled();
         expect(view.queryByText('valid')).toBeNull();
-        expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false);
-        fetchMock.mockRestore();
     });
 
-    it('keeps a newer key test result when an older test finishes later', async () => {
-        let finishOld!: (response: Response) => void;
-        const fetchMock = vi.spyOn(globalThis, 'fetch')
-            .mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }))
-            .mockResolvedValueOnce(new Response('{}'));
-        const preferences = { ...DEFAULT_PREFERENCES, fallbackOrder: ['deepl'] as import('@/src/types').ServiceId[] };
-        const view = render(<ServiceList {...mockProps} preferences={preferences} apiKeys={{ deepl: { key: 'original', validated: false } }} />);
+
+    it('treats an untested key as ready and disables testing after access is revoked', async () => {
+        saved.preferences.fallbackOrder = ['deepl'];
+        const deepL = saved.instances.find(instance => instance.providerId === 'deepl')!;
+        if (deepL.providerId === 'deepl') deepL.credential = { key: 'untested', validated: false, tier: 'pro' };
+        const view = render(<Harness />);
         await view.findByLabelText('providerReady');
-        fireEvent.click(view.getByText('apiKeyLabel'));
-        fireEvent.click(view.getByText('testKey'));
-        await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-        view.rerender(<ServiceList {...mockProps} preferences={preferences} apiKeys={{ deepl: { key: 'replacement', validated: false } }} />);
+        fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
+        expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false);
+        origins.clear();
+        const listeners = vi.mocked(chrome.permissions.onRemoved.addListener).mock.calls;
+        listeners.at(-1)![0]({});
+        await view.findByText('providerPermissionRequired');
+        expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(true);
+        expect(saved.preferences.fallbackOrder).toEqual(['deepl']);
+    });
+
+    it('clears a successful test status when another page replaces the key', async () => {
+        saved.preferences.fallbackOrder = ['deepl'];
+        const deepL = saved.instances.find(instance => instance.providerId === 'deepl')!;
+        if (deepL.providerId === 'deepl') deepL.credential = { key: 'original', validated: false, tier: 'pro' };
+        const update = vi.fn(async (updater: SetupUpdate) => { saved = await updater(saved); return true; });
+        const view = render(<ServiceList setup={saved} updateSetup={update} />);
+        fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
+        await waitFor(() => expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false));
         fireEvent.click(view.getByText('testKey'));
         await view.findByText('valid');
-        finishOld(new Response('', { status: 403 }));
-        await waitFor(() => expect(mockProps.updateKeyValidation).toHaveBeenCalledExactlyOnceWith('deepl', 'replacement', true));
-        expect(view.getByText('valid')).toBeTruthy();
-        fetchMock.mockRestore();
+        const replacement = structuredClone(saved);
+        const current = replacement.instances.find(instance => instance.providerId === 'deepl')!;
+        if (current.providerId === 'deepl') current.credential = { key: 'replacement', validated: false, tier: 'pro' };
+        view.rerender(<ServiceList setup={replacement} updateSetup={update} />);
+        await waitFor(() => expect(view.queryByText('valid')).toBeNull());
+        expect((view.getByLabelText('apiKeyLabel') as HTMLInputElement).value).toBe('replacement');
     });
 
-    it('allows a disabled provider with only one domain granted to release that partial access', async () => {
-        vi.mocked(chrome.permissions.contains).mockImplementation(async permissions => {
-            const origins = permissions.origins ?? [];
-            return origins.length === 1 && origins[0] === 'https://api-free.deepl.com/*';
-        });
-        const view = render(<ServiceList {...mockProps} />);
-        const deepl = within(view.getByText('DeepL').closest('li')!);
-        fireEvent.click(await deepl.findByText('removeAccess'));
-        await waitFor(() => expect(chrome.permissions.remove).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] }));
-        await waitFor(() => expect(deepl.queryByText('removeAccess')).toBeNull());
-        expect(mockProps.updatePreferences).not.toHaveBeenCalled();
+    it('reorders instances without deduplicating their provider and deletes only the chosen configuration', async () => {
+        saved.instances.push({ id: 'work', providerId: 'deepl', name: 'Work' });
+        saved.preferences.fallbackOrder = ['deepl', 'work'];
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'work').getByRole('button', { name: 'moveInstanceUp' }));
+        await waitFor(() => expect(saved.preferences.fallbackOrder).toEqual(['work', 'deepl']));
+        fireEvent.click(row(view, 'work').getByRole('button', { name: 'deleteNamedInstance' }));
+        await waitFor(() => expect(saved.instances.some(instance => instance.id === 'work')).toBe(false));
+        expect(saved.preferences.fallbackOrder).toEqual(['deepl']);
+        expect(saved.instances.some(instance => instance.id === 'deepl')).toBe(true);
     });
-
 });

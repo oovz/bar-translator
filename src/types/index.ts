@@ -10,8 +10,11 @@
 // =============================================================================
 
 /** Implemented translation providers, in settings display order. */
-export const SERVICE_IDS = ['google-web', 'lingva', 'deepl'] as const;
+export const SERVICE_IDS = ['google-web', 'lingva', 'deepl', 'libretranslate'] as const;
 export type ServiceId = typeof SERVICE_IDS[number];
+
+/** Stable configured-recipient identity, separate from provider kind. */
+export type InstanceId = string;
 
 /**
  * Translation service integration type.
@@ -129,6 +132,8 @@ export interface TranslationServiceHandler {
  * Parameters for a translation request.
  */
 export interface TranslateParams {
+  /** Configured LibreTranslate base URL, including any deployment path prefix. */
+  readonly endpoint?: string;
   /** Cancellation of obsolete translation work */
   readonly signal?: AbortSignal;
 
@@ -166,6 +171,9 @@ export interface TranslateResult {
  * Extended result including metadata about request handling.
  */
 export interface TranslateResultWithMeta extends TranslateResult {
+  /** Configured recipient that produced this result. */
+  readonly instanceId: InstanceId;
+  readonly instanceName: string;
   /** Whether fallback was triggered */
   readonly usedFallback: boolean;
 
@@ -179,6 +187,8 @@ export interface TranslateResultWithMeta extends TranslateResult {
 export interface TranslationWarning {
   readonly code: TranslationErrorCode;
   readonly serviceId?: ServiceId;
+  readonly instanceId?: InstanceId;
+  readonly instanceName?: string;
 }
 
 // =============================================================================
@@ -191,7 +201,7 @@ export interface TranslationWarning {
  */
 export interface UserPreferences {
   /** Ordered list of enabled services (first = primary, rest = fallbacks) */
-  fallbackOrder: ServiceId[];
+  fallbackOrder: InstanceId[];
 
   /** Default target language (ISO 639-1) */
   defaultTargetLang: string;
@@ -315,6 +325,8 @@ export type TranslationErrorCode =
   | 'RATE_LIMITED' // Retry with longer backoff
   | 'SERVICE_UNAVAILABLE' // Skip to next service
   | 'INVALID_LANGUAGE' // Show error, don't fallback
+  | 'INSTANCE_LANGUAGE_UNSUPPORTED' // A configured deployment lacks this language/model
+  | 'INSTANCE_TEXT_TOO_LONG' // A configured deployment has a narrower request limit
   | 'TEXT_TOO_LONG' // Truncate or reject
   | 'WEB_REQUEST_FAILED' // Skip to API services
   | 'AUTH_METHOD_DEPRECATED' // DeepL: update auth method
@@ -327,6 +339,8 @@ export interface TranslationError {
   readonly code: TranslationErrorCode;
   readonly message: string;
   readonly serviceId?: ServiceId;
+  readonly instanceId?: InstanceId;
+  readonly instanceName?: string;
   readonly retryable: boolean;
   readonly httpStatus?: number;
   readonly warnings: readonly TranslationWarning[];
@@ -512,6 +526,7 @@ export const SERVICE_TO_STORAGE_KEY: Record<ServiceId, keyof StoredApiKeys | nul
   'google-web': null,
   'lingva': null,
   'deepl': 'deepl',
+  'libretranslate': null,
 } as const;
 
 /** Service-specific text length limits. */
@@ -519,4 +534,10 @@ export const SERVICE_TEXT_LIMITS: Record<ServiceId, number> = {
   'google-web': 5000,
   'lingva': 5000,
   'deepl': 5000,
+  'libretranslate': 5000,
 } as const;
+
+export type {
+  TranslationInstance, DeepLInstance, LibreTranslateInstance, SingletonInstance,
+  TranslationSetup, SetupState, SetupConflict, SetupResolution,
+} from './setup';

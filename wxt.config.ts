@@ -55,6 +55,8 @@ export default defineConfig({
                 'https://translate.google.com/*',
                 'https://api-free.deepl.com/*',
                 'https://api.deepl.com/*',
+                'http://*/*',
+                'https://*/*',
             ],
         };
     },

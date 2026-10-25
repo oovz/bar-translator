@@ -1,6 +1,5 @@
 import { useEffect } from 'preact/hooks';
 import { usePreferences } from './hooks/usePreferences';
-import { getAllServiceDefinitions } from '@/services/base';
 import { getSourceLanguages, getTargetLanguages, OVERRIDABLE_LANGUAGES, fromUserInput } from '@/utils/languages';
 import { ServiceList } from './components/ServiceList';
 import { CopySettings } from './components/CopySettings';
@@ -20,18 +19,21 @@ const VARIANT_KEY_MAP: Record<string, string> = {
 export default function App() {
     const {
         preferences,
-        apiKeys,
+        setup,
+        conflict,
+        migrationError,
         storageType,
         changingStorage,
         changeStorageType,
         loading,
+        ready,
+        reload,
+        retryMigration,
         error,
         updatePreferences,
-        saveApiKey,
-        updateKeyValidation
+        updateSetup
     } = usePreferences();
 
-    const services = getAllServiceDefinitions();
     const sourceLanguages = getSourceLanguages();
     const targetLanguages = getTargetLanguages();
 
@@ -50,7 +52,7 @@ export default function App() {
     }, []);
 
     useEffect(() => {
-        if (loading) return;
+        if (loading || !ready) return;
         const focusSection = () => {
             const id = window.location.hash.slice(1);
             if (id === 'providers' || id === 'copy') {
@@ -62,7 +64,7 @@ export default function App() {
         focusSection();
         window.addEventListener('hashchange', focusSection);
         return () => window.removeEventListener('hashchange', focusSection);
-    }, [loading]);
+    }, [loading, ready]);
 
     if (loading) {
         return (
@@ -72,84 +74,90 @@ export default function App() {
         );
     }
 
+    if (!ready) {
+        return <div class="feedback feedback-error" role="alert">
+            <span>{error || t('settingsLoadFailed')}</span>
+            <button class="btn btn-sm" onClick={() => void reload()}>{t('retry')}</button>
+        </div>;
+    }
+
     return (
         <div>
             {error && <div class="feedback feedback-error" role="alert">{error}</div>}
-            {/* Languages */}
-            <div class="section">
-                <div class="section-title">{t('sectionDefaultLanguages')}</div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>{t('labelSource')}</label>
-                        <Combobox
-                            value={preferences.defaultSourceLang}
-                            options={sourceLanguages}
-                            onChange={(val) => updatePreferences({ defaultSourceLang: val })}
-                        />
-                    </div>
-                    <div class="form-group">
-                        <label>{t('labelTarget')}</label>
-                        <Combobox
-                            value={preferences.defaultTargetLang}
-                            options={targetLanguages}
-                            onChange={(val) => updatePreferences({ defaultTargetLang: val })}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Regional Dialects */}
-            <div class="section">
-                <div class="section-title">{t('sectionRegionalDialects')}</div>
-                <div class="section-description">
-                    {t('regionalDialectsDesc')}
-                </div>
-                <div class="form-row">
-                    {Object.entries(OVERRIDABLE_LANGUAGES).map(([isoCode, config]) => (
-                        <div class="form-group" key={isoCode}>
-                            <label>{t(`lang_${isoCode}`)} ({isoCode})</label>
-                            <select
-                                class="select"
-                                value={preferences.languageOverrides?.[isoCode] || ''}
-                                onChange={(e) => {
-                                    const value = e.currentTarget.value;
-                                    updatePreferences(current => {
-                                        const overrides = { ...(current.languageOverrides || {}) };
-                                        if (value) overrides[isoCode] = value;
-                                        else delete overrides[isoCode];
-                                        return { languageOverrides: overrides };
-                                    });
-                                }}
-                            >
-                                <option value="">{t('optionDefault', [fromUserInput(isoCode)])}</option>
-                                {config.options.map(opt => (
-                                    <option key={opt.code} value={opt.code}>
-                                        {t(VARIANT_KEY_MAP[opt.code] || opt.name)}
-                                    </option>
-                                ))}
-                            </select>
+            {migrationError && <div class="feedback feedback-warning" role="alert">
+                <span>{t('setupMigrationPending')}</span>
+                <button class="btn btn-sm" onClick={() => void retryMigration()}>{t('retry')}</button>
+            </div>}
+            <fieldset disabled={changingStorage || Boolean(migrationError) || conflict?.reason === 'migration'} style="border: 0; padding: 0; margin: 0; min-width: 0;">
+                {/* Languages */}
+                <div class="section">
+                    <div class="section-title">{t('sectionDefaultLanguages')}</div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>{t('labelSource')}</label>
+                            <Combobox
+                                value={preferences.defaultSourceLang}
+                                options={sourceLanguages}
+                                onChange={(val) => updatePreferences({ defaultSourceLang: val })}
+                            />
                         </div>
-                    ))}
+                        <div class="form-group">
+                            <label>{t('labelTarget')}</label>
+                            <Combobox
+                                value={preferences.defaultTargetLang}
+                                options={targetLanguages}
+                                onChange={(val) => updatePreferences({ defaultTargetLang: val })}
+                            />
+                        </div>
+                    </div>
                 </div>
-            </div>
 
-            {/* Translation Services */}
-            <fieldset disabled={changingStorage} style="border: 0; padding: 0; margin: 0; min-width: 0;">
-                <ServiceList
-                    services={services}
-                    preferences={preferences}
-                    apiKeys={apiKeys}
-                    updatePreferences={updatePreferences}
-                    saveApiKey={saveApiKey}
-                    updateKeyValidation={updateKeyValidation}
-                />
+                {/* Regional Dialects */}
+                <div class="section">
+                    <div class="section-title">{t('sectionRegionalDialects')}</div>
+                    <div class="section-description">
+                        {t('regionalDialectsDesc')}
+                    </div>
+                    <div class="form-row">
+                        {Object.entries(OVERRIDABLE_LANGUAGES).map(([isoCode, config]) => (
+                            <div class="form-group" key={isoCode}>
+                                <label>{t(`lang_${isoCode}`)} ({isoCode})</label>
+                                <select
+                                    class="select"
+                                    value={preferences.languageOverrides?.[isoCode] || ''}
+                                    onChange={(e) => {
+                                        const value = e.currentTarget.value;
+                                        updatePreferences(current => {
+                                            const overrides = { ...(current.languageOverrides || {}) };
+                                            if (value) overrides[isoCode] = value;
+                                            else delete overrides[isoCode];
+                                            return { languageOverrides: overrides };
+                                        });
+                                    }}
+                                >
+                                    <option value="">{t('optionDefault', [fromUserInput(isoCode)])}</option>
+                                    {config.options.map(opt => (
+                                        <option key={opt.code} value={opt.code}>
+                                            {t(VARIANT_KEY_MAP[opt.code] || opt.name)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Translation Services */}
+                <ServiceList setup={setup} updateSetup={updateSetup} />
+
+                <CopySettings copyEnabled={setup.copyEnabled} updateSetup={updateSetup} />
+
             </fieldset>
-
-            <CopySettings />
 
             {/* Privacy & Storage */}
             <PrivacySettings
                 storageType={storageType}
+                conflict={conflict}
                 changingStorage={changingStorage}
                 changeStorageType={changeStorageType}
             />

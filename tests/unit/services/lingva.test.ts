@@ -15,7 +15,7 @@ describe('Lingva translation', () => {
         })));
         const result = await service.translate({ text: 'Hello / friend?', sourceLang: 'auto', targetLang: 'fr' });
         expect(fetchMock).toHaveBeenCalledExactlyOnceWith('https://lingva.ml/api/v1/auto/fr/Hello%20%2F%20friend%3F', {
-            method: 'GET', headers: { Accept: 'application/json' }, signal: undefined,
+            method: 'GET', headers: { Accept: 'application/json' }, signal: undefined, redirect: 'error',
         });
         expect(result).toEqual({ translation: 'Bonjour / ami?', detectedSourceLang: 'en', serviceId: 'lingva' });
     });
