@@ -51,6 +51,21 @@ jobs:
         id: browser
         run: pnpm test:e2e
 
+      - name: Firefox browser tests
+        id: firefox
+        # Selenium Manager downloads these exact Mozilla releases. Browser proxy
+        # preferences apply at launch; Manager downloads run outside the browser.
+        # https://www.selenium.dev/documentation/selenium_manager/#configuration
+        env:
+          SE_FIREFOX_VERSION: '158.0.1'
+          SE_GECKODRIVER_VERSION: '0.37.1'
+          SE_FORCE_BROWSER_DOWNLOAD: 'true'
+          SE_SKIP_BROWSER_IN_PATH: 'true'
+          SE_SKIP_DRIVER_IN_PATH: 'true'
+          SE_AVOID_STATS: 'true'
+          SE_CACHE_PATH: ${{ runner.temp }}/selenium
+        run: pnpm test:e2e:firefox
+
       - name: Upload browser failure reports
         if: failure() && steps.browser.outcome == 'failure'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -59,4 +74,12 @@ jobs:
           path: |
             playwright-report/
             test-results/
+          retention-days: 7
+
+      - name: Upload Firefox failure reports
+        if: failure() && steps.firefox.outcome == 'failure'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: firefox-failure-reports
+          path: test-results/firefox/
           retention-days: 7
