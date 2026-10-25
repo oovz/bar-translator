@@ -522,9 +522,6 @@
     "availableProviders": {
         "message": "Ajouter un fournisseur"
     },
-    "instanceConfigurations": {
-        "message": "Configurations"
-    },
     "draftInstance": {
         "message": "Non enregistré"
     },

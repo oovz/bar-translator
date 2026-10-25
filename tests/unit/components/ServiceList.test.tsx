@@ -81,7 +81,10 @@ describe('translation instances', () => {
         const view = render(<Harness />);
         expect(row(view, 'google-web').queryByText('configureInstance')).toBeNull();
         expect(row(view, 'lingva').queryByText('configureInstance')).toBeNull();
-        const add = () => within(view.container.querySelector('[data-provider="deepl"]')! as HTMLElement).getByRole('button');
+        const add = () => {
+            fireEvent.click(view.getByText('availableProviders'));
+            return within(view.container.querySelector('[data-provider="deepl"]')! as HTMLElement).getByRole('button');
+        };
         const previousCount = saved.instances.length;
         fireEvent.click(add());
         await view.findByLabelText('instanceName');

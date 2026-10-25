@@ -528,9 +528,6 @@
     "availableProviders": {
         "message": "Add a provider"
     },
-    "instanceConfigurations": {
-        "message": "Configurations"
-    },
     "draftInstance": {
         "message": "Not saved"
     },

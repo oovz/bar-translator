@@ -520,9 +520,6 @@
     "availableProviders": {
         "message": "제공업체 추가"
     },
-    "instanceConfigurations": {
-        "message": "인스턴스 설정"
-    },
     "draftInstance": {
         "message": "저장 안 됨"
     },

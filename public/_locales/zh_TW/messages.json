@@ -520,9 +520,6 @@
     "availableProviders": {
         "message": "新增提供者"
     },
-    "instanceConfigurations": {
-        "message": "實例設定"
-    },
     "draftInstance": {
         "message": "尚未儲存"
     },

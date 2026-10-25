@@ -227,14 +227,19 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
     const [busy, setBusy] = useState<string | null>(null);
     const [error, setError] = useState('');
     const [draft, setDraft] = useState<ConfigurableInstance | null>(null);
+    const [choosingProvider, setChoosingProvider] = useState(false);
     const [connectionFeedback, setConnectionFeedback] = useState<{ name: string; connected: boolean } | null>(null);
     const connection = useRef<AbortController | null>(null);
     const accessRevision = useRef(0);
     const enabledIds = setup.preferences.fallbackOrder;
     const enabled = enabledIds.map(id => setup.instances.find(instance => instance.id === id)).filter(instance => instance !== undefined);
     const disabled = setup.instances.filter(instance => !enabledIds.includes(instance.id));
-    const configurations = disabled.filter((instance): instance is ConfigurableInstance => 'name' in instance && instance.id !== draft?.id);
-    if (draft) configurations.push(setup.instances.find((instance): instance is ConfigurableInstance => instance.id === draft.id && 'name' in instance) ?? draft);
+    const inactive = disabled.filter(instance => instance.id !== draft?.id);
+    if (draft) inactive.push(setup.instances.find(instance => instance.id === draft.id) ?? draft);
+    const listed = [
+        ...enabled.map((instance, index) => ({ instance, index })),
+        ...inactive.map(instance => ({ instance, index: undefined })),
+    ];
 
     useEffect(() => () => connection.current?.abort(), []);
     useEffect(() => {
@@ -365,6 +370,7 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
         const instance = createInstance(providerId);
         setDraft(instance);
         setExpanded(instance.id);
+        setChoosingProvider(false);
     };
     const move = (id: string, offset: number) => {
         void updateSetup(current => {
@@ -381,12 +387,16 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
         if (!serviceListRef.current) return;
         const sortable = Sortable.create(serviceListRef.current, {
             animation: 150, handle: '.drag-handle', ghostClass: 'sortable-ghost', dragClass: 'sortable-drag',
+            draggable: '.service-item.enabled',
+            onMove: event => event.related.classList.contains('enabled'),
             onEnd(event) {
-                if (event.oldIndex === undefined || event.newIndex === undefined || event.oldIndex === event.newIndex) return;
+                const from = event.oldDraggableIndex;
+                const to = event.newDraggableIndex;
+                if (from === undefined || to === undefined || from === to) return;
                 const snapshot = [...enabledIds];
-                const [moved] = snapshot.splice(event.oldIndex, 1);
+                const [moved] = snapshot.splice(from, 1);
                 if (!moved) return;
-                snapshot.splice(event.newIndex, 0, moved);
+                snapshot.splice(to, 0, moved);
                 void updateSetup(current => ({ ...current, preferences: { ...current.preferences, fallbackOrder: [
                     ...snapshot.filter(id => current.preferences.fallbackOrder.includes(id)),
                     ...current.preferences.fallbackOrder.filter(id => !snapshot.includes(id)),
@@ -447,18 +457,18 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
     };
 
     return <div class="section" id="providers" tabIndex={-1}>
-        <div class="section-title">{t('sectionTranslationServices')}</div>
+        <div class="section-title provider-heading">
+            <span>{t('sectionTranslationServices')}</span>
+            <button class="btn btn-sm" data-action="choose-provider" aria-expanded={choosingProvider} aria-controls="provider-chooser"
+                disabled={busy !== null || draft !== null} onClick={() => setChoosingProvider(previous => !previous)}>{t('availableProviders')}</button>
+        </div>
         <div class="section-description">{t('servicesDesc')}</div>
         {error && <div class="feedback feedback-error" role="alert">{error}</div>}
         {connectionFeedback && <div class={`feedback ${connectionFeedback.connected ? 'feedback-success' : 'feedback-warning'}`} role="status">
             {t(connectionFeedback.connected ? 'instanceConnected' : 'customConnectionFailed', [connectionFeedback.name])}
         </div>}
-        <ul class="service-list" ref={serviceListRef}>{enabled.map((instance, index) => row(instance, index))}</ul>
-        {!enabled.length && <div class="feedback feedback-warning">{t('noServicesEnabled')}</div>}
-        <div class="available-instances">
-            <div class="provider-list-heading">{t('availableProviders')}</div>
+        {choosingProvider && <div id="provider-chooser">
             <ul class="service-list provider-catalog">
-                {disabled.filter(instance => !('name' in instance)).map(instance => row(instance))}
                 {(['deepl', 'libretranslate'] as const).map(provider => {
                     const name = provider === 'deepl' ? 'DeepL' : 'LibreTranslate';
                     return <li key={provider} class="service-item provider-choice" data-provider={provider}>
@@ -473,10 +483,10 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
                     </li>;
                 })}
             </ul>
-        </div>
-        {configurations.length > 0 && <div class="available-instances">
-            <div class="provider-list-heading">{t('instanceConfigurations')}</div>
-            <ul class="service-list disabled-list">{configurations.map(instance => row(instance))}</ul>
         </div>}
+        <ul class="service-list" id="instance-priority" aria-label={t('sectionTranslationServices')} ref={serviceListRef}>
+            {listed.map(({ instance, index }) => row(instance, index))}
+        </ul>
+        {!enabled.length && <div class="feedback feedback-warning">{t('noServicesEnabled')}</div>}
     </div>;
 }

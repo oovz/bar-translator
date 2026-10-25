@@ -520,9 +520,6 @@
     "availableProviders": {
         "message": "プロバイダーを追加"
     },
-    "instanceConfigurations": {
-        "message": "インスタンス設定"
-    },
     "draftInstance": {
         "message": "未保存"
     },

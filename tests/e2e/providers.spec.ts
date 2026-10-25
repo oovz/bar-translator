@@ -6,6 +6,8 @@ import { addInstance, configure, enabledIds, instanceRow, message, nameAndKey, o
 
 test('starts without optional access and keeps single-instance provider names fixed', async ({ context, extensionId }) => {
     const page = await openSettings(context, extensionId);
+    const providerColor = await instanceRow(page, 'google-web').locator('.service-name').evaluate(element => getComputedStyle(element).color);
+    await expect(instanceRow(page, 'lingva').locator('.service-name')).toHaveCSS('color', providerColor);
     expect(await page.evaluate(() => chrome.permissions.getAll())).toEqual({ permissions: ['storage'], origins: [] });
     await expect(instanceRow(page, 'google-web').getByRole('button', { name: await message(page, 'grantAccess'), exact: true })).toBeVisible();
     await expect(page.locator('#copy input[type="checkbox"]')).not.toBeChecked();
@@ -41,6 +43,10 @@ test('keeps two DeepL configurations distinct and tests only explicitly enabled 
     await nameAndKey(page, first, 'Personal account', 'personal-fixture:fx');
     const second = await addInstance(page, 'deepl');
     await nameAndKey(page, second.row, 'Work account', 'work-rejected-fixture');
+    const priorityList = page.getByRole('list', { name: await message(page, 'sectionTranslationServices'), exact: true });
+    await expect(priorityList.locator('[data-id="deepl"]')).toBeVisible();
+    await expect(priorityList.locator(`[data-id="${second.id}"]`)).toBeVisible();
+    await expect(priorityList.locator('[data-id="lingva"]')).toBeVisible();
     const testLabel = await message(page, 'testKey');
     await expect(second.row.getByRole('button', { name: testLabel, exact: true })).toBeDisabled();
     expect(checks).toEqual([]);

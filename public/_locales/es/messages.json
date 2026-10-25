@@ -520,9 +520,6 @@
     "availableProviders": {
         "message": "Añadir proveedor"
     },
-    "instanceConfigurations": {
-        "message": "Configuraciones"
-    },
     "draftInstance": {
         "message": "Sin guardar"
     },

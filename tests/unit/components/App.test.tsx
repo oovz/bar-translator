@@ -9,7 +9,7 @@ import type { SetupState, TranslationSetup } from '@/src/types';
 declare const jsdom: { window: Window };
 let state: SetupState;
 function addProvider(view: { container: Element }) {
-    return view.container.querySelector<HTMLButtonElement>('[data-provider="deepl"] [data-action="add-provider"]')!;
+    return view.container.querySelector<HTMLButtonElement>('[data-action="choose-provider"]')!;
 }
 vi.mock('sortablejs', () => ({ default: { create: vi.fn(() => ({ destroy: vi.fn() })) } }));
 vi.mock('@/services', () => ({ testInstance: vi.fn(async () => ({ valid: true })) }));
@@ -198,7 +198,7 @@ describe('whole-setup settings application', () => {
         await view.findByRole('alert');
         expect(view.getByText('settingsLoadFailed')).toBeTruthy();
         expect(updateSetup).not.toHaveBeenCalled();
-        expect(view.container.querySelector('[data-action="add-provider"]')).toBeNull();
+        expect(view.container.querySelector('[data-action="choose-provider"]')).toBeNull();
         fireEvent.click(view.getByText('retry'));
         await waitFor(() => expect(addProvider(view)).not.toBeNull());
         expect(view.queryByText('settingsLoadFailed')).toBeNull();
