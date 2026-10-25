@@ -56,7 +56,9 @@ Disabling every instance pauses translation and preserves that choice across bro
 
 ### Google Translate Web
 
-Google uses its mobile web page and requires no API key. That page can redirect to a human-verification or consent page. The extension stops redirects and reports a service failure. Granting translation-host access does not guarantee that Google will serve a translation on the current network.
+Google Web uses Google's keyless web JSON endpoint at `translate.googleapis.com`. It remains a best-effort integration whose availability and rate limits can change. Rate limits, redirects and invalid responses produce a failure or fallback warning; the extension never treats an unsuccessful response as a translation.
+
+Users upgrading from the former mobile endpoint must allow access to `translate.googleapis.com` in settings. The earlier `translate.google.com` grant does not cover this address. No browser cookies or account session are used.
 
 ### Lingva
 
@@ -98,7 +100,7 @@ Only `storage` is required at installation.
 
 | Feature | Optional access |
 | --- | --- |
-| Google Translate Web | `https://translate.google.com/*` |
+| Google Translate Web | `https://translate.googleapis.com/*` |
 | DeepL | Both `https://api-free.deepl.com/*` and `https://api.deepl.com/*` |
 | LibreTranslate | The configured HTTP(S) host, requested when enabling, connecting or repairing access |
 | Enter to copy in Chrome/Edge | `clipboardWrite` and `offscreen`, requested together |

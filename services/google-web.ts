@@ -1,20 +1,64 @@
-/**
- * Google Translate Web Service
- * 
- * Implements translation via the Google Translate mobile web interface.
- * Does not require an API key.
- * 
- * @module services/google-web
- */
-
+/** Keyless, best-effort Google Translate integration using its unofficial GTX route. */
 import { BaseTranslationService } from './base';
 import { TranslationError } from '@/utils/errors';
 import { toGoogleLanguage } from '@/utils/languages';
-import type {
-    TranslationService,
-    TranslateParams,
-    TranslateResult
-} from '@/src/types';
+import type { TranslationService, TranslateParams, TranslateResult } from '@/src/types';
+
+const ENDPOINT = 'https://translate.googleapis.com/translate_a/single';
+const MAX_RESPONSE_BYTES = 1024 * 1024;
+
+/** Bound untrusted JSON, including chunked bodies without a reliable Content-Length. */
+async function readJson(response: Response, signal?: AbortSignal): Promise<unknown> {
+    signal?.throwIfAborted();
+    const reader = response.body?.getReader();
+    if (!reader) throw new SyntaxError('Missing Google translation body');
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    const cancel = () => { void reader.cancel(signal?.reason).catch(() => undefined); };
+    signal?.addEventListener('abort', cancel, { once: true });
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            signal?.throwIfAborted();
+            if (done) break;
+            length += value.byteLength;
+            if (length > MAX_RESPONSE_BYTES) {
+                void reader.cancel().catch(() => undefined);
+                throw new SyntaxError('Google translation body is too large');
+            }
+            chunks.push(value);
+        }
+    } finally {
+        signal?.removeEventListener('abort', cancel);
+        reader.releaseLock();
+    }
+    const bytes = new Uint8Array(length);
+    let offset = 0;
+    for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+    return JSON.parse(new TextDecoder().decode(bytes));
+}
+
+/** GTX places translated strings in the first field of its ordered segment array. */
+function parseTranslation(data: unknown): string {
+    if (!Array.isArray(data) || !Array.isArray(data[0]) || !data[0].length) {
+        throw new SyntaxError('Invalid Google translation segments');
+    }
+    const segments: unknown[] = data[0];
+    const translated: string[] = [];
+    for (const segment of segments) {
+        if (!Array.isArray(segment) || (typeof segment[0] !== 'string' && segment[0] !== null)) {
+            throw new SyntaxError('Invalid Google translation segment');
+        }
+        // Optional phonetic segments can have null translated output.
+        if (typeof segment[0] === 'string') translated.push(segment[0]);
+    }
+    const translation = translated.join('');
+    if (!translation.trim()) throw new SyntaxError('Missing Google translation');
+    return translation;
+}
 
 export class GoogleTranslationWebService extends BaseTranslationService {
     constructor(public readonly service: TranslationService) {
@@ -22,141 +66,58 @@ export class GoogleTranslationWebService extends BaseTranslationService {
     }
 
     async translate(params: TranslateParams): Promise<TranslateResult> {
-        const { text, sourceLang, targetLang } = params;
-
-        // Convert to Google Translate's expected format
-        const sl = toGoogleLanguage(sourceLang);
-        const tl = toGoogleLanguage(targetLang);
-
-        const url = new URL(this.service.endpoint || 'https://translate.google.com/m');
-        url.searchParams.set('sl', sl);
-        url.searchParams.set('tl', tl);
-        url.searchParams.set('q', text);
+        params.signal?.throwIfAborted();
+        const url = new URL(ENDPOINT);
+        url.searchParams.set('client', 'gtx');
+        url.searchParams.set('dt', 't');
+        url.searchParams.set('sl', toGoogleLanguage(params.sourceLang));
+        url.searchParams.set('tl', toGoogleLanguage(params.targetLang));
+        url.searchParams.set('q', params.text);
 
         try {
             const response = await fetch(url.toString(), {
                 method: 'GET',
+                credentials: 'omit',
                 signal: params.signal,
                 redirect: 'manual',
             });
 
-            // Redirects may lead to a challenge or consent page outside provider access.
-            // An opaque redirect does not expose its destination or prove its cause.
+            // An opaque redirect exposes neither its destination nor its cause.
             if (response.type === 'opaqueredirect') {
                 throw new TranslationError(
                     'SERVICE_UNAVAILABLE',
-                    'Google Translate mobile redirected instead of returning a translation',
-                    { serviceId: this.service.id }
+                    'Google Translate redirected instead of returning a translation',
+                    { serviceId: this.service.id },
                 );
             }
-
             if (!response.ok) {
+                void response.body?.cancel().catch(() => undefined);
                 throw new TranslationError(
                     response.status === 429 ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE',
                     `Google Translate returned status ${response.status}`,
-                    {
-                        serviceId: this.service.id,
-                        httpStatus: response.status
-                    }
+                    { serviceId: this.service.id, httpStatus: response.status },
                 );
             }
-
-            const html = await response.text();
-            const translation = this.parseResponse(html);
-
-            if (!translation) {
+            let translation: string;
+            try {
+                translation = parseTranslation(await readJson(response, params.signal));
+            } catch (error) {
+                if (!(error instanceof SyntaxError)) throw error;
                 throw new TranslationError(
                     'WEB_REQUEST_FAILED',
-                    'Could not parse translation from response',
-                    { serviceId: this.service.id }
+                    'Google Translate returned an invalid translation response.',
+                    { serviceId: this.service.id },
                 );
             }
-
-            return {
-                translation,
-                serviceId: this.service.id
-            };
-
+            return { translation, serviceId: this.service.id };
         } catch (error) {
             params.signal?.throwIfAborted();
             if (error instanceof TranslationError) throw error;
-
             throw new TranslationError(
                 'NETWORK_ERROR',
-                error instanceof Error ? error.message : 'Unknown network error',
-                { serviceId: this.service.id }
+                'Google Translate could not complete the request.',
+                { serviceId: this.service.id },
             );
         }
-    }
-
-    private parseResponse(html: string): string | null {
-        // Google Translate mobile page changes its HTML structure frequently.
-        // Try multiple known patterns in order of likelihood.
-
-        // Pattern 1: result-container (historical)
-        const resultContainerMatch = html.match(
-            /<div[^>]*class="result-container"[^>]*>([\s\S]*?)<\/div>/
-        );
-        if (resultContainerMatch?.[1]) {
-            return this.decodeHtml(resultContainerMatch[1].trim());
-        }
-
-        // Pattern 2: t0 class (common alternative)
-        const t0Match = html.match(
-            /<div[^>]*class="t0"[^>]*>([\s\S]*?)<\/div>/
-        );
-        if (t0Match?.[1]) {
-            return this.decodeHtml(t0Match[1].trim());
-        }
-
-        // Pattern 3: result class with data attributes
-        const resultMatch = html.match(
-            /<div[^>]*class="[^"]*result[^"]*"[^>]*>([\s\S]*?)<\/div>/i
-        );
-        if (resultMatch?.[1]) {
-            const text = resultMatch[1].replace(/<[^>]+>/g, '').trim();
-            if (text) return this.decodeHtml(text);
-        }
-
-        // Pattern 4: Look for translation in specific span with lang attribute
-        // <span lang="fr">Bonjour</span>
-        const langSpanMatch = html.match(
-            /<span[^>]*lang="[^"]*"[^>]*>([^<]+)<\/span>/
-        );
-        if (langSpanMatch?.[1]) {
-            return this.decodeHtml(langSpanMatch[1].trim());
-        }
-
-        // Pattern 5: Mobile result in after-translation div
-        const afterTranslateMatch = html.match(
-            /class="[^"]*after-translate[^"]*"[^>]*>([\s\S]*?)<\/div>/i
-        );
-        if (afterTranslateMatch?.[1]) {
-            const text = afterTranslateMatch[1].replace(/<[^>]+>/g, '').trim();
-            if (text) return this.decodeHtml(text);
-        }
-
-        // Pattern 6: Any div with translation-related id/class containing substantial text
-        const translationDivMatch = html.match(
-            /<div[^>]*(?:id|class)="[^"]*(?:result|translation|output)[^"]*"[^>]*>([\s\S]*?)<\/div>/i
-        );
-        if (translationDivMatch?.[1]) {
-            const text = translationDivMatch[1].replace(/<[^>]+>/g, '').trim();
-            if (text && text.length > 0 && text.length < 1000) {
-                return this.decodeHtml(text);
-            }
-        }
-
-        return null;
-    }
-
-    private decodeHtml(html: string): string {
-        // Basic entity decoding for common chars
-        return html
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'");
     }
 }

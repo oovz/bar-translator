@@ -111,7 +111,7 @@ export const TRANSLATION_SERVICES: readonly TranslationService[] = [
         requiresApiKey: false,
         authMethod: 'none',
         httpMethod: 'GET',
-        endpoint: 'https://translate.google.com/m',
+        endpoint: 'https://translate.googleapis.com/translate_a/single',
         maxTextLength: 5000,
     },
     {

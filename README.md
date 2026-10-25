@@ -41,7 +41,7 @@ All settings and API keys are stored locally by default. Each device can choose 
 
 | Provider | What to expect |
 | --- | --- |
-| Google Translate Web | Uses Google's mobile page without an API key. |
+| Google Translate Web | Uses Google's keyless web JSON endpoint. Availability and rate limits can vary. |
 | Lingva | A public Google Translate proxy without an API key. |
 | DeepL | Uses the official API with your own API key. Add named instances for different keys or tiers. Testing is optional. |
 | LibreTranslate | Use the managed service or your own HTTP(S) server, including localhost and LAN deployments. Add multiple named instances with separate URLs and keys. |

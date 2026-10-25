@@ -40,7 +40,7 @@ beforeEach(() => {
     vi.clearAllMocks();
     saved = createDefaultSetup();
     saveFails = false;
-    origins = new Set(['https://translate.google.com/*', 'https://api-free.deepl.com/*', 'https://api.deepl.com/*']);
+    origins = new Set(['https://translate.googleapis.com/*', 'https://api-free.deepl.com/*', 'https://api.deepl.com/*']);
     vi.mocked(chrome.permissions.contains).mockImplementation(async value => (value.origins ?? []).every(origin => origins.has(origin)));
     vi.mocked(chrome.permissions.request).mockImplementation(async value => { value.origins?.forEach(origin => origins.add(origin)); return true; });
     vi.mocked(chrome.permissions.remove).mockImplementation(async value => { value.origins?.forEach(origin => origins.delete(origin)); return true; });

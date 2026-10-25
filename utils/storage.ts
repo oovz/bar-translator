@@ -223,6 +223,21 @@ async function readSelection(): Promise<Selection | undefined> {
 }
 
 async function selectStorage(area: CredentialStorageType): Promise<Selection> {
+    // Provider-only installations predate ownership records. Capture their
+    // former Google grant before activating v2, then let normal reconciliation
+    // retain any current shared owner or release it. No permission is requested.
+    if (!await readSelection()) {
+        const origin = 'https://translate.google.com/*';
+        if (await chrome.permissions.contains({ origins: [origin] })) {
+            const access = await readSetupAccess();
+            if (!access?.origins.includes(origin)) {
+                await chrome.storage.local.set({ [ACCESS_STORAGE_KEY]: {
+                    origins: [...(access?.origins ?? []), origin],
+                    copyEnabled: access?.copyEnabled ?? false,
+                } });
+            }
+        }
+    }
     const selection: Selection = { schemaVersion: 2, storageType: area, revision: crypto.randomUUID() };
     await chrome.storage.local.set({ [SETUP_STORAGE_KEYS.SELECTION]: selection });
     migrationCompleted = true;

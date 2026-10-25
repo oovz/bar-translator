@@ -63,7 +63,7 @@ beforeEach(async () => {
     syncArea = memoryArea(() => sync, true);
     vi.stubGlobal('chrome', {
         storage: { local: localArea, sync: syncArea },
-        permissions: { contains: vi.fn(async () => copyGranted) },
+        permissions: { contains: vi.fn(async (query: chrome.permissions.Permissions) => !query.origins?.length && copyGranted) },
     });
     api = await import('@/utils/storage');
 });

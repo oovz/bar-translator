@@ -50,6 +50,19 @@ beforeEach(() => {
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
 describe('provider access boundaries', () => {
+    it('requires the exact GTX host grant even when the former Google host is already granted', async () => {
+        origins.add('https://translate.google.com/*');
+        expect(await hasInstanceAccess(google)).toBe(false);
+
+        const pending = requestInstanceAccess(google);
+        expect(chrome.permissions.request).toHaveBeenCalledExactlyOnceWith({
+            origins: ['https://translate.googleapis.com/*'],
+        });
+        expect(await pending).toBe(false);
+        origins.add('https://translate.googleapis.com/*');
+        expect(await hasInstanceAccess(google)).toBe(true);
+    });
+
     it('requires both DeepL domains and requests them directly before returning', async () => {
         origins.add('https://api-free.deepl.com/*');
         expect(await hasInstanceAccess(deepl)).toBe(false);

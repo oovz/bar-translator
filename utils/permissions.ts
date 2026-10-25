@@ -2,7 +2,7 @@ import type { ServiceId, TranslationInstance, TranslationSetup } from '@/src/typ
 
 /** Static provider integrations may require more than one subscription host. */
 export const PROVIDER_ORIGINS: Record<ServiceId, string[]> = {
-    'google-web': ['https://translate.google.com/*'],
+    'google-web': ['https://translate.googleapis.com/*'],
     lingva: [],
     deepl: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'],
     libretranslate: ['https://libretranslate.com/*'],

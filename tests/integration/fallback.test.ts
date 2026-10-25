@@ -153,7 +153,7 @@ describe('Translation Orchestration', () => {
         expect(mockDeepLTranslate).toHaveBeenCalled();
     });
 
-    it('keeps a mobile redirect as a service warning when an enabled fallback succeeds', async () => {
+    it('keeps a Google redirect as a service warning when an enabled fallback succeeds', async () => {
         const redirect = new Response(null, { status: 302 });
         Object.defineProperty(redirect, 'type', { value: 'opaqueredirect' });
         const fetch = vi.spyOn(globalThis, 'fetch').mockResolvedValue(redirect);
@@ -208,7 +208,7 @@ describe('Translation Orchestration', () => {
 
     it('skips denied provider access and reports it with a successful fallback', async () => {
         vi.mocked(chrome.permissions.contains).mockImplementation(async permission =>
-            !permission.origins?.includes('https://translate.google.com/*'));
+            !permission.origins?.includes('https://translate.googleapis.com/*'));
         mockDeepLTranslate.mockResolvedValue({ translation: 'Hola', serviceId: 'deepl' });
         const result = await translateWithFallback(defaultParams, defaultPrefs, validApiKeys);
         expect(mockGoogleTranslate).not.toHaveBeenCalled();

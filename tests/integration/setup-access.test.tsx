@@ -123,6 +123,37 @@ async function configuredSetup() {
     } satisfies TranslationSetup));
 }
 
+it('releases the former Google grant on direct migration without v2 ownership', async () => {
+    sync.preferences = { fallbackOrder: ['google-web'], defaultSourceLang: 'auto', defaultTargetLang: 'fr', languageOverrides: {} };
+    origins.add('https://translate.google.com/*');
+    await startBackground();
+    expect((await api.getSetup()).preferences.fallbackOrder).toEqual(['google-web']);
+    expect(origins.has('https://translate.google.com/*')).toBe(false);
+    expect(origins.has('https://translate.googleapis.com/*')).toBe(false);
+    expect(chrome.permissions.request).not.toHaveBeenCalled();
+});
+
+it('retains the former Google host when the chosen migration destination has another owner', async () => {
+    await api.getSetup();
+    await api.updateSetup(setup => ({
+        ...setup,
+        instances: [...setup.instances, { id: 'shared', providerId: 'libretranslate', name: 'Shared', hosting: 'custom', endpoint: 'https://translate.google.com/libre' }],
+        preferences: { ...setup.preferences, fallbackOrder: ['shared'] },
+    }));
+    await api.switchSetupStorage('sync');
+    for (const key of Object.keys(local)) delete local[key];
+    local.credentialStorageType = 'sync';
+    sync.preferences = { fallbackOrder: ['google-web'], defaultSourceLang: 'auto', defaultTargetLang: 'fr', languageOverrides: {} };
+    origins.add('https://translate.google.com/*');
+    const pending = await api.getSetupState();
+    expect(pending.conflict?.reason).toBe('migration');
+    await api.switchSetupStorage('sync', { token: pending.conflict!.token, choice: 'use-destination' });
+    await api.reconcileSetupAccess();
+    expect((await api.getSetup()).preferences.fallbackOrder).toEqual(['shared']);
+    expect(origins.has('https://translate.google.com/*')).toBe(true);
+    expect(chrome.permissions.request).not.toHaveBeenCalled();
+});
+
 it('releases obsolete host and copy access after a worker restarts during a setup change', async () => {
     await configuredSetup();
     await startBackground();
@@ -148,11 +179,33 @@ it('releases a provider grant when its synced selection is disabled', async () =
     await api.updateSetup(setup => ({ ...setup, preferences: { ...setup.preferences, fallbackOrder: ['google-web', 'deepl'] } }));
     await api.switchSetupStorage('sync');
     await startBackground();
-    origins = new Set(['https://translate.google.com/*', 'https://api-free.deepl.com/*', 'https://api.deepl.com/*']);
+    origins = new Set(['https://translate.googleapis.com/*', 'https://api-free.deepl.com/*', 'https://api.deepl.com/*']);
     changes = [];
     await api.updateSetup(setup => ({ ...setup, preferences: { ...setup.preferences, fallbackOrder: ['google-web'] } }));
     for (const [delta, name] of [...changes]) await storageChanged.fire(delta, name);
-    await vi.waitFor(() => expect(origins).toEqual(new Set(['https://translate.google.com/*'])));
+    await vi.waitFor(() => expect(origins).toEqual(new Set(['https://translate.googleapis.com/*'])));
+});
+
+it.each([false, true])('reconciles recorded Google mobile access while preserving other owners (%s)', async shared => {
+    await api.getSetup();
+    if (shared) {
+        await api.updateSetup(setup => ({
+            ...setup,
+            instances: [...setup.instances, {
+                id: 'shared-google-host', providerId: 'libretranslate', name: 'Shared host',
+                hosting: 'custom', endpoint: 'https://translate.google.com',
+            }],
+            preferences: { ...setup.preferences, fallbackOrder: ['google-web', 'shared-google-host'] },
+        }));
+    }
+    // Simulate ownership persisted by the previous adapter before this worker started.
+    local.translationSetupAccess_v2 = { origins: ['https://translate.google.com/*'], copyEnabled: false };
+    origins = new Set(['https://translate.google.com/*', 'https://translate.googleapis.com/*', 'https://unrelated.example/*']);
+    await api.reconcileSetupAccess();
+    expect(origins.has('https://translate.google.com/*')).toBe(shared);
+    expect(origins.has('https://translate.googleapis.com/*')).toBe(true);
+    expect(origins.has('https://unrelated.example/*')).toBe(true);
+    expect(chrome.permissions.request).not.toHaveBeenCalled();
 });
 
 it('preserves a newly granted host while its enablement has not yet been saved', async () => {
