@@ -1,23 +1,32 @@
 import { test as base, chromium, expect, type BrowserContext } from '@playwright/test';
 import path from 'node:path';
+import { startNetworkGuard } from './network-guard';
 
-/** Load the built extension in a disposable context with controlled network access. */
-export async function launchExtension(userDataDir: string, headless: boolean) {
+/** Load the built extension with launch-time HTTP(S) denial and routed fixtures. */
+export async function launchExtension(userDataDir: string, headless: boolean, options: { extensionPath?: string; installRouting?: boolean } = {}) {
     const edge = test.info().project.name === 'edge-extension';
-    const extensionPath = path.resolve(edge ? '.output/edge-mv3' : '.output/chrome-mv3');
-    const context = await chromium.launchPersistentContext(userDataDir, {
+    const extensionPath = options.extensionPath ?? path.resolve(edge ? '.output/edge-mv3' : '.output/chrome-mv3');
+    const guard = await startNetworkGuard();
+    let context: BrowserContext;
+    try {
+        context = await chromium.launchPersistentContext(userDataDir, {
         channel: edge ? 'msedge' : 'chromium',
         ...(edge && process.env.EDGE_EXECUTABLE_PATH ? { executablePath: process.env.EDGE_EXECUTABLE_PATH } : {}),
         headless,
+        proxy: guard.proxy,
         args: [
             `--disable-extensions-except=${extensionPath}`,
             `--load-extension=${extensionPath}`,
             '--lang=en-US',
         ],
         locale: 'en-US',
-    });
+        });
+    } catch (error) {
+        await guard.close();
+        throw error;
+    }
     const unexpectedRequests: string[] = [];
-    await context.route(/^https?:\/\//, async route => {
+    if (options.installRouting !== false) await context.route(/^https?:\/\//, async route => {
         const url = new URL(route.request().url());
         unexpectedRequests.push(`${route.request().method()} ${url.origin}`);
         await route.abort();
@@ -25,9 +34,14 @@ export async function launchExtension(userDataDir: string, headless: boolean) {
 
     return {
         context,
-        async close() {
-            await context.close();
-            expect(unexpectedRequests, 'External requests require an explicit response fixture').toEqual([]);
+        startupDenials: guard.attempts,
+        async close(expectedBlockedRequests: readonly string[] = []) {
+            try {
+                await context.close();
+            } finally {
+                await guard.close();
+            }
+            expect(unexpectedRequests, 'External requests require an explicit response fixture').toEqual(expectedBlockedRequests);
         },
     };
 }
