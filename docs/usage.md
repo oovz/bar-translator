@@ -1,102 +1,104 @@
 # Using Bar Translator
 
-Bar Translator translates text from the address bar in desktop Chrome, Firefox, and Microsoft Edge. Set your usual source and target languages once, then type ordinary text to use them. Safari is unsupported because it lacks the required extension address-bar API.
+Bar Translator lets you translate from the address bar in desktop Chrome, Firefox, and Microsoft Edge. Choose your usual languages once, then type text to translate while keeping your current page open. Safari does not support the address-bar feature the extension needs.
 
-Firefox displays a stable instruction in the default address-bar row and the completed translation in a suggestion below it. Wait until that result appears before pressing Enter. Selecting the translation row also copies it when copying is enabled. Firefox's default row cannot refresh asynchronously, so it does not show changing loading text or post-copy success/failure text; Chrome and Edge retain their default-row preview.
+In Firefox, look for the finished translation below the top instruction row. Wait for it to appear before pressing Enter, or select the translation row to copy it when copying is enabled. The top row stays as instructions; it does not show loading progress or copy confirmations. Chrome and Edge show the preview in their top row.
 
 ## First-time setup
 
-Settings open in a dedicated tab after a new installation. You can reopen them through the extension's options in your browser.
+Settings open in a new tab when you first install Bar Translator. To return later, open the extension's options in your browser.
 
-1. Choose a source and target language. **Auto-detect** is available as a source choice.
-2. Translation services are grouped into **Activated instances** and **Available providers**. Only Google Web is active in a new setup; Lingva, DeepL and LibreTranslate are available below it. DeepL and LibreTranslate both start with **Configure**, which opens a draft. Save the draft before activating it, or use **Cancel** to discard it. **Add instance** creates another configuration for either provider; saved inactive instances also appear under Available providers.
-3. Enable the saved instances you allow to receive your text. For a custom LibreTranslate server, use **Connect**. Grant the requested domain access when prompted.
-4. Reorder enabled instances into your preferred sequence.
-5. Optionally enable **Enter to copy** and grant clipboard access.
+1. Choose your source and target languages. Use **Auto-detect** if you want the provider to identify the source language.
+2. Choose your translation services. Only Google Web is active in a new setup. Lingva, DeepL and LibreTranslate appear under **Available providers**. For DeepL or LibreTranslate, choose **Configure**, fill in the details, and save.
+3. Activate the saved instances you want to use. Choose **Grant access** if an active instance needs permission, or **Connect** for a custom LibreTranslate server. Allow access when your browser asks.
+4. Drag **Activated instances** or use their arrow buttons to choose which one is tried first.
+5. Turn on **Enter to copy** if you want to copy translations, and allow clipboard access.
 
-Settings do not open automatically on updates. Missing access and credentials appear in the translation preview, so existing users can discover setup problems while translating.
+Configuring an instance does not activate it. You can cancel an unfinished draft or use **Add instance** to save another DeepL or LibreTranslate configuration. Saved instances that are turned off stay under **Available providers**. Save any edits before changing an instance's activation.
+
+Updates do not reopen settings automatically. If a provider needs access or a key, a message appears alongside the translation preview.
 
 ## Translate ordinary text
 
-Focus the address bar with **Ctrl+L** on Windows/Linux or **Cmd+L** on macOS. Type `t` followed by Space, then your text.
+Press **Ctrl+L** on Windows/Linux or **Cmd+L** on macOS to focus the address bar. Type `t`, press Space, then enter your text.
 
 | Input | Translation |
 | --- | --- |
 | `t Hello world` | Uses your saved source and target languages. |
 
-A preview request starts after a 300 ms pause in typing. The address bar shows a loading message while the request is pending. The primary completed result contains the translation; separate suggestions show copy actions, provider warnings, and settings actions.
+A translation preview starts after a 300 ms pause in typing. While it loads, you can keep editing your text. The finished translation appears with separate suggestions for copying, provider warnings, or settings that need attention.
 
-Wait for the result before pressing Enter. When **Enter to copy** is enabled, Enter on the completed translation copies it. You can also select the separate copy action. With copying disabled, previews remain available and Enter on the translation leaves the clipboard unchanged.
+Wait for the result before pressing Enter. With **Enter to copy** on, pressing Enter on the finished translation copies it. You can also choose the separate copy action. With copying off, you can still read translations; Enter leaves your clipboard unchanged.
 
 > [!NOTE]
-> Enter before a result is ready ends the interaction, cancels the request, and leaves your clipboard unchanged. Editing or clearing the input also cancels pending work.
+> Pressing Enter before the result is ready ends the interaction and cancels the request without changing your clipboard. Editing or clearing your text also cancels the pending translation.
 
-After changing settings or permissions, edit the input or enter translation mode again to refresh completed suggestions.
+After changing settings or allowing access, edit your text or start translation mode again to refresh the suggestions.
 
 ## Language shortcuts
 
-Language-code prefixes are optional overrides for one translation. Ordinary text continues to use your saved choices.
+To change languages for one translation, add a language code before your text. Your saved language choices stay the same.
 
 | Input | Override |
 | --- | --- |
 | `t fr Hello world` | Translates to French using your saved source language. |
 | `t en>fr Hello world` | Translates from English to French. |
 
-Settings also let you choose preferred regional variants, such as mapping `zh` to `zh-TW`.
+You can also choose regional language preferences in settings, such as using `zh-TW` whenever you enter `zh`.
 
 ## Providers, instances and fallback
 
-An instance is one configuration of a translation provider. LibreTranslate and DeepL support multiple instances with custom names. Google Web and Lingva each have one configuration and use their fixed provider name.
+An instance is a saved configuration of a provider. For example, you can keep separate DeepL accounts or LibreTranslate servers under names you choose. Google Web and Lingva each have one configuration, with their provider name.
 
-Enable only the instances you allow to receive text, then reorder them. The first eligible instance is tried first. Missing permission or required credentials causes a warning and skips that instance. If an attempt fails, the next enabled instance may receive the same text. For example, an enabled managed service after a local server may receive text when that local server fails.
+Bar Translator tries your activated instances in order. It skips an instance that needs access or a key and shows a warning. If one cannot translate, the next may receive the same text. For example, a managed service placed after your local server may receive text when that server fails. Activate only the instances you are comfortable sending text to.
 
-Each eligible instance is attempted once, sequentially. An attempt has up to four seconds, including permission checks and reading its response, within a ten-second total budget. A timeout cancels that attempt and leaves the remaining time for later enabled instances. Adding instances does not extend the total budget, so later entries may not be reached.
+Each instance is tried once. Each try has up to four seconds, including access checks and receiving the result. All tries share a ten-second limit, so later instances may not be reached if time runs out.
 
-Disabling every instance pauses translation and preserves that choice across browser restarts. Disabling or deleting an instance releases access that no other enabled instance needs. Browser host grants can cover several endpoints on the same host, even on different ports or paths. Synced instance selections may need another grant on a different device.
+Turning off every instance pauses translation, including after a browser restart. Turning off or deleting an instance removes browser access that no other active instance needs. Instances on the same host can share access, even if their ports or paths differ. On another device, your browser may ask you to allow access again.
 
 ### Google Translate Web
 
-Google Web uses Google's keyless web JSON endpoint at `translate.googleapis.com`. It remains a best-effort integration whose availability and rate limits can change. Rate limits, redirects and invalid responses produce a failure or fallback warning; the extension never treats an unsuccessful response as a translation.
+Google Web translates through `translate.googleapis.com` without an API key, browser cookies, or a Google account session. Availability and rate limits can change. If it is blocked or returns an unusable response, you see an error. If another active instance succeeds, its translation appears with a warning about Google Web.
 
-Users upgrading from the former mobile endpoint must allow access to `translate.googleapis.com` in settings. The earlier `translate.google.com` grant does not cover this address. No browser cookies or account session are used.
+If you previously allowed `translate.google.com`, open settings and allow access to `translate.googleapis.com`. The earlier permission does not cover the new address.
 
 ### Lingva
 
-Lingva is a public Google Translate proxy that requires no API key. Its availability varies. It currently needs no extension host permission because its API supports cross-origin requests.
+Lingva is a public Google Translate proxy that works without an API key. Its availability varies. It currently works without an extra browser access prompt because the service allows requests from other sites and extensions.
 
 ### DeepL
 
-DeepL uses its official API and your own key. Add named instances for separate accounts or tiers. You can enable an instance before entering a key. Enabling requests access to both `api-free.deepl.com` and `api.deepl.com`, regardless of subscription plan.
+DeepL uses the official API with your own key. Add named instances for different accounts or API plans. You can activate an instance before adding its key, but it needs a key to translate. Activation asks for access to both `api-free.deepl.com` and `api.deepl.com`, whichever plan you use.
 
-Saving a key trusts your input and does not send a test request. The optional **Test** button uses DeepL's authenticated [usage endpoint](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits). Testing is available with a supplied key while DeepL is enabled and permitted. A failed test leaves it enabled and eligible for later translation attempts with a supplied key.
+Saving a key does not contact DeepL. To check it, activate the instance, allow access, then choose **Test**. This optional check reads your [DeepL account usage](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits).
 
-Rejected credentials produce an error or fallback warning during translation or an explicit test.
+An unsuccessful test leaves the instance active, so it can be tried again when translating. If DeepL rejects the key, the translation or test shows an error or fallback warning.
 
 ### LibreTranslate
 
-Choose LibreTranslate from the same provider list as the other services, then create a named configuration for the managed service or a custom server. The managed preset uses `https://libretranslate.com` and requires your own API key. A custom server can require a key or allow access without one, depending on its operator's configuration. Saving creates a disabled instance and makes no network request.
+Choose **Configure** beside LibreTranslate and name your instance. Use the managed service at `https://libretranslate.com` with your own API key, or enter a custom server. A custom server may work with or without a key, depending on how its operator set it up. Saving keeps the instance turned off and does not contact the server.
 
-Custom base URLs support ports and path prefixes, for example `http://localhost:5000`, `http://192.168.1.20:5000`, or `https://translate.example/libre/`. Enter the base URL, not the `/translate` API path. HTTP sends text and any API key without encryption; the settings show a warning. The server must be reachable from this computer, and HTTPS certificates must be trusted by the browser.
+Enter the server's base address, such as `http://localhost:5000`, `http://192.168.1.20:5000`, or `https://translate.example/libre/`. Leave off the `/translate` API path. The server must be reachable from this computer, and your browser must trust its HTTPS certificate. HTTP sends text and any key without encryption; settings show a warning when you use it.
 
-When editing a saved instance, save a changed endpoint before entering its new key. Changing the endpoint clears its previous key so credentials are not sent to a different server unintentionally. A rename keeps the same instance and credentials.
+Changing a saved server address clears its old key to avoid sending it to a different server. Save the new address before entering a new key. Renaming an instance keeps its key and other settings.
 
-**Connect** first requests access to the configured host, then checks that server's connection during setup without sending translation text or an API key. It enables the selected instance after host access is allowed. A connection failure shows a warning and keeps your configuration; it does not invalidate the key or silently disable the instance. Approve local-network access for your browser if prompted, then use **Test** to try again.
+Choose **Connect** to allow browser access and check the server's connection. This first check sends no translation text or API key. Once access is allowed, the instance is active. If the check fails, a warning appears and your settings stay saved; the instance stays active and its key is not marked invalid. Allow local-network access if prompted, then choose **Test** to try again.
 
-Your operating system may control local-network access for the whole browser separately from the extension's host grant. For example, [macOS can prompt on the first local-network operation](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy), and that initial operation can fail while the prompt is being answered. Connect makes that first contact an explicit setup action. The extension cannot grant this OS permission itself. Browser website local-network prompts are a separate mechanism; the [Chrome extension path uses its host permissions](https://developer.chrome.com/blog/local-network-access).
+Your computer may ask separately whether the browser can access the local network. For example, [macOS may ask on the first connection](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy), which can fail while you answer the prompt. Connect lets you handle this during setup. The extension cannot approve it for you. Website permissions are separate; [Chrome extensions use their own host permissions](https://developer.chrome.com/blog/local-network-access).
 
-The optional test checks the server's advertised languages and sends a fixed sample translation. It requires an enabled instance with browser access. Saving a URL or key does not run a test, and a failed test does not disable the instance. Language/model availability and text limits vary by server; an instance-specific limitation can advance to the next enabled instance.
+The optional **Test** checks supported languages and sends a fixed sample for translation. It needs an active instance with browser access. Saving an address or key does not run it, and a failed test does not turn the instance off. Servers differ in their languages, models, and text limits; if one cannot handle your request, the next active instance may be tried.
 
 ## Warnings and settings actions
 
-When a settings problem blocks translation, pressing Enter on the error opens settings. Missing domain access, missing credentials, invalid credentials, and an empty provider selection are settings problems.
+If translation is blocked by missing access, a missing or rejected key, or no active instances, press Enter on the error to open settings.
 
-When another enabled provider succeeds, its translation stays primary. A separate warning can offer a settings action for the provider that needs attention. Temporary network and service failures remain errors; Enter on those errors leaves the clipboard unchanged.
+When another instance succeeds, its translation stays as the main result. A separate warning may let you open settings for the instance that needs attention. Temporary network or service errors do not open settings when you press Enter, and leave your clipboard unchanged.
 
-A failed translation or unsuccessful copy leaves the clipboard unchanged. Cancelling a request cannot undo text already received by a provider or any resulting provider charges.
+A failed translation or copy leaves your clipboard unchanged. Cancelling a request cannot recall text already sent to a provider or undo any charges it has incurred.
 
 ## Permissions and privacy
 
-Only `storage` is required at installation.
+At installation, the extension requires only `storage` access. Other access is requested when you turn on the feature that needs it.
 
 | Feature | Optional access |
 | --- | --- |
@@ -106,35 +108,38 @@ Only `storage` is required at installation.
 | Enter to copy in Chrome/Edge | `clipboardWrite` and `offscreen`, requested together |
 | Enter to copy in Firefox | `clipboardWrite` |
 
-Clipboard access allows writing translations. The extension does not read your clipboard. The **Enter to copy** preference is saved separately from browser permission, so a synced enabled preference may show that access is needed on this device. Both the preference and permission are required to copy. Turning the preference off releases local clipboard access. Chrome and Edge also release the offscreen permission and close the document used for copying; Firefox copies from its background document.
+Clipboard access lets the extension copy translations; it does not read your clipboard. Copying needs both **Enter to copy** and browser permission. If you sync the setting to another device, you may still need to allow access there. Turning copying off releases the clipboard permissions on that device.
 
-Firefox's installation consent declares translation text and authentication information because enabled providers receive your text and, where required, your supplied API key. This does not enable analytics or grant provider host access. You still choose providers and whether to supply credentials.
+Firefox's installation notice mentions translation text and authentication information because your chosen providers receive your text and any key they require. You still choose the providers, supply the keys, and allow access separately. This notice does not enable analytics.
 
-Translation requests go directly to enabled providers. A fallback may send the same text to each enabled provider reached in your chosen order. API keys go to their corresponding provider for translation and explicit tests. Each provider's own data-handling terms apply to those requests.
+Your text goes directly to the active instances tried in your chosen order. If several are tried, each may receive the same text. API keys go to their corresponding provider for translation and tests you choose to run. Each provider's own privacy terms apply.
 
-The extension collects no usage analytics and creates no analytics identity. Production logs exclude translation text, results, credentials, and provider response bodies. The maintainer uses Chrome Web Store reporting outside the extension.
+Bar Translator collects no usage analytics and does not create an analytics identity. Its production logs exclude your text, translations, credentials, and the contents of provider responses. The maintainer uses Chrome Web Store reporting separately from the extension.
 
 ### Settings storage
 
-Each device chooses one **Local** or **Sync** setting for the complete setup: language preferences, instances and names, endpoints, keys, enabled order and copy preference. New installations default to Local. Browser grants and the Local/Sync choice itself remain device-local.
+Choose **Local** or **Sync** for your whole setup: languages, named instances, server addresses, keys, translation order, and copying preference. New installations use Local. Each device keeps its own storage choice and browser permissions.
 
-- **Local** keeps the active setup on this device.
-- **Sync** uses your browser's shared setup. Browser account synchronization must be enabled; this does not synchronize across Chrome, Firefox and Edge, and offline changes may arrive later.
-- If the destination already contains a different setup, choose whether to use it or replace it with the current setup. The extension does not silently merge them. Until the choice succeeds, the current setup remains active. Failed saves can be retried.
-- Choosing Local does not erase the shared setup used by other devices.
+> [!WARNING]
+> API keys, tokens, and other credentials you save are stored as plain text in your browser profile. Anyone who gains access to that profile may be able to read and use them without your permission.
+
+- **Local** keeps the setup you are using on this device.
+- **Sync** shares the whole setup, including credentials, through your browser account. Browser sync must be on. Chrome, Firefox and Edge do not sync with one another, and offline changes may take time to arrive.
+- If a different setup is already saved in the destination, choose to use it or replace it with your current setup. The two are not merged. Your current setup stays active until the change succeeds, and you can retry a failed save.
+- Switching to Local does not erase the earlier Sync copy that other devices may use.
 
 > [!IMPORTANT]
-> Both local and synced extension storage hold readable API keys. Choose syncing only if you want your browser to share the whole configuration, including those credentials. A localhost or LAN address can identify a different service on another computer.
+> Choose Sync only if you want to share your credentials along with your settings. A localhost or LAN address may point to a different service on another computer.
 
 ### Upgrading an existing setup
 
-The one-time migration preserves your current values, enabled order, disabled state, active credentials and Local/Sync selection. Existing Local users' language and order settings become local too. The copy preference starts from this device's existing clipboard access.
+The upgrade keeps your languages, instances, order, active credentials, and Local/Sync choice, including any instances you turned off. If you already use Local, your languages and translation order become local too. The initial copy setting follows this device's existing clipboard permission.
 
-Older extension versions continue using their old records. Edits are not exchanged between old and upgraded versions; legacy records are retained for recovery. If migration finds a different saved setup, settings offer the same explicit use/replace choice while the current translation setup remains usable.
+Older versions keep their own settings, so changes do not pass between old and upgraded installations. Old records, including credentials, are kept for recovery. If the upgrade finds a different saved setup, you can choose which one to use; translation keeps working with your current setup while you decide.
 
 ## Browser builds
 
-For a local installation, use the Node/pnpm versions declared by the repository, install dependencies, and build your browser target:
+To install a local build, use the repository's Node/pnpm versions, install dependencies, then build for your browser:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -143,8 +148,8 @@ pnpm build:firefox  # Firefox 140+
 pnpm build:edge     # Edge 116+
 ```
 
-In Chrome or Edge, open `chrome://extensions` or `edge://extensions`, enable developer mode, and load `.output/chrome-mv3` or `.output/edge-mv3` as an unpacked extension. In Firefox, open **about:debugging → This Firefox → Load Temporary Add-on** and select `.output/firefox-mv3/manifest.json`.
+In Chrome or Edge, open `chrome://extensions` or `edge://extensions`, turn on developer mode, and load `.output/chrome-mv3` or `.output/edge-mv3` as an unpacked extension. In Firefox, open **about:debugging → This Firefox → Load Temporary Add-on** and select `.output/firefox-mv3/manifest.json`.
 
-Firefox temporary installations last until browser restart. Permanent installation in release Firefox requires Mozilla signing; building or packaging does not sign or publish an add-on. Preserve the stable add-on ID `bar-translator@oovz` across upgrades so saved settings keep their identity.
+Firefox removes temporary installations when you restart the browser. Permanent installation in release Firefox requires Mozilla signing; a local build is not signed or published automatically. Keep the add-on ID `bar-translator@oovz` unchanged across upgrades so the browser recognizes its saved settings.
 
 [Back to the README](../README.md)
