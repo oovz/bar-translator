@@ -517,9 +517,6 @@
     "setupMigrationPending": {
         "message": "저장된 설정의 업데이트를 완료하지 못했습니다. 이전 설정은 계속 사용됩니다. 편집하기 전에 다시 시도하세요."
     },
-    "availableProviders": {
-        "message": "제공업체 추가"
-    },
     "draftInstance": {
         "message": "저장 안 됨"
     },
@@ -527,7 +524,7 @@
         "message": "취소"
     },
     "addProviderInstance": {
-        "message": "$1 추가"
+        "message": "인스턴스 추가: $1"
     },
     "googleProviderDescription": {
         "message": "API 키가 필요 없는 Google 웹 서비스입니다."
@@ -558,5 +555,8 @@
     },
     "customConnectionFailed": {
         "message": "$1 연결을 확인하지 못했습니다. 요청이 표시되면 브라우저의 로컬 네트워크 접근을 허용한 후 테스트를 다시 실행하세요."
+    },
+    "addInstance": {
+        "message": "인스턴스 추가"
     }
 }

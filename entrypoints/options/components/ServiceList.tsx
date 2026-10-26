@@ -227,7 +227,6 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
     const [busy, setBusy] = useState<string | null>(null);
     const [error, setError] = useState('');
     const [draft, setDraft] = useState<ConfigurableInstance | null>(null);
-    const [choosingProvider, setChoosingProvider] = useState(false);
     const [connectionFeedback, setConnectionFeedback] = useState<{ name: string; connected: boolean } | null>(null);
     const connection = useRef<AbortController | null>(null);
     const accessRevision = useRef(0);
@@ -236,10 +235,27 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
     const disabled = setup.instances.filter(instance => !enabledIds.includes(instance.id));
     const inactive = disabled.filter(instance => instance.id !== draft?.id);
     if (draft) inactive.push(setup.instances.find(instance => instance.id === draft.id) ?? draft);
+    // Keep unconfigured providers visible without changing the saved setup.
+    const visibleIds = new Set([...setup.instances.map(instance => instance.id), ...(draft ? [draft.id] : [])]);
+    const placeholders: ConfigurableInstance[] = [];
+    for (const provider of ['deepl', 'libretranslate'] as const) {
+        if (setup.instances.some(instance => instance.providerId === provider) || draft?.providerId === provider) continue;
+        let id = `available:${provider}`;
+        while (visibleIds.has(id)) id = `available:${id}`;
+        visibleIds.add(id);
+        placeholders.push(provider === 'deepl'
+            ? { id, providerId: provider, name: 'DeepL' }
+            : { id, providerId: provider, name: 'LibreTranslate', endpoint: MANAGED_LIBRETRANSLATE_ENDPOINT, hosting: 'managed' });
+    }
+    const placeholderIds = new Set(placeholders.map(instance => instance.id));
     const listed = [
         ...enabled.map((instance, index) => ({ instance, index })),
-        ...inactive.map(instance => ({ instance, index: undefined })),
+        ...[...inactive, ...placeholders].map(instance => ({ instance, index: undefined })),
     ];
+    const firstInstanceIds = new Map<string, string>();
+    for (const { instance } of listed) {
+        if (!firstInstanceIds.has(instance.providerId)) firstInstanceIds.set(instance.providerId, instance.id);
+    }
 
     useEffect(() => () => connection.current?.abort(), []);
     useEffect(() => {
@@ -370,7 +386,6 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
         const instance = createInstance(providerId);
         setDraft(instance);
         setExpanded(instance.id);
-        setChoosingProvider(false);
     };
     const move = (id: string, offset: number) => {
         void updateSetup(current => {
@@ -410,11 +425,12 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
         const isEnabled = index !== undefined;
         const configurable = 'name' in instance;
         const isNew = draft?.id === instance.id && !setup.instances.some(saved => saved.id === instance.id);
+        const isPlaceholder = placeholderIds.has(instance.id);
         const name = getInstanceName(instance);
         const needsKey = (instance.providerId === 'deepl' || (instance.providerId === 'libretranslate' && instance.hosting === 'managed')) && !instance.credential?.key;
         const ready = access[instance.id] && !needsKey;
         const sharedGrant = enabled.some(other => getInstanceOrigins(other).some(origin => getInstanceOrigins(instance).includes(origin)));
-        return <li key={instance.id} class={`service-item ${isEnabled ? 'enabled' : 'disabled-item'}`} data-id={instance.id}>
+        return <li key={instance.id} class={`service-item ${isEnabled ? 'enabled' : 'disabled-item'}`} data-id={instance.id} data-provider={instance.providerId}>
             <div class="service-row">
                 {isEnabled && <><span class="drag-handle" title={t('dragToReorder')}>⋮⋮</span><span class="service-index">{index + 1}</span></>}
                 <div class="service-info">
@@ -423,12 +439,13 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
                         {index === 0 && <span class="badge badge-primary">{t('primary')}</span>}
                         {isEnabled && ready && <span class="badge badge-success" aria-label={t('providerReady')}>✓</span>}
                     </div>
-                    {configurable && (instance.providerId !== 'deepl' || name !== 'DeepL') &&
+                    {isPlaceholder && <div class="setting-hint">{t(instance.providerId === 'deepl' ? 'deepLProviderDescription' : 'libreProviderDescription')}</div>}
+                    {!isPlaceholder && configurable && (instance.providerId !== 'deepl' || name !== 'DeepL') &&
                         <div class="setting-hint">{instance.providerId === 'deepl' ? 'DeepL' : `LibreTranslate · ${instance.endpoint}`}</div>}
-                    {instance.providerId === 'deepl' && name === 'DeepL' && !instance.credential?.key &&
+                    {!isPlaceholder && instance.providerId === 'deepl' && name === 'DeepL' && !instance.credential?.key &&
                         <div class="setting-hint">{t('keyNeeded')}</div>}
                     {!configurable && !isEnabled && <div class="setting-hint">{t(instance.providerId === 'google-web' ? 'googleProviderDescription' : 'lingvaProviderDescription')}</div>}
-                    {instance.providerId === 'libretranslate' && instance.endpoint.startsWith('http:') && expanded !== instance.id &&
+                    {!isPlaceholder && instance.providerId === 'libretranslate' && instance.endpoint.startsWith('http:') && expanded !== instance.id &&
                         <div class="setting-hint http-warning">{t('httpEndpointWarning')}</div>}
                     {isEnabled && !ready && <div class="setting-hint service-status">{!access[instance.id] ? t('providerPermissionRequired') : t('keyNeeded')}</div>}
                 </div>
@@ -442,13 +459,19 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
                         <button class="btn btn-sm" aria-label={t('moveInstanceUp', [name])} disabled={index === 0 || busy !== null} onClick={() => move(instance.id, -1)}>↑</button>
                         <button class="btn btn-sm" aria-label={t('moveInstanceDown', [name])} disabled={index === enabled.length - 1 || busy !== null} onClick={() => move(instance.id, 1)}>↓</button>
                     </>}
-                    {configurable && !isNew && <button class="btn btn-sm" aria-label={t('configureNamedInstance', [name])} aria-expanded={expanded === instance.id} aria-controls={`instance-${instance.id}`}
-                        disabled={busy !== null} onClick={() => setExpanded(expanded === instance.id ? null : instance.id)}>{t('configureInstance')}</button>}
-                    {!isNew && <button class={`btn btn-sm ${!isEnabled ? 'btn-primary' : ''}`}
+                    {configurable && isPlaceholder && <button class="btn btn-sm btn-primary" data-action="add-provider"
+                        aria-label={t('configureNamedInstance', [name])} disabled={busy !== null || draft !== null}
+                        onClick={() => add(instance.providerId)}>{t('configureInstance')}</button>}
+                    {configurable && !isNew && !isPlaceholder && <button class="btn btn-sm" aria-label={t('configureNamedInstance', [name])} aria-expanded={expanded === instance.id} aria-controls={`instance-${instance.id}`}
+                        disabled={busy !== null || (draft !== null && draft.id !== instance.id)} onClick={() => setExpanded(expanded === instance.id ? null : instance.id)}>{t('configureInstance')}</button>}
+                    {!isNew && !isPlaceholder && <button class={`btn btn-sm ${!isEnabled ? 'btn-primary' : ''}`}
                         data-action={isEnabled ? 'disable-instance' : usesCustomServer(instance) ? 'connect-instance' : 'enable-instance'}
                         aria-label={t(isEnabled ? 'disableInstance' : usesCustomServer(instance) ? 'connectInstance' : 'enableInstance', [name])}
                         disabled={busy !== null} onClick={() => toggle(instance)}>{isEnabled ? '✕' : usesCustomServer(instance) ? t('connect') : '+'}</button>}
-                    {configurable && !isNew && <button class="btn btn-sm" aria-label={t('deleteNamedInstance', [name])} disabled={busy !== null} onClick={() => void remove(instance)}>{t('deleteInstance')}</button>}
+                    {configurable && !isNew && !isPlaceholder && <button class="btn btn-sm" aria-label={t('deleteNamedInstance', [name])} disabled={busy !== null} onClick={() => void remove(instance)}>{t('deleteInstance')}</button>}
+                    {configurable && !isNew && !isPlaceholder && firstInstanceIds.get(instance.providerId) === instance.id &&
+                        <button class="btn btn-sm" data-action="add-provider" aria-label={t('addProviderInstance', [instance.providerId === 'deepl' ? 'DeepL' : 'LibreTranslate'])}
+                            disabled={busy !== null || draft !== null} onClick={() => add(instance.providerId)}>{t('addInstance')}</button>}
                 </div>
             </div>
             {configurable && expanded === instance.id && <InstanceEditor instance={instance} enabled={isEnabled} allowed={Boolean(access[instance.id])}
@@ -457,32 +480,11 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
     };
 
     return <div class="section" id="providers" tabIndex={-1}>
-        <div class="section-title provider-heading">
-            <span>{t('sectionTranslationServices')}</span>
-            <button class="btn btn-sm" data-action="choose-provider" aria-expanded={choosingProvider} aria-controls="provider-chooser"
-                disabled={busy !== null || draft !== null} onClick={() => setChoosingProvider(previous => !previous)}>{t('availableProviders')}</button>
-        </div>
+        <div class="section-title">{t('sectionTranslationServices')}</div>
         <div class="section-description">{t('servicesDesc')}</div>
         {error && <div class="feedback feedback-error" role="alert">{error}</div>}
         {connectionFeedback && <div class={`feedback ${connectionFeedback.connected ? 'feedback-success' : 'feedback-warning'}`} role="status">
             {t(connectionFeedback.connected ? 'instanceConnected' : 'customConnectionFailed', [connectionFeedback.name])}
-        </div>}
-        {choosingProvider && <div id="provider-chooser">
-            <ul class="service-list provider-catalog">
-                {(['deepl', 'libretranslate'] as const).map(provider => {
-                    const name = provider === 'deepl' ? 'DeepL' : 'LibreTranslate';
-                    return <li key={provider} class="service-item provider-choice" data-provider={provider}>
-                        <div class="service-row">
-                            <div class="service-info">
-                                <span class="service-name">{name}</span>
-                                <div class="setting-hint">{t(provider === 'deepl' ? 'deepLProviderDescription' : 'libreProviderDescription')}</div>
-                            </div>
-                            <button class="btn btn-sm btn-primary" data-action="add-provider" aria-label={t('addProviderInstance', [name])}
-                                disabled={busy !== null || draft !== null} onClick={() => add(provider)}>+</button>
-                        </div>
-                    </li>;
-                })}
-            </ul>
         </div>}
         <ul class="service-list" id="instance-priority" aria-label={t('sectionTranslationServices')} ref={serviceListRef}>
             {listed.map(({ instance, index }) => row(instance, index))}

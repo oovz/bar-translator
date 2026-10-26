@@ -517,9 +517,6 @@
     "setupMigrationPending": {
         "message": "无法完成已保存设置的升级。原有配置仍在使用，请重试后再编辑。"
     },
-    "availableProviders": {
-        "message": "添加提供商"
-    },
     "draftInstance": {
         "message": "尚未保存"
     },
@@ -527,7 +524,7 @@
         "message": "取消"
     },
     "addProviderInstance": {
-        "message": "添加 $1"
+        "message": "添加实例：$1"
     },
     "googleProviderDescription": {
         "message": "使用 Google 网页服务，无需 API 密钥。"
@@ -558,5 +555,8 @@
     },
     "customConnectionFailed": {
         "message": "无法确认与 $1 的连接。如有提示，请允许浏览器访问本地网络，然后再次点击测试。"
+    },
+    "addInstance": {
+        "message": "添加实例"
     }
 }

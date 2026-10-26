@@ -525,9 +525,6 @@
     "setupMigrationPending": {
         "message": "Could not finish updating your saved settings. Your previous setup is still active. Retry before editing."
     },
-    "availableProviders": {
-        "message": "Add a provider"
-    },
     "draftInstance": {
         "message": "Not saved"
     },
@@ -535,7 +532,7 @@
         "message": "Cancel"
     },
     "addProviderInstance": {
-        "message": "Add $1"
+        "message": "Add instance: $1"
     },
     "googleProviderDescription": {
         "message": "Google’s web service. No API key required."
@@ -566,5 +563,8 @@
     },
     "customConnectionFailed": {
         "message": "Connection to $1 could not be confirmed. If prompted, allow local-network access for this browser, then use Test to try again."
+    },
+    "addInstance": {
+        "message": "Add instance"
     }
 }

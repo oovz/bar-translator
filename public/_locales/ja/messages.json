@@ -517,9 +517,6 @@
     "setupMigrationPending": {
         "message": "保存済み設定の更新を完了できませんでした。以前の設定は引き続き有効です。編集する前に再試行してください。"
     },
-    "availableProviders": {
-        "message": "プロバイダーを追加"
-    },
     "draftInstance": {
         "message": "未保存"
     },
@@ -527,7 +524,7 @@
         "message": "キャンセル"
     },
     "addProviderInstance": {
-        "message": "$1 を追加"
+        "message": "インスタンスを追加: $1"
     },
     "googleProviderDescription": {
         "message": "API キー不要の Google ウェブサービスです。"
@@ -558,5 +555,8 @@
     },
     "customConnectionFailed": {
         "message": "$1 への接続を確認できませんでした。確認が表示された場合はブラウザーのローカルネットワークへのアクセスを許可し、テストを再実行してください。"
+    },
+    "addInstance": {
+        "message": "インスタンスを追加"
     }
 }

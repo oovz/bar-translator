@@ -519,9 +519,6 @@
     "setupMigrationPending": {
         "message": "Impossible de terminer la mise à jour des paramètres enregistrés. Votre configuration précédente reste active. Réessayez avant de la modifier."
     },
-    "availableProviders": {
-        "message": "Ajouter un fournisseur"
-    },
     "draftInstance": {
         "message": "Non enregistré"
     },
@@ -529,7 +526,7 @@
         "message": "Annuler"
     },
     "addProviderInstance": {
-        "message": "Ajouter $1"
+        "message": "Ajouter une instance : $1"
     },
     "googleProviderDescription": {
         "message": "Le service web de Google, sans clé API."
@@ -560,5 +557,8 @@
     },
     "customConnectionFailed": {
         "message": "La connexion à $1 n’a pas pu être confirmée. Si demandé, autorisez l’accès du navigateur au réseau local, puis réessayez avec Tester."
+    },
+    "addInstance": {
+        "message": "Ajouter une instance"
     }
 }

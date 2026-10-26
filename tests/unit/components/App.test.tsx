@@ -9,7 +9,7 @@ import type { SetupState, TranslationSetup } from '@/src/types';
 declare const jsdom: { window: Window };
 let state: SetupState;
 function addProvider(view: { container: Element }) {
-    return view.container.querySelector<HTMLButtonElement>('[data-action="choose-provider"]')!;
+    return view.container.querySelector<HTMLButtonElement>('[data-provider="libretranslate"] [data-action="add-provider"]')!;
 }
 vi.mock('sortablejs', () => ({ default: { create: vi.fn(() => ({ destroy: vi.fn() })) } }));
 vi.mock('@/services', () => ({ testInstance: vi.fn(async () => ({ valid: true })) }));
@@ -82,7 +82,7 @@ describe('whole-setup settings application', () => {
         if (deepL.providerId === 'deepl') { deepL.name = 'Work'; deepL.credential = { key: 'external-key', validated: false }; }
         listener({ 'setup-v2': { newValue: 'revision' } }, 'local');
         await view.findByText('Work');
-        fireEvent.click(view.getByText('configureInstance'));
+        fireEvent.click(within(view.container.querySelector('[data-id="deepl"]')! as HTMLElement).getByText('configureInstance'));
         expect((view.getByLabelText('apiKeyLabel') as HTMLInputElement).value).toBe('external-key');
         view.unmount();
         await waitFor(() => expect(chrome.storage.onChanged.removeListener).toHaveBeenCalledWith(listener));
@@ -198,7 +198,7 @@ describe('whole-setup settings application', () => {
         await view.findByRole('alert');
         expect(view.getByText('settingsLoadFailed')).toBeTruthy();
         expect(updateSetup).not.toHaveBeenCalled();
-        expect(view.container.querySelector('[data-action="choose-provider"]')).toBeNull();
+        expect(view.container.querySelector('[data-action="add-provider"]')).toBeNull();
         fireEvent.click(view.getByText('retry'));
         await waitFor(() => expect(addProvider(view)).not.toBeNull());
         expect(view.queryByText('settingsLoadFailed')).toBeNull();

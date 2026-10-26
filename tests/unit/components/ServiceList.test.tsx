@@ -82,12 +82,12 @@ describe('translation instances', () => {
         expect(row(view, 'google-web').queryByText('configureInstance')).toBeNull();
         expect(row(view, 'lingva').queryByText('configureInstance')).toBeNull();
         const add = () => {
-            fireEvent.click(view.getByText('availableProviders'));
-            return within(view.container.querySelector('[data-provider="deepl"]')! as HTMLElement).getByRole('button');
+            return within(view.container.querySelector('[data-provider="deepl"]')! as HTMLElement).getByRole('button', { name: 'addProviderInstance' });
         };
         const previousCount = saved.instances.length;
         fireEvent.click(add());
         await view.findByLabelText('instanceName');
+        expect((row(view, 'deepl').getByText('configureInstance') as HTMLButtonElement).disabled).toBe(true);
         expect(saved.instances).toHaveLength(previousCount);
         expect(chrome.permissions.request).not.toHaveBeenCalled();
         fireEvent.click(view.getByText('cancel'));

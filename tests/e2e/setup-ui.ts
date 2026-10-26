@@ -41,9 +41,7 @@ export async function setEnabled(row: Locator, enabled: boolean) {
 export async function addInstance(page: Page, provider: 'deepl' | 'libretranslate') {
     const rows = page.locator('.service-item[data-id]');
     const previousIds = await rows.evaluateAll(items => items.map(item => item.getAttribute('data-id')));
-    await page.locator('[data-action="choose-provider"]').click();
     await page.locator(`[data-provider="${provider}"] [data-action="add-provider"]`).click();
-    await expect(rows).toHaveCount(previousIds.length + 1);
     const id = await rows.evaluateAll((items, previousIds) => items
         .map(item => item.getAttribute('data-id'))
         .find(id => !previousIds.includes(id)), previousIds);

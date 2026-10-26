@@ -33,7 +33,6 @@ test('Firefox grants and repairs real host access for saved settings and native 
         await wait(async () => !await browser.enabled(id), 'initial instance stayed enabled');
     }
     const previousIds = await driver.executeScript('return [...document.querySelectorAll(".service-item")].map(row => row.dataset.id);');
-    await (await element('[data-action="choose-provider"]')).click();
     await (await element('[data-provider="libretranslate"] [data-action="add-provider"]')).click();
     const id = await wait(async () => {
         const ids = await driver.executeScript('return [...document.querySelectorAll(".service-item")].map(row => row.dataset.id);');

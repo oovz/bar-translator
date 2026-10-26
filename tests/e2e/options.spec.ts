@@ -48,7 +48,7 @@ test('keeps copy intent after access revocation and offers repair through the mo
     await expect(grant).toHaveCount(0);
     await copy.click();
     await expect(copy).not.toBeChecked();
-    expect(await page.evaluate(() => window.settingsPermissionMock.removals)).toEqual([
+    await expect.poll(() => page.evaluate(() => window.settingsPermissionMock.removals)).toEqual([
         { permissions: ['clipboardWrite', 'offscreen'] },
     ]);
     await page.reload();

@@ -517,9 +517,6 @@
     "setupMigrationPending": {
         "message": "No se pudo terminar de actualizar la configuración guardada. La configuración anterior sigue activa. Vuelve a intentarlo antes de editar."
     },
-    "availableProviders": {
-        "message": "Añadir proveedor"
-    },
     "draftInstance": {
         "message": "Sin guardar"
     },
@@ -527,7 +524,7 @@
         "message": "Cancelar"
     },
     "addProviderInstance": {
-        "message": "Añadir $1"
+        "message": "Añadir instancia: $1"
     },
     "googleProviderDescription": {
         "message": "El servicio web de Google. No requiere clave API."
@@ -558,5 +555,8 @@
     },
     "customConnectionFailed": {
         "message": "No se pudo confirmar la conexión con $1. Si aparece un aviso, permite el acceso del navegador a la red local y vuelve a usar Probar."
+    },
+    "addInstance": {
+        "message": "Añadir instancia"
     }
 }

@@ -517,9 +517,6 @@
     "setupMigrationPending": {
         "message": "無法完成已儲存設定的升級。原有設定仍在使用，請重試後再編輯。"
     },
-    "availableProviders": {
-        "message": "新增提供者"
-    },
     "draftInstance": {
         "message": "尚未儲存"
     },
@@ -527,7 +524,7 @@
         "message": "取消"
     },
     "addProviderInstance": {
-        "message": "新增 $1"
+        "message": "新增實例：$1"
     },
     "googleProviderDescription": {
         "message": "使用 Google 網頁服務，無需 API 金鑰。"
@@ -558,5 +555,8 @@
     },
     "customConnectionFailed": {
         "message": "無法確認與 $1 的連線。如有提示，請允許瀏覽器存取區域網路，然後再次點選測試。"
+    },
+    "addInstance": {
+        "message": "新增實例"
     }
 }
