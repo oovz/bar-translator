@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { configure, instanceRow, languageInput, message, openSettings, chooseLanguage, observeSettings } from './setup-ui';
+import { addInstance, languageInput, message, openSettings, chooseLanguage, observeSettings } from './setup-ui';
 
 test('opens first-install setup in a dedicated extension tab', async ({ context, extensionId }) => {
     const url = `chrome-extension://${extensionId}/options.html`;
@@ -60,8 +60,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
         const page = await openSettings(context, extensionId, true);
         await page.setViewportSize({ width: 360, height: 840 });
         await page.emulateMedia({ colorScheme });
-        const deepl = instanceRow(page, 'deepl');
-        await configure(page, deepl);
+        const { row: deepl } = await addInstance(page, 'deepl');
         await expect(deepl.getByLabel(await message(page, 'instanceName'), { exact: true })).toBeVisible();
 
         const copy = page.getByRole('checkbox', { name: await message(page, 'enableCopy'), exact: true });

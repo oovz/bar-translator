@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from 'preact/hooks';
+import { useRef, useEffect, useLayoutEffect, useState } from 'preact/hooks';
 import Sortable from 'sortablejs';
 import { t } from '@/utils/i18n';
 import { reconcileSetupAccess } from '@/utils/storage';
@@ -16,6 +16,11 @@ interface ServiceListProps {
 
 type ConfigurableInstance = DeepLInstance | LibreTranslateInstance;
 
+function isUnusedDefaultDeepL(instance: TranslationInstance, enabledIds: readonly string[]): instance is DeepLInstance {
+    return instance.id === 'deepl' && instance.providerId === 'deepl' && instance.name === 'DeepL' &&
+        instance.credential === undefined && !enabledIds.includes(instance.id);
+}
+
 function usesCustomServer(instance: TranslationInstance): instance is LibreTranslateInstance {
     return instance.providerId === 'libretranslate' && instance.hosting === 'custom';
 }
@@ -30,11 +35,14 @@ function configurationIdentity(instance: ConfigurableInstance): string {
     });
 }
 
-function InstanceEditor({ instance, enabled, allowed, isNew, onCancel, updateSetup }: {
+function InstanceEditor({ instance, enabled, allowed, isNew, replaces, transitioning, onTransitionBlockedChange, onCancel, updateSetup }: {
     instance: ConfigurableInstance;
     enabled: boolean;
     allowed: boolean;
     isNew: boolean;
+    replaces?: DeepLInstance;
+    transitioning: boolean;
+    onTransitionBlockedChange: (blocked: boolean) => void;
     onCancel: () => void;
     updateSetup: ServiceListProps['updateSetup'];
 }) {
@@ -89,6 +97,11 @@ function InstanceEditor({ instance, enabled, allowed, isNew, onCancel, updateSet
     const dirty = isNew || name !== instance.name || key !== (instance.credential?.key ?? '') ||
         (instance.providerId === 'deepl' && tier !== savedTier) ||
         (instance.providerId === 'libretranslate' && (endpoint !== instance.endpoint || hosting !== instance.hosting));
+    const locked = busy || testing || transitioning;
+    useLayoutEffect(() => {
+        onTransitionBlockedChange(dirty || busy || testing);
+    }, [dirty, busy, testing, onTransitionBlockedChange]);
+    useLayoutEffect(() => () => onTransitionBlockedChange(false), [onTransitionBlockedChange]);
 
     const save = async () => {
         setBusy(true);
@@ -114,7 +127,12 @@ function InstanceEditor({ instance, enabled, allowed, isNew, onCancel, updateSet
                         ? { ...instance, name: name.trim(), credential }
                         : { ...instance, name: name.trim(), endpoint: normalized, hosting, credential };
                     ownSaveIdentity.current = `${configurationIdentity(next)}:${next.name}`;
-                    return { ...current, instances: [...current.instances, next] };
+                    // The unused default slot remains saved until setup succeeds. Preserve
+                    // it if another settings page configured or activated it meanwhile.
+                    const instances = current.instances.filter(candidate => !(replaces &&
+                        candidate.id === replaces.id && JSON.stringify(candidate) === JSON.stringify(replaces) &&
+                        isUnusedDefaultDeepL(candidate, current.preferences.fallbackOrder)));
+                    return { ...current, instances: [...instances, next] };
                 }
                 if (!existing || existing.providerId !== instance.providerId || !('name' in existing) ||
                     JSON.stringify(existing) !== previousIdentity) throw new Error(t('instanceChanged'));
@@ -168,13 +186,13 @@ function InstanceEditor({ instance, enabled, allowed, isNew, onCancel, updateSet
     return <div class="api-key-section instance-editor" id={`instance-${instance.id}`}>
         <div class="form-group">
             <label htmlFor={`instance-name-${instance.id}`}>{t('instanceName')}</label>
-            <input id={`instance-name-${instance.id}`} class="input" value={name} maxLength={128} disabled={busy || testing} autoFocus={isNew}
+            <input id={`instance-name-${instance.id}`} class="input" value={name} maxLength={128} disabled={locked} autoFocus={isNew}
                 onInput={event => { setName(event.currentTarget.value); setFeedback(''); }} />
         </div>
         {instance.providerId === 'libretranslate' && <>
             <div class="form-group">
                 <label htmlFor={`instance-hosting-${instance.id}`}>{t('libreHosting')}</label>
-                <select id={`instance-hosting-${instance.id}`} class="select" value={hosting} disabled={busy || testing}
+                <select id={`instance-hosting-${instance.id}`} class="select" value={hosting} disabled={locked}
                     onChange={event => changeHosting(event.currentTarget.value as 'managed' | 'custom')}>
                     <option value="managed">{t('libreManaged')}</option>
                     <option value="custom">{t('libreCustom')}</option>
@@ -182,7 +200,7 @@ function InstanceEditor({ instance, enabled, allowed, isNew, onCancel, updateSet
             </div>
             <div class="form-group">
                 <label htmlFor={`instance-endpoint-${instance.id}`}>{t('instanceEndpoint')}</label>
-                <input id={`instance-endpoint-${instance.id}`} class="input" type="url" value={endpoint} disabled={busy || testing || hosting === 'managed'}
+                <input id={`instance-endpoint-${instance.id}`} class="input" type="url" value={endpoint} disabled={locked || hosting === 'managed'}
                     maxLength={2048} autoComplete="off" spellcheck={false} onInput={event => changedEndpoint(event.currentTarget.value)} />
                 <div class="setting-hint">{t('endpointDescription')}</div>
                 {endpoint.toLowerCase().startsWith('http:') && <div class="feedback feedback-warning">{t('httpEndpointWarning')}</div>}
@@ -193,22 +211,22 @@ function InstanceEditor({ instance, enabled, allowed, isNew, onCancel, updateSet
             <label htmlFor={`instance-key-${instance.id}`}>{instance.providerId === 'libretranslate' && hosting === 'custom' ? t('optionalApiKey') : t('apiKeyLabel')}</label>
             <div class="api-key-input">
                 <input id={`instance-key-${instance.id}`} {...(showKey ? { type: 'text' as const } : { type: 'password' as const })} class="input" value={key}
-                    disabled={busy || testing || endpointChanged} maxLength={8192} autoComplete="off" spellcheck={false}
+                    disabled={locked || endpointChanged} maxLength={8192} autoComplete="off" spellcheck={false}
                     onInput={event => { setKey(event.currentTarget.value); if (instance.providerId === 'deepl') setTier(event.currentTarget.value.endsWith(':fx') ? 'free' : 'pro'); setFeedback(''); }} />
                 <button class="btn btn-sm" onClick={() => setShowKey(previous => !previous)}>{showKey ? t('hide') : t('show')}</button>
             </div>
         </div>
         {instance.providerId === 'deepl' && <div class="form-group">
             <label htmlFor={`instance-tier-${instance.id}`}>{t('deepLTier')}</label>
-            <select id={`instance-tier-${instance.id}`} class="select" value={tier} disabled={busy || testing}
+            <select id={`instance-tier-${instance.id}`} class="select" value={tier} disabled={locked}
                 onChange={event => setTier(event.currentTarget.value as 'free' | 'pro')}>
                 <option value="free">DeepL API Free</option><option value="pro">DeepL API Pro</option>
             </select>
         </div>}
         <div class="instance-editor-actions">
-            <button class="btn btn-sm btn-primary" data-action="save-instance" disabled={busy || testing || !dirty} onClick={() => void save()}>{t('saveInstance')}</button>
-            {isNew && <button class="btn btn-sm" data-action="cancel-instance" disabled={busy} onClick={onCancel}>{t('cancel')}</button>}
-            <button class="btn btn-sm" disabled={busy || testing || dirty || !enabled || !allowed ||
+            <button class="btn btn-sm btn-primary" data-action="save-instance" disabled={locked || !dirty} onClick={() => void save()}>{t('saveInstance')}</button>
+            {isNew && <button class="btn btn-sm" data-action="cancel-instance" disabled={busy || transitioning} onClick={onCancel}>{t('cancel')}</button>}
+            <button class="btn btn-sm" disabled={locked || dirty || !enabled || !allowed ||
                 ((instance.providerId === 'deepl' || instance.hosting === 'managed') && !instance.credential?.key)} onClick={() => void test()}>
                 {testing ? t('checking') : t('testKey')}
             </button>
@@ -222,24 +240,28 @@ function InstanceEditor({ instance, enabled, allowed, isNew, onCancel, updateSet
 export function ServiceList({ setup, updateSetup }: ServiceListProps) {
     const serviceListRef = useRef<HTMLUListElement>(null);
     const [expanded, setExpanded] = useState<string | null>(null);
+    const [editorTransitionBlocked, setEditorTransitionBlocked] = useState(false);
     const [access, setAccess] = useState<Record<string, boolean>>({});
     const [anyAccess, setAnyAccess] = useState<Record<string, boolean>>({});
     const [busy, setBusy] = useState<string | null>(null);
     const [error, setError] = useState('');
     const [draft, setDraft] = useState<ConfigurableInstance | null>(null);
+    const [replacedDefault, setReplacedDefault] = useState<DeepLInstance | undefined>();
     const [connectionFeedback, setConnectionFeedback] = useState<{ name: string; connected: boolean } | null>(null);
     const connection = useRef<AbortController | null>(null);
     const accessRevision = useRef(0);
     const enabledIds = setup.preferences.fallbackOrder;
     const enabled = enabledIds.map(id => setup.instances.find(instance => instance.id === id)).filter(instance => instance !== undefined);
-    const disabled = setup.instances.filter(instance => !enabledIds.includes(instance.id));
+    const unusedDefault = setup.instances.find(instance => isUnusedDefaultDeepL(instance, enabledIds));
+    const configured = setup.instances.filter(instance => instance !== unusedDefault);
+    const disabled = configured.filter(instance => !enabledIds.includes(instance.id));
     const inactive = disabled.filter(instance => instance.id !== draft?.id);
     if (draft) inactive.push(setup.instances.find(instance => instance.id === draft.id) ?? draft);
-    // Keep unconfigured providers visible without changing the saved setup.
+    // Provider choices are presentation-only; opening or cancelling setup never writes storage.
     const visibleIds = new Set([...setup.instances.map(instance => instance.id), ...(draft ? [draft.id] : [])]);
     const placeholders: ConfigurableInstance[] = [];
     for (const provider of ['deepl', 'libretranslate'] as const) {
-        if (setup.instances.some(instance => instance.providerId === provider) || draft?.providerId === provider) continue;
+        if (draft?.providerId === provider) continue;
         let id = `available:${provider}`;
         while (visibleIds.has(id)) id = `available:${id}`;
         visibleIds.add(id);
@@ -248,14 +270,6 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
             : { id, providerId: provider, name: 'LibreTranslate', endpoint: MANAGED_LIBRETRANSLATE_ENDPOINT, hosting: 'managed' });
     }
     const placeholderIds = new Set(placeholders.map(instance => instance.id));
-    const listed = [
-        ...enabled.map((instance, index) => ({ instance, index })),
-        ...[...inactive, ...placeholders].map(instance => ({ instance, index: undefined })),
-    ];
-    const firstInstanceIds = new Map<string, string>();
-    for (const { instance } of listed) {
-        if (!firstInstanceIds.has(instance.providerId)) firstInstanceIds.set(instance.providerId, instance.id);
-    }
 
     useEffect(() => () => connection.current?.abort(), []);
     useEffect(() => {
@@ -295,6 +309,7 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
         catch { setError(t('permissionRemoveFailed')); }
     };
     const toggle = (instance: TranslationInstance) => {
+        if (busy !== null || (expanded === instance.id && editorTransitionBlocked)) return;
         const enabling = !enabledIds.includes(instance.id);
         const grant = enabling ? requestInstanceAccess(instance) : undefined;
         const controller = new AbortController();
@@ -384,6 +399,7 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
     const add = (providerId: 'deepl' | 'libretranslate') => {
         if (draft) return;
         const instance = createInstance(providerId);
+        setReplacedDefault(providerId === 'deepl' && unusedDefault?.providerId === 'deepl' ? unusedDefault : undefined);
         setDraft(instance);
         setExpanded(instance.id);
     };
@@ -426,6 +442,7 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
         const configurable = 'name' in instance;
         const isNew = draft?.id === instance.id && !setup.instances.some(saved => saved.id === instance.id);
         const isPlaceholder = placeholderIds.has(instance.id);
+        const hasConfiguration = configured.some(saved => saved.providerId === instance.providerId);
         const name = getInstanceName(instance);
         const needsKey = (instance.providerId === 'deepl' || (instance.providerId === 'libretranslate' && instance.hosting === 'managed')) && !instance.credential?.key;
         const ready = access[instance.id] && !needsKey;
@@ -460,22 +477,21 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
                         <button class="btn btn-sm" aria-label={t('moveInstanceDown', [name])} disabled={index === enabled.length - 1 || busy !== null} onClick={() => move(instance.id, 1)}>↓</button>
                     </>}
                     {configurable && isPlaceholder && <button class="btn btn-sm btn-primary" data-action="add-provider"
-                        aria-label={t('configureNamedInstance', [name])} disabled={busy !== null || draft !== null}
-                        onClick={() => add(instance.providerId)}>{t('configureInstance')}</button>}
+                        aria-label={t(hasConfiguration ? 'addProviderInstance' : 'configureNamedInstance', [name])} disabled={busy !== null || draft !== null}
+                        onClick={() => add(instance.providerId)}>{t(hasConfiguration ? 'addInstance' : 'configureInstance')}</button>}
                     {configurable && !isNew && !isPlaceholder && <button class="btn btn-sm" aria-label={t('configureNamedInstance', [name])} aria-expanded={expanded === instance.id} aria-controls={`instance-${instance.id}`}
                         disabled={busy !== null || (draft !== null && draft.id !== instance.id)} onClick={() => setExpanded(expanded === instance.id ? null : instance.id)}>{t('configureInstance')}</button>}
                     {!isNew && !isPlaceholder && <button class={`btn btn-sm ${!isEnabled ? 'btn-primary' : ''}`}
                         data-action={isEnabled ? 'disable-instance' : usesCustomServer(instance) ? 'connect-instance' : 'enable-instance'}
                         aria-label={t(isEnabled ? 'disableInstance' : usesCustomServer(instance) ? 'connectInstance' : 'enableInstance', [name])}
-                        disabled={busy !== null} onClick={() => toggle(instance)}>{isEnabled ? '✕' : usesCustomServer(instance) ? t('connect') : '+'}</button>}
+                        disabled={busy !== null || (expanded === instance.id && editorTransitionBlocked)} onClick={() => toggle(instance)}>{isEnabled ? '✕' : usesCustomServer(instance) ? t('connect') : '+'}</button>}
                     {configurable && !isNew && !isPlaceholder && <button class="btn btn-sm" aria-label={t('deleteNamedInstance', [name])} disabled={busy !== null} onClick={() => void remove(instance)}>{t('deleteInstance')}</button>}
-                    {configurable && !isNew && !isPlaceholder && firstInstanceIds.get(instance.providerId) === instance.id &&
-                        <button class="btn btn-sm" data-action="add-provider" aria-label={t('addProviderInstance', [instance.providerId === 'deepl' ? 'DeepL' : 'LibreTranslate'])}
-                            disabled={busy !== null || draft !== null} onClick={() => add(instance.providerId)}>{t('addInstance')}</button>}
                 </div>
             </div>
             {configurable && expanded === instance.id && <InstanceEditor instance={instance} enabled={isEnabled} allowed={Boolean(access[instance.id])}
-                isNew={isNew} onCancel={() => { setDraft(null); setExpanded(null); }} updateSetup={updateSetup} />}
+                isNew={isNew} replaces={isNew ? replacedDefault : undefined}
+                transitioning={busy === instance.id} onTransitionBlockedChange={setEditorTransitionBlocked}
+                onCancel={() => { setDraft(null); setReplacedDefault(undefined); setExpanded(null); }} updateSetup={updateSetup} />}
         </li>;
     };
 
@@ -486,9 +502,14 @@ export function ServiceList({ setup, updateSetup }: ServiceListProps) {
         {connectionFeedback && <div class={`feedback ${connectionFeedback.connected ? 'feedback-success' : 'feedback-warning'}`} role="status">
             {t(connectionFeedback.connected ? 'instanceConnected' : 'customConnectionFailed', [connectionFeedback.name])}
         </div>}
-        <ul class="service-list" id="instance-priority" aria-label={t('sectionTranslationServices')} ref={serviceListRef}>
-            {listed.map(({ instance, index }) => row(instance, index))}
+        <h3 class="service-group-title" id="activated-instances-heading">{t('activatedInstances')}</h3>
+        <ul class="service-list" id="instance-priority" aria-labelledby="activated-instances-heading" ref={serviceListRef}>
+            {enabled.map((instance, index) => row(instance, index))}
         </ul>
         {!enabled.length && <div class="feedback feedback-warning">{t('noServicesEnabled')}</div>}
+        <h3 class="service-group-title" id="available-providers-heading">{t('availableProviders')}</h3>
+        <ul class="service-list" id="available-providers" aria-labelledby="available-providers-heading">
+            {[...inactive, ...placeholders].map(instance => row(instance))}
+        </ul>
     </div>;
 }

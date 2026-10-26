@@ -90,6 +90,7 @@ describe('whole-setup settings application', () => {
 
     it('merges a delayed enablement with newer language and provider choices', async () => {
         state.setup.preferences.fallbackOrder = ['google-web'];
+        state.setup.instances = state.setup.instances.map(instance => instance.providerId === 'deepl' ? { ...instance, name: 'Saved account' } : instance);
         let grant!: (granted: boolean) => void;
         vi.mocked(chrome.permissions.request).mockImplementationOnce(() => new Promise<boolean>(resolve => { grant = resolve; }));
         const view = render(<App />);

@@ -34,6 +34,12 @@
     "sectionTranslationServices": {
         "message": "翻訳サービス"
     },
+    "activatedInstances": {
+        "message": "有効なインスタンス"
+    },
+    "availableProviders": {
+        "message": "利用可能なプロバイダー"
+    },
     "servicesDesc": {
         "message": "テキストの送信を許可するインスタンスのみ有効にしてください。順番に試行し、失敗した場合は後続の有効なインスタンスにも同じテキストが送信されます。ドラッグまたは矢印で順番を変更できます。"
     },
@@ -425,7 +431,7 @@
         "message": "変更を保存"
     },
     "saveBeforeTesting": {
-        "message": "テストの前に変更を保存してください。"
+        "message": "テストや有効・無効の切り替えの前に変更を保存してください。"
     },
     "instanceTestDescription": {
         "message": "テストでは固定のサンプルリクエストを送信します。テストは任意で、インスタンスの有効・無効は変わりません。"

@@ -34,6 +34,12 @@
     "sectionTranslationServices": {
         "message": "Servicios de traducción"
     },
+    "activatedInstances": {
+        "message": "Instancias activas"
+    },
+    "availableProviders": {
+        "message": "Proveedores disponibles"
+    },
     "servicesDesc": {
         "message": "Activa solo las instancias a las que permitas recibir tu texto. Se prueban en orden; las siguientes pueden recibir el mismo texto si falla una anterior. Arrastra o usa las flechas para cambiar el orden."
     },
@@ -425,7 +431,7 @@
         "message": "Guardar cambios"
     },
     "saveBeforeTesting": {
-        "message": "Guarda los cambios antes de probar."
+        "message": "Guarda los cambios antes de probar o cambiar la activación."
     },
     "instanceTestDescription": {
         "message": "La prueba envía una solicitud de ejemplo fija. Es opcional y no activa ni desactiva esta instancia."

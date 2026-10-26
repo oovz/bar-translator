@@ -39,6 +39,12 @@
     "sectionTranslationServices": {
         "message": "Translation Services"
     },
+    "activatedInstances": {
+        "message": "Activated instances"
+    },
+    "availableProviders": {
+        "message": "Available providers"
+    },
     "servicesDesc": {
         "message": "Enable only instances you allow to receive your text. They are tried in order; later enabled instances may receive the same text if an earlier one fails. Drag or use the arrows to reorder."
     },
@@ -433,7 +439,7 @@
         "message": "Save changes"
     },
     "saveBeforeTesting": {
-        "message": "Save changes before testing."
+        "message": "Save changes before testing or changing activation."
     },
     "instanceTestDescription": {
         "message": "Testing sends a fixed sample request. It is optional and does not enable or disable this instance."

@@ -1,11 +1,11 @@
 import { test, expect } from './fixtures';
-import { addInstance, chooseLanguage, configure, instanceRow, languageInput, message, nameAndKey, openSettings, saveInstance } from './setup-ui';
+import { addInstance, chooseLanguage, configure, languageInput, message, nameAndKey, openSettings, saveInstance } from './setup-ui';
 
 test('switches complete setups with explicit use and replace choices instead of merging them', async ({ context, extensionId }) => {
     const page = await openSettings(context, extensionId, true);
     const selector = page.getByRole('combobox', { name: await message(page, 'labelStorage'), exact: true });
     await expect(selector).toHaveValue('local');
-    const deepl = instanceRow(page, 'deepl');
+    const { row: deepl } = await addInstance(page, 'deepl');
     await nameAndKey(page, deepl, 'Local account', 'local-account-fixture:fx');
     await chooseLanguage(page, 'target', 'French');
     const privateService = await addInstance(page, 'libretranslate');
@@ -60,7 +60,7 @@ test('switches complete setups with explicit use and replace choices instead of 
 for (const stage of ['destination', 'selection'] as const) {
     test(`keeps the local setup usable after a ${stage} write failure and retries safely`, async ({ context, extensionId }) => {
         const page = await openSettings(context, extensionId);
-        const deepl = instanceRow(page, 'deepl');
+        const { row: deepl } = await addInstance(page, 'deepl');
         await nameAndKey(page, deepl, 'Recoverable account', 'recoverable-fixture:fx');
         await chooseLanguage(page, 'target', 'French');
         await page.evaluate(failure => {

@@ -25,6 +25,21 @@ test('Firefox grants and repairs real host access for saved settings and native 
     assert.deepEqual((await permissions()).origins, []);
     assert.ok(!(await permissions()).permissions.includes('clipboardWrite'));
     assert.equal(await (await element('#enable-copy')).isSelected(), false);
+    assert.equal((await driver.findElements(By.css('#instance-priority .service-item'))).length, 1);
+    assert.equal((await driver.findElements(By.css('#available-providers .service-item'))).length, 3);
+    for (const provider of ['deepl', 'libretranslate']) {
+        const choice = `[data-provider="${provider}"]`;
+        assert.equal((await driver.findElements(By.css(`${choice} button`))).length, 1);
+        await (await element(`${choice} [data-action="add-provider"]`)).click();
+        const draft = await element('#available-providers .service-item:has([data-action="cancel-instance"])');
+        const draftId = await draft.getAttribute('data-id');
+        assert.equal(await browser.enabled(draftId), false);
+        await (await element(`${rowSelector(draftId)} [data-action="cancel-instance"]`)).click();
+        await wait(async () => !(await driver.findElements(By.css(rowSelector(draftId)))).length,
+            'cancelled provider draft remained visible');
+        assert.deepEqual((await permissions()).origins, []);
+        assertRequests(0, []);
+    }
     const initialEnabled = await driver.findElements(By.css('.service-item.enabled'));
     for (const row of initialEnabled) {
         const id = await row.getAttribute('data-id');

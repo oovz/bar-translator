@@ -34,6 +34,12 @@
     "sectionTranslationServices": {
         "message": "翻译服务"
     },
+    "activatedInstances": {
+        "message": "已启用的实例"
+    },
+    "availableProviders": {
+        "message": "可用提供商"
+    },
     "servicesDesc": {
         "message": "仅启用您允许接收文本的实例。系统按顺序尝试；前面的实例失败时，后续实例也可能收到相同文本。可拖动或使用箭头调整顺序。"
     },
@@ -425,7 +431,7 @@
         "message": "保存更改"
     },
     "saveBeforeTesting": {
-        "message": "请先保存更改，再进行测试。"
+        "message": "请先保存更改，再进行测试或切换启用状态。"
     },
     "instanceTestDescription": {
         "message": "测试会发送固定的示例请求。测试是可选的，不会启用或停用此实例。"

@@ -34,6 +34,12 @@
     "sectionTranslationServices": {
         "message": "翻譯服務"
     },
+    "activatedInstances": {
+        "message": "已啟用的執行個體"
+    },
+    "availableProviders": {
+        "message": "可用供應商"
+    },
     "servicesDesc": {
         "message": "僅啟用您允許接收文字的執行個體。系統依序嘗試；先前的執行個體失敗時，後續執行個體也可能收到相同文字。可拖曳或使用箭頭調整順序。"
     },
@@ -425,7 +431,7 @@
         "message": "儲存變更"
     },
     "saveBeforeTesting": {
-        "message": "請先儲存變更，再進行測試。"
+        "message": "請先儲存變更，再進行測試或切換啟用狀態。"
     },
     "instanceTestDescription": {
         "message": "測試會傳送固定的範例要求。測試為選用，不會啟用或停用此執行個體。"

@@ -9,7 +9,7 @@ Firefox displays a stable instruction in the default address-bar row and the com
 Settings open in a dedicated tab after a new installation. You can reopen them through the extension's options in your browser.
 
 1. Choose a source and target language. **Auto-detect** is available as a source choice.
-2. Google Web, Lingva, DeepL and LibreTranslate appear together in the translation-priority list. Only Google Web is enabled in a new setup. Use **Configure** on a provider's row to set it up there, or **Add instance** on a DeepL or LibreTranslate row for another configuration. Saving keeps a new instance disabled, and cancelling discards the draft.
+2. Translation services are grouped into **Activated instances** and **Available providers**. Only Google Web is active in a new setup; Lingva, DeepL and LibreTranslate are available below it. DeepL and LibreTranslate both start with **Configure**, which opens a draft. Save the draft before activating it, or use **Cancel** to discard it. **Add instance** creates another configuration for either provider; saved inactive instances also appear under Available providers.
 3. Enable the saved instances you allow to receive your text. For a custom LibreTranslate server, use **Connect**. Grant the requested domain access when prompted.
 4. Reorder enabled instances into your preferred sequence.
 5. Optionally enable **Enter to copy** and grant clipboard access.

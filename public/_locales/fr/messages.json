@@ -36,6 +36,12 @@
     "sectionTranslationServices": {
         "message": "Services de traduction"
     },
+    "activatedInstances": {
+        "message": "Instances actives"
+    },
+    "availableProviders": {
+        "message": "Fournisseurs disponibles"
+    },
     "servicesDesc": {
         "message": "Activez uniquement les instances autorisées à recevoir votre texte. Elles sont essayées dans l’ordre ; les suivantes peuvent recevoir le même texte si une précédente échoue. Faites-les glisser ou utilisez les flèches pour changer l’ordre."
     },
@@ -427,7 +433,7 @@
         "message": "Enregistrer les modifications"
     },
     "saveBeforeTesting": {
-        "message": "Enregistrez les modifications avant le test."
+        "message": "Enregistrez les modifications avant de tester ou de modifier l’activation."
     },
     "instanceTestDescription": {
         "message": "Le test envoie une requête d’exemple fixe. Il est facultatif et n’active ni ne désactive cette instance."

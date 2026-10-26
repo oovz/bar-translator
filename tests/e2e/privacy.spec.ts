@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import { chooseLanguage, instanceRow, languageInput, message, nameAndKey, openSettings, saveInstance, setEnabled } from './setup-ui';
+import { addInstance, chooseLanguage, languageInput, message, nameAndKey, openSettings, saveInstance, setEnabled } from './setup-ui';
 
 test('keeps current configuration separate from legacy recovery data and avoids sensitive diagnostics', async ({ context, extensionId }) => {
     const requests: string[] = [];
@@ -29,7 +29,7 @@ test('keeps current configuration separate from legacy recovery data and avoids 
         local: { unrelated: 'preserved' }, session: { unrelated: 'preserved' },
     });
 
-    const deepl = instanceRow(page, 'deepl');
+    const { row: deepl } = await addInstance(page, 'deepl');
     const alias = '<script>account & one</script>';
     await nameAndKey(page, deepl, alias, 'private-current-fixture:fx');
     await expect(deepl.locator('.service-name')).toHaveText(alias);

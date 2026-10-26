@@ -39,6 +39,7 @@ function row(view: ReturnType<typeof render>, id: string) {
 beforeEach(() => {
     vi.clearAllMocks();
     saved = createDefaultSetup();
+    saved.instances = saved.instances.map(instance => instance.providerId === 'deepl' ? { ...instance, name: 'Saved account' } : instance);
     saveFails = false;
     origins = new Set(['https://translate.googleapis.com/*', 'https://api-free.deepl.com/*', 'https://api.deepl.com/*']);
     vi.mocked(chrome.permissions.contains).mockImplementation(async value => (value.origins ?? []).every(origin => origins.has(origin)));
@@ -77,34 +78,69 @@ describe('translation instances', () => {
         });
     });
 
-    it('has fixed singleton labels and creates independently named disabled DeepL instances', async () => {
+    it.each(['deepl', 'libretranslate'] as const)('uses the same cancellable setup and explicit activation for fresh %s', async provider => {
+        saved = createDefaultSetup();
+        const initial = structuredClone(saved);
         const view = render(<Harness />);
+        const activated = view.getByRole('list', { name: 'activatedInstances' });
+        const available = view.getByRole('list', { name: 'availableProviders' });
+        expect(within(activated).getByText('Google Web')).toBeTruthy();
+        expect(within(available).getByText('Lingva')).toBeTruthy();
         expect(row(view, 'google-web').queryByText('configureInstance')).toBeNull();
         expect(row(view, 'lingva').queryByText('configureInstance')).toBeNull();
-        const add = () => {
-            return within(view.container.querySelector('[data-provider="deepl"]')! as HTMLElement).getByRole('button', { name: 'addProviderInstance' });
-        };
-        const previousCount = saved.instances.length;
-        fireEvent.click(add());
+        const choice = () => view.container.querySelector(`[data-provider="${provider}"]`)! as HTMLElement;
+        expect(within(choice()).getAllByRole('button')).toHaveLength(1);
+        expect(within(choice()).getByRole('button', { name: 'configureNamedInstance' })).toBeTruthy();
+        fireEvent.click(within(choice()).getByRole('button'));
         await view.findByLabelText('instanceName');
-        expect((row(view, 'deepl').getByText('configureInstance') as HTMLButtonElement).disabled).toBe(true);
-        expect(saved.instances).toHaveLength(previousCount);
+        expect(saved).toEqual(initial);
         expect(chrome.permissions.request).not.toHaveBeenCalled();
         fireEvent.click(view.getByText('cancel'));
         expect(view.queryByLabelText('instanceName')).toBeNull();
-        expect(saved.instances).toHaveLength(previousCount);
-        fireEvent.click(add());
-        const name = await view.findByLabelText('instanceName');
-        fireEvent.input(name, { target: { value: '<Home account>' } });
+        expect(saved).toEqual(initial);
+        fireEvent.click(within(choice()).getByRole('button'));
+        fireEvent.input(await view.findByLabelText('instanceName'), { target: { value: '<Home account>' } });
+        saveFails = true;
         fireEvent.click(view.getByText('saveInstance'));
-        await view.findByText('<Home account>');
+        await view.findByText('settingsSaveFailed');
+        expect(saved).toEqual(initial);
+        expect(view.getByText('cancel')).toBeTruthy();
+        saveFails = false;
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('instanceSaved');
         expect(view.container.querySelector('Home')).toBeNull();
-        const added = saved.instances.find(instance => instance.id !== 'deepl' && instance.providerId === 'deepl')!;
-        expect(saved.preferences.fallbackOrder).not.toContain(added.id);
+        const added = saved.instances.find(instance => instance.providerId === provider)!;
+        expect(saved.instances.filter(instance => instance.providerId === provider)).toHaveLength(1);
+        expect(added.id).not.toBe('deepl');
+        expect(saved.preferences.fallbackOrder).toEqual(['google-web']);
+        expect(available.contains(view.container.querySelector(`[data-id="${added.id}"]`))).toBe(true);
+        expect(chrome.permissions.request).not.toHaveBeenCalled();
+        expect(testInstance).not.toHaveBeenCalled();
+        await waitFor(() => expect(view.container.querySelectorAll(`[data-provider="${provider}"] [data-action="add-provider"]`)).toHaveLength(1));
         fireEvent.click(row(view, added.id).getByRole('button', { name: 'enableInstance' }));
-        expect(chrome.permissions.request).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
+        expect(chrome.permissions.request).toHaveBeenCalledWith({ origins: provider === 'deepl'
+            ? ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] : ['https://libretranslate.com/*'] });
         await waitFor(() => expect(saved.preferences.fallbackOrder).toEqual(['google-web', added.id]));
+        expect(activated.contains(view.container.querySelector(`[data-id="${added.id}"]`))).toBe(true);
+    });
+
+    it.each(['renamed', 'credentialed', 'activated'] as const)('preserves a default DeepL slot %s by another page during setup', async change => {
+        saved = createDefaultSetup();
+        const view = render(<Harness />);
+        fireEvent.click(view.container.querySelector('[data-provider="deepl"] [data-action="add-provider"]')!);
+        fireEvent.input(await view.findByLabelText('instanceName'), { target: { value: 'New account' } });
+        const original = saved.instances.find(instance => instance.id === 'deepl')!;
+        if (original.providerId !== 'deepl') throw new Error('Expected the default DeepL slot');
+        if (change === 'renamed') original.name = 'Changed elsewhere';
+        if (change === 'credentialed') original.credential = { key: 'external-fixture', validated: true };
+        if (change === 'activated') saved.preferences.fallbackOrder.push('deepl');
+        const retained = structuredClone(original);
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('instanceSaved');
+        expect(saved.instances.find(instance => instance.id === 'deepl')).toEqual(retained);
         expect(saved.instances.filter(instance => instance.providerId === 'deepl')).toHaveLength(2);
+        expect(saved.preferences.fallbackOrder).toEqual(change === 'activated' ? ['google-web', 'deepl'] : ['google-web']);
+        expect(row(view, 'deepl').getByText('configureInstance')).toBeTruthy();
     });
 
     it('keeps a denied instance disabled without submitting its configuration', async () => {
@@ -140,6 +176,7 @@ describe('translation instances', () => {
         fireEvent.click(row(view, 'deepl').getByRole('button', { name: 'disableInstance' }));
         await waitFor(() => expect(saved.preferences.fallbackOrder).toEqual(['work']));
         expect(chrome.permissions.remove).not.toHaveBeenCalled();
+        await waitFor(() => expect((row(view, 'work').getByRole('button', { name: 'disableInstance' }) as HTMLButtonElement).disabled).toBe(false));
         fireEvent.click(row(view, 'work').getByRole('button', { name: 'disableInstance' }));
         await waitFor(() => expect(chrome.permissions.remove).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] }));
         expect(saved.preferences.fallbackOrder).toEqual([]);
@@ -185,10 +222,23 @@ describe('translation instances', () => {
         const view = render(<Harness />);
         fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
         expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(true);
+        fireEvent.input(view.getByLabelText('instanceName'), { target: { value: 'Pending account' } });
+        expect((row(view, 'deepl').getByRole('button', { name: 'enableInstance' }) as HTMLButtonElement).disabled).toBe(true);
         fireEvent.click(row(view, 'deepl').getByRole('button', { name: 'enableInstance' }));
+        expect(saved.preferences.fallbackOrder).not.toContain('deepl');
+        expect((view.getByLabelText('instanceName') as HTMLInputElement).value).toBe('Pending account');
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('instanceSaved');
+        await waitFor(() => expect((row(view, 'deepl').getByRole('button', { name: 'enableInstance' }) as HTMLButtonElement).disabled).toBe(false));
+        let finishGrant!: (granted: boolean) => void;
+        vi.mocked(chrome.permissions.request).mockImplementationOnce(() => new Promise(resolve => { finishGrant = resolve; }));
+        fireEvent.click(row(view, 'deepl').getByRole('button', { name: 'enableInstance' }));
+        expect((view.getByLabelText('instanceName') as HTMLInputElement).disabled).toBe(true);
+        finishGrant(true);
         await waitFor(() => expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false));
         fireEvent.input(view.getByLabelText('instanceName'), { target: { value: 'Changed' } });
         expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(true);
+        expect((row(view, 'deepl').getByRole('button', { name: 'disableInstance' }) as HTMLButtonElement).disabled).toBe(true);
         fireEvent.click(view.getByText('saveInstance'));
         await view.findByText('instanceSaved');
         vi.mocked(testInstance).mockResolvedValueOnce({ valid: false });

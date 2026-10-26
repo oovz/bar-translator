@@ -6,7 +6,9 @@ import { addInstance, configure, enabledIds, instanceRow, message, nameAndKey, o
 
 test('starts without optional access and keeps single-instance provider names fixed', async ({ context, extensionId }) => {
     const page = await openSettings(context, extensionId);
-    const providers = page.getByRole('list', { name: await message(page, 'sectionTranslationServices'), exact: true });
+    const providers = page.locator('#providers');
+    await expect(page.getByRole('list', { name: await message(page, 'activatedInstances'), exact: true }).locator('.service-item')).toHaveCount(1);
+    await expect(page.getByRole('list', { name: await message(page, 'availableProviders'), exact: true }).locator('.service-item')).toHaveCount(3);
     for (const name of ['Google Web', 'Lingva', 'DeepL', 'LibreTranslate']) {
         await expect(providers.getByText(name, { exact: true })).toBeVisible();
     }
@@ -21,8 +23,18 @@ test('starts without optional access and keeps single-instance provider names fi
         await expect(row.getByText(await message(page, 'configureInstance'), { exact: true })).toHaveCount(0);
         await expect(row.locator('input')).toHaveCount(0);
     }
-    await configure(page, instanceRow(page, 'deepl'));
-    await expect(instanceRow(page, 'deepl').getByLabel(await message(page, 'instanceName'), { exact: true })).toBeVisible();
+    for (const provider of ['deepl', 'libretranslate'] as const) {
+        const choice = page.locator(`[data-provider="${provider}"]`);
+        await expect(choice.getByRole('button')).toHaveCount(1);
+        await expect(choice.getByRole('button', { name: await message(page, 'configureNamedInstance', [provider === 'deepl' ? 'DeepL' : 'LibreTranslate']), exact: true })).toBeVisible();
+        const draft = await addInstance(page, provider);
+        await expect(draft.row.getByLabel(await message(page, 'instanceName'), { exact: true })).toBeVisible();
+        await draft.row.locator('[data-action="cancel-instance"]').click();
+        await expect(draft.row).toHaveCount(0);
+        expect(await enabledIds(page)).toEqual(['google-web']);
+    }
+    await page.reload();
+    await expect(page.locator('#available-providers .service-item')).toHaveCount(3);
 });
 
 test('keeps two DeepL configurations distinct and tests only explicitly enabled instances through the mocked permission boundary', async ({ context, extensionId }) => {
@@ -44,12 +56,12 @@ test('keeps two DeepL configurations distinct and tests only explicitly enabled 
             body: JSON.stringify({ character_count: 0, character_limit: 500000 }),
         });
     });
-    const first = instanceRow(page, 'deepl');
+    const { id: firstId, row: first } = await addInstance(page, 'deepl');
     await nameAndKey(page, first, 'Personal account', 'personal-fixture:fx');
     const second = await addInstance(page, 'deepl');
     await nameAndKey(page, second.row, 'Work account', 'work-rejected-fixture');
-    const priorityList = page.getByRole('list', { name: await message(page, 'sectionTranslationServices'), exact: true });
-    await expect(priorityList.locator('[data-id="deepl"]')).toBeVisible();
+    const priorityList = page.locator('#available-providers');
+    await expect(priorityList.locator(`[data-id="${firstId}"]`)).toBeVisible();
     await expect(priorityList.locator(`[data-id="${second.id}"]`)).toBeVisible();
     await expect(priorityList.locator('[data-id="lingva"]')).toBeVisible();
     const testLabel = await message(page, 'testKey');
@@ -173,8 +185,10 @@ test('persists successive instance reorders', async ({ context, extensionId }) =
     const page = await openSettings(context, extensionId, true);
     await page.setViewportSize({ width: 1100, height: 1000 });
     await setEnabled(instanceRow(page, 'lingva'), true);
-    await setEnabled(instanceRow(page, 'deepl'), true);
-    const handle = instanceRow(page, 'deepl').locator('.drag-handle');
+    const deepl = await addInstance(page, 'deepl');
+    await nameAndKey(page, deepl.row, 'Reordered account', 'reorder-fixture:fx');
+    await setEnabled(deepl.row, true);
+    const handle = deepl.row.locator('.drag-handle');
     await handle.hover();
     const origin = await handle.boundingBox();
     const preceding = await page.locator('.service-item.enabled').nth(1).boundingBox();
@@ -182,14 +196,14 @@ test('persists successive instance reorders', async ({ context, extensionId }) =
     await page.mouse.move(origin.x + origin.width / 2, origin.y + origin.height / 2);
     await page.mouse.down();
     await page.mouse.move(origin.x + 5, preceding.y + 5, { steps: 30 });
-    await expect(page.locator('.service-item.enabled').nth(1)).toHaveAttribute('data-id', 'deepl');
+    await expect(page.locator('.service-item.enabled').nth(1)).toHaveAttribute('data-id', deepl.id);
     await page.mouse.up();
-    await expect.poll(() => enabledIds(page)).toEqual(['google-web', 'deepl', 'lingva']);
+    await expect.poll(() => enabledIds(page)).toEqual(['google-web', deepl.id, 'lingva']);
     const lingva = instanceRow(page, 'lingva');
     await lingva.getByRole('button', { name: await message(page, 'moveInstanceUp', ['Lingva']), exact: true }).click();
-    await expect.poll(() => enabledIds(page)).toEqual(['google-web', 'lingva', 'deepl']);
+    await expect.poll(() => enabledIds(page)).toEqual(['google-web', 'lingva', deepl.id]);
     await page.reload();
-    await expect.poll(() => enabledIds(page)).toEqual(['google-web', 'lingva', 'deepl']);
+    await expect.poll(() => enabledIds(page)).toEqual(['google-web', 'lingva', deepl.id]);
 });
 
 test('keeps disable-all after closing and restarting the browser', async ({ headless }) => {
@@ -218,7 +232,7 @@ test('keeps disable-all after closing and restarting the browser', async ({ head
 
 test('keeps a denied instance disabled and preserves its saved name and key through reload', async ({ context, extensionId }) => {
     const page = await openSettings(context, extensionId, true);
-    const deepl = instanceRow(page, 'deepl');
+    const { row: deepl } = await addInstance(page, 'deepl');
     await nameAndKey(page, deepl, 'Saved account', 'saved-without-grant:fx');
     await page.evaluate(() => window.settingsPermissionMock.denyNextRequest());
     await deepl.getByRole('button', { name: await message(page, 'enableInstance', ['Saved account']), exact: true }).click();
@@ -234,7 +248,7 @@ test('keeps a denied instance disabled and preserves its saved name and key thro
 
 test('shows partial DeepL access revocation without disabling the instance or discarding its untested key', async ({ context, extensionId }) => {
     const page = await openSettings(context, extensionId, true);
-    const deepl = instanceRow(page, 'deepl');
+    const { row: deepl } = await addInstance(page, 'deepl');
     await nameAndKey(page, deepl, 'Office', 'untested-fixture:fx');
     await setEnabled(deepl, true);
     const testButton = deepl.getByRole('button', { name: await message(page, 'testKey'), exact: true });
