@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { URL } from 'node:url';
 import { Builder, By, Key, until } from 'selenium-webdriver';
 import firefox from 'selenium-webdriver/firefox.js';
+import { cleanupFirefox } from './cleanup.mjs';
 
 const artifactDirectory = path.resolve('test-results/firefox');
 const buildDirectory = path.resolve('.output/firefox-mv3');
@@ -15,43 +16,11 @@ export async function launchFirefox(t, proxy) {
     await rm(artifactDirectory, { recursive: true, force: true });
     const temporary = await mkdtemp(path.join(tmpdir(), 'bar-firefox-'));
     const profiles = path.join(temporary, 'profiles');
-    let driver, extension, profile;
+    let driver, extension;
     const diagnostics = { phase: 'launch', failed: true, cleanup: {} };
     t.after(async () => {
-        const failures = [];
-        if (t.signal.aborted || diagnostics.failed) {
-            await mkdir(artifactDirectory, { recursive: true });
-            if (driver) {
-                try {
-                    const screenshot = await driver.takeScreenshot();
-                    await writeFile(path.join(artifactDirectory, 'failure.png'), screenshot, 'base64');
-                } catch { diagnostics.screenshotUnavailable = true; }
-            }
-        }
-        if (driver && extension) {
-            try {
-                await driver.uninstallWebExtension(extension);
-                diagnostics.cleanup.uninstalled = true;
-            } catch { failures.push(new Error('Could not uninstall the temporary Firefox extension')); }
-        }
-        if (driver) {
-            try {
-                await driver.quit();
-                diagnostics.cleanup.quit = true;
-            } catch { failures.push(new Error('Could not close the disposable Firefox session')); }
-        }
-        if (profile) diagnostics.cleanup.profileRemoved = await stat(profile).then(() => false, () => true);
-        await rm(temporary, { recursive: true, force: true });
-        diagnostics.cleanup.temporaryRootRemoved = true;
-        if (profile && !diagnostics.cleanup.profileRemoved) failures.push(new Error('Firefox did not remove its disposable profile on quit'));
-        if (t.signal.aborted || diagnostics.failed || failures.length) {
-            await mkdir(artifactDirectory, { recursive: true });
-            // No input, paths, queries, bodies, headers, credentials, or browser logs.
-            await writeFile(path.join(artifactDirectory, 'diagnostics.json'), JSON.stringify({
-                ...diagnostics, network: proxy.attempts,
-            }, null, 2));
-        }
-        if (failures.length) throw new AggregateError(failures, 'Firefox cleanup failed');
+        await cleanupFirefox({ driver, extension, temporary, diagnostics, artifactDirectory,
+            failed: t.signal.aborted || diagnostics.failed, network: proxy.attempts });
         if (driver && extension) t.diagnostic(`Firefox ${diagnostics.browserVersion}; geckodriver ${diagnostics.driverVersion}; temporary add-on, browser, and profile cleaned`);
     });
     await mkdir(profiles);
@@ -85,7 +54,6 @@ export async function launchFirefox(t, proxy) {
     driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).setFirefoxService(service).build();
     await driver.manage().setTimeouts({ implicit: 0, pageLoad: WAIT, script: WAIT });
     const capabilities = await driver.getCapabilities();
-    profile = capabilities.get('moz:profile');
     diagnostics.browserVersion = capabilities.getBrowserVersion();
     diagnostics.driverVersion = capabilities.get('moz:geckodriverVersion');
     if (process.env.SE_FIREFOX_VERSION) assert.equal(diagnostics.browserVersion, process.env.SE_FIREFOX_VERSION);

@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { test, expect, launchExtension } from './fixtures';
+import { test, expect, launchExtension, waitForInstalledSettings } from './fixtures';
 import { addInstance, configure, enabledIds, instanceRow, message, nameAndKey, openSettings, saveInstance, setEnabled } from './setup-ui';
 
 test('starts without optional access and keeps single-instance provider names fixed', async ({ context, extensionId }) => {
@@ -177,7 +177,7 @@ test('releases a shared custom-host grant only after the final enabled instance 
         name: await message(page, 'deleteNamedInstance', ['LAN server 2']), exact: true,
     }).click();
     await expect(second.row).toHaveCount(0);
-    expect(await page.evaluate(() => window.settingsPermissionMock.removals)).toEqual([{ origins: ['http://192.168.1.50/*'] }]);
+    await expect.poll(() => page.evaluate(() => window.settingsPermissionMock.removals)).toEqual([{ origins: ['http://192.168.1.50/*'] }]);
     await expect(first.row).toHaveClass(/\bdisabled-item\b/);
 });
 
@@ -210,8 +210,7 @@ test('keeps disable-all after closing and restarting the browser', async ({ head
     const profile = await mkdtemp(path.join(tmpdir(), 'bar-instance-restart-'));
     let extension = await launchExtension(profile, headless);
     try {
-        const background = extension.context.serviceWorkers()[0] ?? await extension.context.waitForEvent('serviceworker');
-        const extensionId = new URL(background.url()).hostname;
+        const extensionId = await waitForInstalledSettings(extension.context);
         const page = await openSettings(extension.context, extensionId);
         await setEnabled(instanceRow(page, 'google-web'), false);
         await page.reload();

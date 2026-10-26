@@ -46,6 +46,19 @@ export async function launchExtension(userDataDir: string, headless: boolean, op
     };
 }
 
+/** Wait only on fresh profiles; a restarted profile has no install event. */
+export async function waitForInstalledSettings(context: BrowserContext) {
+    const background = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
+    const id = new URL(background.url()).hostname;
+    const settingsUrl = `chrome-extension://${id}/options.html`;
+    // onInstalled reuses an existing options tab. Wait for its navigation
+    // before a test opens another page that the install handler could reuse.
+    await expect.poll(() => context.pages().some(page => page.url() === settingsUrl)).toBe(true);
+    const installedSettings = context.pages().find(page => page.url() === settingsUrl)!;
+    await expect(installedSettings.locator('#providers')).toBeVisible();
+    return id;
+}
+
 export const test = base.extend<{
     context: BrowserContext;
     extensionId: string;
@@ -59,8 +72,7 @@ export const test = base.extend<{
         }
     },
     extensionId: async ({ context }, use) => {
-        const background = context.serviceWorkers()[0] ?? await context.waitForEvent('serviceworker');
-        await use(new URL(background.url()).hostname);
+        await use(await waitForInstalledSettings(context));
     },
 });
 
