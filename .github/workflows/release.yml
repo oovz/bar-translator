@@ -12,18 +12,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  checks:
-    uses: ./.github/workflows/ci.yml
-
-  release:
-    needs: checks
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+  ci:
+    name: Wait for commit CI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     permissions:
-      contents: write
+      actions: read
+      contents: read
+    outputs:
+      run_checks: ${{ steps.ci.outputs.run_checks }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Find and wait for CI on the tagged commit
+        id: ci
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_ALLOW_MISSING: 'true'
+        run: bash .github/scripts/wait-for-ci.sh
+
+  checks:
+    needs: ci
+    if: needs.ci.outputs.run_checks == 'true'
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: [ci, checks]
+    if: >-
+      ${{ !cancelled() && needs.ci.result == 'success' &&
+          ((needs.ci.outputs.run_checks == 'false' && needs.checks.result == 'skipped') ||
+           (needs.ci.outputs.run_checks == 'true' && needs.checks.result == 'success')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
           persist-credentials: false
           fetch-depth: 0
 
@@ -42,6 +72,12 @@ jobs:
 
       - name: Package Chrome extension
         run: pnpm zip
+
+      - name: Package Firefox extension
+        run: pnpm zip:firefox
+
+      - name: Package Edge extension
+        run: pnpm zip:edge
 
       - name: Sign Chrome extension
         env:
@@ -76,11 +112,19 @@ jobs:
             git log --format='- %s (%h)' "$range"
           } > "$RUNNER_TEMP/release-notes.md"
 
+      - name: Recheck commit CI before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CI_ALLOW_MISSING: ${{ needs.checks.result == 'success' }}
+        run: bash .github/scripts/wait-for-ci.sh
+
       - name: Publish GitHub release
         run: |
           gh release create "$GITHUB_REF_NAME" \
             ".output/bar-translator-${GITHUB_REF_NAME#v}-chrome.zip" \
             ".output/bar-translator-${GITHUB_REF_NAME#v}-chrome.crx" \
+            ".output/bar-translator-${GITHUB_REF_NAME#v}-firefox.zip" \
+            ".output/bar-translator-${GITHUB_REF_NAME#v}-edge.zip" \
             --verify-tag --title "$GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/release-notes.md"
         env:

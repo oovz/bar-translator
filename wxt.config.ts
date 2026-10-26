@@ -4,6 +4,22 @@ import preact from '@preact/preset-vite';
 // See https://wxt.dev/api/config.html
 export default defineConfig({
     manifestVersion: 3,
+    zip: {
+        includeSources: [
+            'entrypoints/**',
+            'components/**',
+            'services/**',
+            'src/**',
+            'utils/**',
+            'public/**',
+            'package.json',
+            'pnpm-lock.yaml',
+            'pnpm-workspace.yaml',
+            'wxt.config.ts',
+            'tsconfig.json',
+            'LICENSE',
+        ],
+    },
     vite: () => ({
         plugins: [preact()],
         resolve: {
