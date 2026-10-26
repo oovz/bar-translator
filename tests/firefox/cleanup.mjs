@@ -1,5 +1,6 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import firefox from 'selenium-webdriver/firefox.js';
 
 export async function cleanupFirefox({ driver, extension, temporary, diagnostics, failed, network, artifactDirectory, removeTemporary = rm }) {
     const failures = [];
@@ -11,6 +12,11 @@ export async function cleanupFirefox({ driver, extension, temporary, diagnostics
         } catch { diagnostics.screenshotUnavailable = true; }
     }
     if (driver && extension) {
+        try {
+            // Uninstall closes extension tabs; keep a normal page alive until quit.
+            await driver.setContext(firefox.Context.CONTENT);
+            await driver.get('about:blank');
+        } catch { failures.push(new Error('Could not prepare the Firefox session for cleanup')); }
         try {
             await driver.uninstallWebExtension(extension);
             diagnostics.cleanup.uninstalled = true;
