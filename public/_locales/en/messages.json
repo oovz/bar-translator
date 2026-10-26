@@ -126,7 +126,10 @@
         "message": "Settings storage"
     },
     "storageDesc": {
-        "message": "Choose where to store the entire setup, including languages, instances, server URLs, API keys, fallback order and copying preference. Stored keys are readable."
+        "message": "Choose where to store your settings, including languages, instances, server URLs, API keys, translation order and copying preference."
+    },
+    "credentialStorageWarning": {
+        "message": "API keys, tokens, and other credentials you save are stored as plain text in your browser profile. Anyone who gains access to that profile may be able to read and use them without your permission."
     },
     "storageSync": {
         "message": "Sync across devices"

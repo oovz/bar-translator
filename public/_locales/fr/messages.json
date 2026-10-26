@@ -123,7 +123,10 @@
         "message": "Stockage des paramètres"
     },
     "storageDesc": {
-        "message": "Choisissez où stocker toute la configuration : langues, instances, URL des serveurs, clés API, ordre de secours et préférence de copie. Les clés enregistrées sont lisibles."
+        "message": "Choisissez où stocker toute la configuration : langues, instances, URL des serveurs, clés API, ordre de secours et préférence de copie."
+    },
+    "credentialStorageWarning": {
+        "message": "Les clés API, jetons et autres identifiants que vous enregistrez sont stockés en clair dans votre profil de navigateur. Toute personne qui accède à ce profil pourrait les lire et les utiliser sans votre autorisation."
     },
     "storageSync": {
         "message": "Sync entre appareils"

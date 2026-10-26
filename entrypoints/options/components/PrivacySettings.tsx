@@ -50,6 +50,7 @@ export function PrivacySettings({ storageType, conflict, changingStorage, change
                 <option value="sync">{t('storageSync')}</option>
             </select>
         </div>
+        <p class="feedback feedback-warning">{t('credentialStorageWarning')}</p>
         {conflict && <div class="setup-conflict" role="region" aria-label={t('setupConflictTitle')}>
             <div class="setting-label">{t('setupConflictTitle')}</div>
             <p class="setting-hint">{t('setupConflictDesc')}</p>

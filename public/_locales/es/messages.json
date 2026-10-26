@@ -121,7 +121,10 @@
         "message": "Almacenamiento de ajustes"
     },
     "storageDesc": {
-        "message": "Elige dónde guardar toda la configuración: idiomas, instancias, URL de servidores, claves de API, orden de reserva y preferencia de copia. Las claves guardadas son legibles."
+        "message": "Elige dónde guardar toda la configuración: idiomas, instancias, URL de servidores, claves de API, orden de reserva y preferencia de copia."
+    },
+    "credentialStorageWarning": {
+        "message": "Las claves de API, los tokens y las demás credenciales que guardes se almacenan como texto sin cifrar en tu perfil del navegador. Quien acceda a ese perfil podría leerlas y usarlas sin tu permiso."
     },
     "storageSync": {
         "message": "Sincronizar entre dispositivos"

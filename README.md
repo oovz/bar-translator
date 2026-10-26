@@ -35,7 +35,10 @@ Fallback follows your chosen instance order, with status messages alongside the 
 
 Bar Translator collects no usage analytics. Translation requests go directly to the providers you enable. Production logs exclude translation text and API keys.
 
-All settings and API keys are stored locally by default. Each device can choose to sync the whole setup, including languages, instances, fallback order and copy preference. Browser permissions still need to be granted on each device. Read the [permissions and storage guide](docs/usage.md#permissions-and-privacy) for details.
+All settings and API keys are stored locally by default. Each device can choose to sync the whole setup, including languages, instances, API keys, fallback order and copy preference. Browser permissions still need to be granted on each device. Read the [permissions and storage guide](docs/usage.md#permissions-and-privacy) for details.
+
+> [!WARNING]
+> API keys, tokens, and other credentials you save are stored as plain text in your browser profile. Anyone who gains access to that profile may be able to read and use them without your permission.
 
 ## Choose your translation providers
 
