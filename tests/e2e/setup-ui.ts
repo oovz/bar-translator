@@ -81,6 +81,8 @@ export async function observeSettings(page: Page, check: (observer: Page) => Pro
 
 export async function chooseLanguage(page: Page, which: 'source' | 'target', name: string) {
     const input = await languageInput(page, which);
+    await input.click();
+    await expect(input.locator('..').locator('.combobox-dropdown')).toBeVisible();
     await input.fill(name);
     await page.locator('.combobox-option').filter({ has: page.getByText(name, { exact: true }) }).click();
     await expect(input).toHaveValue(name);

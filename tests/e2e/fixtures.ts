@@ -66,6 +66,16 @@ export const test = base.extend<{
     context: async ({ headless }, use) => {
         const extension = await launchExtension('', headless);
         try {
+            const browser = extension.context.browser();
+            if (!browser) throw new Error('Browser runtime metadata is unavailable');
+            await test.info().attach('browser-runtime', {
+                body: JSON.stringify({
+                    project: test.info().project.name,
+                    engine: browser.browserType().name(),
+                    version: browser.version(),
+                }),
+                contentType: 'application/json',
+            });
             await use(extension.context);
         } finally {
             await extension.close();
