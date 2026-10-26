@@ -2,15 +2,13 @@
 
 # Bar Translator
 
+![Bar Translator: translate in your address bar](assets/chrome-web-store/marquee-1400x560.png)
+
 Translate in your browser's address bar and keep your page in view. Type your text, read the translation, and optionally press Enter to copy it.
 
 [![Available in the Chrome Web Store](https://user-images.githubusercontent.com/22908993/166417152-f870bfbd-1770-4c28-b69d-a7303aebc9a6.png)](https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno)
 
-[User guide](docs/usage.md)
-
 Use Bar Translator on desktop **Chrome, Firefox, and Microsoft Edge**. See the [installation guide](docs/usage.md#browser-builds) for local browser builds.
-
-![Bar Translator: translate in your address bar](assets/chrome-web-store/marquee-1400x560.png)
 
 ## Translate with the languages you use
 
