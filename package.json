@@ -1,6 +1,6 @@
 {
   "name": "bar-translator",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "description": "Quick translations from your browser address bar",
   "type": "module",
   "scripts": {
