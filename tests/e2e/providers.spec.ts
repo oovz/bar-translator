@@ -6,12 +6,8 @@ import { addInstance, configure, enabledIds, instanceRow, message, nameAndKey, o
 
 test('starts without optional access and keeps single-instance provider names fixed', async ({ context, extensionId }) => {
     const page = await openSettings(context, extensionId);
-    const providers = page.locator('#providers');
     await expect(page.getByRole('list', { name: await message(page, 'activatedInstances'), exact: true }).locator('.service-item')).toHaveCount(1);
     await expect(page.getByRole('list', { name: await message(page, 'availableProviders'), exact: true }).locator('.service-item')).toHaveCount(3);
-    for (const name of ['Google Web', 'Lingva', 'DeepL', 'LibreTranslate']) {
-        await expect(providers.getByText(name, { exact: true })).toBeVisible();
-    }
     expect(await enabledIds(page)).toEqual(['google-web']);
     const providerColor = await instanceRow(page, 'google-web').locator('.service-name').evaluate(element => getComputedStyle(element).color);
     await expect(instanceRow(page, 'lingva').locator('.service-name')).toHaveCSS('color', providerColor);

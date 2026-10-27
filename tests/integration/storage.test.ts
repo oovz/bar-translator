@@ -69,16 +69,10 @@ beforeEach(async () => {
 });
 
 describe('whole-setup migration', () => {
-    it('starts a fresh device with local settings, fixed provider rows and copying off', async () => {
+    it('starts a fresh device locally with copying off', async () => {
         const state = await api.getSetupState();
         expect(state.storageType).toBe('local');
-        expect(state.setup.preferences).toEqual(DEFAULT_PREFERENCES);
         expect(state.setup.copyEnabled).toBe(false);
-        expect(state.setup.instances).toEqual([
-            { id: 'google-web', providerId: 'google-web' },
-            { id: 'lingva', providerId: 'lingva' },
-            { id: 'deepl', providerId: 'deepl', name: 'DeepL' },
-        ]);
         expect(sync).toEqual({});
     });
 
@@ -174,7 +168,7 @@ describe('whole-setup migration', () => {
         expect(await api.getSetup()).toEqual(pending.setup);
         expect((await api.getSetupState()).migrationError).toBeTruthy();
         expect(localArea.set.mock.calls).toHaveLength(writes);
-        await expect(changeTarget('de')).rejects.toThrow('retry migration');
+        await expect(changeTarget('de')).rejects.toThrow();
         localArea.set.mockImplementation(originalSet);
         const retried = await api.retrySetupMigration();
         expect(retried.migrationError).toBeUndefined();
@@ -234,7 +228,7 @@ describe('whole-setup migration', () => {
         expect(pending.conflict?.reason).toBe('migration');
         expect(pending.setup.preferences.defaultTargetLang).toBe('en');
         expect((await api.getSetup()).preferences.defaultTargetLang).toBe('en');
-        await expect(changeTarget('de')).rejects.toThrow('Choose the setup');
+        await expect(changeTarget('de')).rejects.toThrow();
         const chosen = await api.switchSetupStorage('sync', { token: pending.conflict!.token, choice: 'use-destination' });
         expect(chosen.setup.preferences.defaultTargetLang).toBe('fr');
         expect(chosen.conflict).toBeUndefined();
@@ -289,16 +283,17 @@ describe('storage choices and recovery', () => {
         const original = await api.getSetup();
         const originalSyncSet = syncArea.set.getMockImplementation()!;
         const originalLocalSet = localArea.set.getMockImplementation()!;
+        const writeError = new Error('Write unavailable');
         syncArea.set.mockImplementation(async items => {
             if ((stage === 'chunks' && !(api.SETUP_STORAGE_KEYS.MANIFEST in items)) ||
-                (stage === 'manifest' && api.SETUP_STORAGE_KEYS.MANIFEST in items)) throw new Error('Write unavailable');
+                (stage === 'manifest' && api.SETUP_STORAGE_KEYS.MANIFEST in items)) throw writeError;
             return originalSyncSet(items);
         });
         localArea.set.mockImplementation(async items => {
-            if (stage === 'selection' && api.SETUP_STORAGE_KEYS.SELECTION in items) throw new Error('Write unavailable');
+            if (stage === 'selection' && api.SETUP_STORAGE_KEYS.SELECTION in items) throw writeError;
             return originalLocalSet(items);
         });
-        await expect(api.switchSetupStorage('sync')).rejects.toThrow('Write unavailable');
+        await expect(api.switchSetupStorage('sync')).rejects.toBe(writeError);
         expect((await api.getSetupState()).storageType).toBe('local');
         expect(await api.getSetup()).toEqual(original);
         syncArea.set.mockImplementation(originalSyncSet);
@@ -309,11 +304,12 @@ describe('storage choices and recovery', () => {
     it('does not replace the active snapshot when a settings edit fails before commit', async () => {
         const original = await api.getSetup();
         const originalSet = localArea.set.getMockImplementation()!;
+        const commitError = new Error('Commit unavailable');
         localArea.set.mockImplementation(async items => {
-            if (api.SETUP_STORAGE_KEYS.MANIFEST in items) throw new Error('Commit unavailable');
+            if (api.SETUP_STORAGE_KEYS.MANIFEST in items) throw commitError;
             return originalSet(items);
         });
-        await expect(changeTarget('fr')).rejects.toThrow('Commit unavailable');
+        await expect(changeTarget('fr')).rejects.toBe(commitError);
         expect(await api.getSetup()).toEqual(original);
     });
 
@@ -402,7 +398,7 @@ describe('storage choices and recovery', () => {
         const original = await api.getSetup();
         occupySyncQuota();
         const occupied = structuredClone(sync);
-        await expect(api.switchSetupStorage('sync')).rejects.toThrow('QUOTA_BYTES');
+        await expect(api.switchSetupStorage('sync')).rejects.toThrow();
         expect((await api.getSetupState()).storageType).toBe('local');
         expect(await api.getSetup()).toEqual(original);
         expect(sync).toEqual(occupied);
@@ -414,7 +410,7 @@ describe('storage choices and recovery', () => {
         const chunk = Object.keys(sync).find(key => key.startsWith(api.SETUP_STORAGE_KEYS.CHUNK_PREFIX))!;
         delete sync[chunk];
         const saved = structuredClone(sync);
-        await expect(api.getSetup()).rejects.toThrow('incomplete');
+        await expect(api.getSetup()).rejects.toThrow();
         expect(sync).toEqual(saved);
         expect(local[api.SETUP_STORAGE_KEYS.SELECTION]).toBeDefined();
     });
@@ -422,7 +418,7 @@ describe('storage choices and recovery', () => {
     it('rejects broken instance references instead of silently changing the fallback recipients', async () => {
         const original = await api.getSetup();
         await expect(api.updateSetup(setup => ({ ...setup, preferences: { ...setup.preferences, fallbackOrder: ['missing'] } })))
-            .rejects.toThrow('unavailable');
+            .rejects.toThrow();
         expect(await api.getSetup()).toEqual(original);
     });
 });

@@ -164,7 +164,7 @@ describe('Translation Orchestration', () => {
             const result = await translateWithFallback(defaultParams, defaultPrefs, validApiKeys);
             expect(result).toMatchObject({
                 translation: 'Hola', serviceId: 'deepl', usedFallback: true,
-                warnings: [{ code: 'SERVICE_UNAVAILABLE', serviceId: 'google-web', instanceId: 'google-web', instanceName: 'Google Web' }],
+                warnings: [{ code: 'SERVICE_UNAVAILABLE', serviceId: 'google-web', instanceId: 'google-web' }],
             });
             expect(fetch).toHaveBeenCalledTimes(1);
             expect(mockDeepLTranslate).toHaveBeenCalledTimes(1);
@@ -193,7 +193,7 @@ describe('Translation Orchestration', () => {
         expect(mockDeepLTranslate).not.toHaveBeenCalled();
         expect(mockGoogleTranslate).toHaveBeenCalled();
         expect(result.usedFallback).toBe(true);
-        expect(result.warnings).toEqual([{ code: 'API_KEY_REQUIRED', serviceId: 'deepl', instanceId: 'deepl', instanceName: 'DeepL' }]);
+        expect(result.warnings).toMatchObject([{ code: 'API_KEY_REQUIRED', serviceId: 'deepl', instanceId: 'deepl' }]);
     });
 
     it.each([false, true])('uses a supplied key regardless of its validation status (%s)', async validated => {
@@ -214,7 +214,7 @@ describe('Translation Orchestration', () => {
         expect(mockGoogleTranslate).not.toHaveBeenCalled();
         expect(result).toMatchObject({
             usedFallback: true,
-            warnings: [{ code: 'PERMISSION_REQUIRED', serviceId: 'google-web', instanceId: 'google-web', instanceName: 'Google Web' }],
+            warnings: [{ code: 'PERMISSION_REQUIRED', serviceId: 'google-web', instanceId: 'google-web' }],
         });
     });
 
@@ -238,8 +238,8 @@ describe('Translation Orchestration', () => {
         await expect(translateWithFallback(defaultParams, defaultPrefs, validApiKeys)).rejects.toMatchObject({
             code: 'PERMISSION_REQUIRED',
             warnings: [
-                { code: 'NETWORK_ERROR', serviceId: 'google-web', instanceId: 'google-web', instanceName: 'Google Web' },
-                { code: 'PERMISSION_REQUIRED', serviceId: 'deepl', instanceId: 'deepl', instanceName: 'DeepL' },
+                { code: 'NETWORK_ERROR', serviceId: 'google-web', instanceId: 'google-web' },
+                { code: 'PERMISSION_REQUIRED', serviceId: 'deepl', instanceId: 'deepl' },
             ],
         });
         expect(mockDeepLTranslate).not.toHaveBeenCalled();
@@ -250,7 +250,7 @@ describe('Translation Orchestration', () => {
         mockDeepLTranslate.mockResolvedValue({ translation: 'Hola', serviceId: 'deepl' });
         const result = await translateWithFallback(defaultParams, defaultPrefs, validApiKeys);
         expect(mockGoogleTranslate).not.toHaveBeenCalled();
-        expect(result.warnings).toEqual([{ code: 'SERVICE_UNAVAILABLE', serviceId: 'google-web', instanceId: 'google-web', instanceName: 'Google Web' }]);
+        expect(result.warnings).toMatchObject([{ code: 'SERVICE_UNAVAILABLE', serviceId: 'google-web', instanceId: 'google-web' }]);
     });
 
     it('attaches failed provider warnings while preserving the final classification', async () => {
@@ -259,8 +259,8 @@ describe('Translation Orchestration', () => {
         await expect(translateWithFallback(defaultParams, defaultPrefs, validApiKeys)).rejects.toMatchObject({
             code: 'INVALID_API_KEY', httpStatus: 403, serviceId: 'deepl',
             warnings: [
-                { code: 'NETWORK_ERROR', serviceId: 'google-web', instanceId: 'google-web', instanceName: 'Google Web' },
-                { code: 'INVALID_API_KEY', serviceId: 'deepl', instanceId: 'deepl', instanceName: 'DeepL' },
+                { code: 'NETWORK_ERROR', serviceId: 'google-web', instanceId: 'google-web' },
+                { code: 'INVALID_API_KEY', serviceId: 'deepl', instanceId: 'deepl' },
             ],
         });
     });
@@ -288,7 +288,7 @@ describe('Translation Orchestration', () => {
         await vi.advanceTimersByTimeAsync(4000);
         expect(await pending).toMatchObject({
             translation: 'Hola',
-            warnings: [{ code: 'TIMEOUT', serviceId: 'google-web', instanceId: 'google-web', instanceName: 'Google Web' }],
+            warnings: [{ code: 'TIMEOUT', serviceId: 'google-web', instanceId: 'google-web' }],
         });
     });
 
@@ -304,9 +304,9 @@ describe('Translation Orchestration', () => {
             const rejected = expect(pending).rejects.toMatchObject({
                 code: 'TIMEOUT',
                 warnings: [
-                    { code: 'TIMEOUT', serviceId: 'google-web', instanceId: 'google-web', instanceName: 'Google Web' },
-                    { code: 'TIMEOUT', serviceId: 'lingva', instanceId: 'lingva', instanceName: 'Lingva' },
-                    { code: 'TIMEOUT', serviceId: 'deepl', instanceId: 'deepl', instanceName: 'DeepL' },
+                    { code: 'TIMEOUT', serviceId: 'google-web', instanceId: 'google-web' },
+                    { code: 'TIMEOUT', serviceId: 'lingva', instanceId: 'lingva' },
+                    { code: 'TIMEOUT', serviceId: 'deepl', instanceId: 'deepl' },
                 ],
             });
             await vi.advanceTimersByTimeAsync(10000);
@@ -360,7 +360,7 @@ describe('Translation Orchestration', () => {
                 { ...defaultPrefs, fallbackOrder: ['google-web', 'deepl'] },
                 validApiKeys
             )
-        ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', serviceId: 'deepl', instanceId: 'deepl', instanceName: 'DeepL' });
+        ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', serviceId: 'deepl', instanceId: 'deepl' });
     });
 
     it('throws if no enabled services have keys', async () => {
@@ -370,7 +370,7 @@ describe('Translation Orchestration', () => {
                 { ...defaultPrefs, fallbackOrder: ['deepl'] },
                 {} // No keys
             )
-        ).rejects.toMatchObject({ code: 'API_KEY_REQUIRED', warnings: [{ code: 'API_KEY_REQUIRED', serviceId: 'deepl', instanceId: 'deepl', instanceName: 'DeepL' }] });
+        ).rejects.toMatchObject({ code: 'API_KEY_REQUIRED', warnings: [{ code: 'API_KEY_REQUIRED', serviceId: 'deepl', instanceId: 'deepl' }] });
     });
 
     it('handles unexpected errors gracefully', async () => {

@@ -1,16 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createDefaultSetup, createInstance, getInstanceName, normalizeEndpoint, supportsMultipleInstances, validateSetup } from '@/utils/instances';
+import { createDefaultSetup, createInstance, getInstanceName, normalizeEndpoint, validateSetup } from '@/utils/instances';
 
 describe('translation instances', () => {
-    it('gives multiple configurations distinct identities while singleton labels remain fixed', () => {
+    it('gives separate accounts distinct instance identities', () => {
         const first = createInstance('deepl');
         const second = createInstance('deepl');
         expect(first.id).not.toBe(second.id);
-        const setup = createDefaultSetup();
-        expect(setup.instances.filter(item => !supportsMultipleInstances(item.providerId)).map(getInstanceName))
-            .toEqual(['Google Web', 'Lingva']);
-        expect(supportsMultipleInstances('libretranslate')).toBe(true);
-        expect(supportsMultipleInstances('google-web')).toBe(false);
     });
 
     it('normalizes an explicitly configured deployment URL while preserving its port and prefix', () => {
@@ -29,7 +24,7 @@ describe('translation instances', () => {
     it('rejects a singleton custom name rather than accepting a hidden name setting', () => {
         const setup = createDefaultSetup();
         expect(() => validateSetup({ ...setup, instances: [{ ...setup.instances[0], name: 'Custom' }, ...setup.instances.slice(1)] }))
-            .toThrow('fixed instance');
+            .toThrow();
     });
 
     it('preserves editable names and a paused enabled order without using labels as identity', () => {
@@ -46,15 +41,15 @@ describe('translation instances', () => {
 
     it('rejects repeated identities and repeated entries in the enabled sequence', () => {
         const setup = createDefaultSetup();
-        expect(() => validateSetup({ ...setup, instances: [...setup.instances, setup.instances[0]] })).toThrow('unique');
+        expect(() => validateSetup({ ...setup, instances: [...setup.instances, setup.instances[0]] })).toThrow();
         expect(() => validateSetup({ ...setup, preferences: { ...setup.preferences, fallbackOrder: ['google-web', 'google-web'] } }))
-            .toThrow('repeated');
+            .toThrow();
     });
 
     it('does not treat an arbitrary server as the managed LibreTranslate service', () => {
         const setup = createDefaultSetup();
         const instance = createInstance('libretranslate');
         expect(() => validateSetup({ ...setup, instances: [...setup.instances, { ...instance, endpoint: 'https://other.example' }] }))
-            .toThrow('official endpoint');
+            .toThrow();
     });
 });

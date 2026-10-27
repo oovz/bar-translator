@@ -14,7 +14,6 @@ import {
     toGoogleLanguage,
     toDeepLLanguage,
     fromDeepLLanguage,
-    toLingvaLanguage,
     getLanguageInfo,
     getLanguageName,
     normalizeLanguageCode,
@@ -178,15 +177,6 @@ describe('Language Utilities', () => {
         });
     });
 
-    describe('toLingvaLanguage', () => {
-        it('uses same mapping as Google Translate', () => {
-            // Lingva is a Google Translate proxy
-            expect(toLingvaLanguage('zh-CN')).toBe(toGoogleLanguage('zh-CN'));
-            expect(toLingvaLanguage('pt-BR')).toBe(toGoogleLanguage('pt-BR'));
-            expect(toLingvaLanguage('auto')).toBe(toGoogleLanguage('auto'));
-        });
-    });
-
     describe('getLanguageInfo', () => {
         it('finds info by BCP 47 code', () => {
             const zhCN = getLanguageInfo('zh-CN');
@@ -247,11 +237,7 @@ describe('Language Utilities', () => {
         });
 
         it('does not apply unrelated overrides to explicit codes', () => {
-            // override 'zh'->'zh-TW', but user typed 'zh-CN'
             const overrides = { 'zh': 'zh-TW' };
-            // fromUserInput('zh-CN') -> 'zh-CN' (actually 'zh-cn' via normalize in test/impl details)
-            // Wait - fromUserInput returns input normalized. ISO_TO_BCP47 only has short codes.
-            // If I input 'zh-CN', fromUserInput returns 'zh-cn'.
             expect(resolveLanguageCode('zh-CN', overrides)).toBe('zh-cn');
         });
 

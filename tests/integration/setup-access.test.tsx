@@ -220,8 +220,9 @@ it('retains failed cleanup obligations for retry after another worker restart', 
     await configuredSetup();
     await api.reconcileSetupAccess();
     await api.updateSetup(setup => ({ ...setup, copyEnabled: false, preferences: { ...setup.preferences, fallbackOrder: ['shared'] } }));
-    vi.mocked(chrome.permissions.remove).mockRejectedValueOnce(new Error('Temporarily unavailable'));
-    await expect(api.reconcileSetupAccess()).rejects.toThrow('Temporarily unavailable');
+    const removalError = new Error('Temporarily unavailable');
+    vi.mocked(chrome.permissions.remove).mockRejectedValueOnce(removalError);
+    await expect(api.reconcileSetupAccess()).rejects.toBe(removalError);
     expect(origins.has('http://old.example/*')).toBe(true);
     vi.resetModules();
     api = await import('@/utils/storage');

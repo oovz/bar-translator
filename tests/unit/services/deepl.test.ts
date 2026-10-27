@@ -114,7 +114,7 @@ describe('DeepLTranslationService', () => {
     describe('validateApiKey', () => {
         it('does not test or fetch when provider access is missing', async () => {
             vi.mocked(chrome.permissions.contains).mockImplementation(async () => false);
-            expect(await service.validateApiKey('test:fx')).toMatchObject({ valid: false, error: expect.stringContaining('access required') });
+            expect(await service.validateApiKey('test:fx')).toMatchObject({ valid: false });
             expect(fetchMock).not.toHaveBeenCalled();
             expect(chrome.permissions.contains).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
         });

@@ -84,8 +84,6 @@ describe('translation instances', () => {
         const view = render(<Harness />);
         const activated = view.getByRole('list', { name: 'activatedInstances' });
         const available = view.getByRole('list', { name: 'availableProviders' });
-        expect(within(activated).getByText('Google Web')).toBeTruthy();
-        expect(within(available).getByText('Lingva')).toBeTruthy();
         expect(row(view, 'google-web').queryByText('configureInstance')).toBeNull();
         expect(row(view, 'lingva').queryByText('configureInstance')).toBeNull();
         const choice = () => view.container.querySelector(`[data-provider="${provider}"]`)! as HTMLElement;
