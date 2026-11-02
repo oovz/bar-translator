@@ -19,6 +19,52 @@ import type {
     ApiTier
 } from '@/src/types';
 
+function keyTier(apiKey: string, tier?: ApiTier): ApiTier {
+    return tier === 'free' || (!tier && apiKey.endsWith(':fx')) ? 'free' : 'pro';
+}
+
+function translationBody(params: TranslateParams): URLSearchParams {
+    const body = new URLSearchParams();
+    body.append('text', params.text);
+    body.append('target_lang', toDeepLLanguage(params.targetLang));
+    if (params.sourceLang !== 'auto') body.append('source_lang', toDeepLLanguage(params.sourceLang));
+    return body;
+}
+
+function responseError(status: number, serviceId: TranslationService['id']): TranslationError {
+    if (status === 403) return new TranslationError('INVALID_API_KEY', 'Invalid DeepL API Key', { serviceId, httpStatus: status });
+    if (status === 456) return new TranslationError('QUOTA_EXCEEDED', 'DeepL Quota Exceeded', { serviceId, httpStatus: status });
+    return new TranslationError(status === 429 || status === 529 ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE',
+        `DeepL returned status ${status}`, { serviceId, httpStatus: status });
+}
+
+function invalidResponse(serviceId: TranslationService['id']): TranslationError {
+    return new TranslationError('SERVICE_UNAVAILABLE', 'Invalid DeepL translation response', { serviceId });
+}
+
+function firstTranslation(data: unknown): unknown {
+    return data && typeof data === 'object' && 'translations' in data && Array.isArray(data.translations)
+        ? data.translations[0] : undefined;
+}
+
+function nonemptyString(value: unknown): value is string {
+    return typeof value === 'string' && Boolean(value.trim());
+}
+
+function translationResult(data: unknown, serviceId: TranslationService['id']): TranslateResult {
+    const result = firstTranslation(data);
+    if (!result || typeof result !== 'object' ||
+        !('text' in result) || !nonemptyString(result.text) ||
+        !('detected_source_language' in result) || !nonemptyString(result.detected_source_language)) {
+        throw invalidResponse(serviceId);
+    }
+    return {
+        translation: result.text,
+        detectedSourceLang: fromDeepLLanguage(result.detected_source_language),
+        serviceId,
+    };
+}
+
 export class DeepLTranslationService extends BaseTranslationService {
     constructor(public readonly service: TranslationService) {
         super();
@@ -33,20 +79,9 @@ export class DeepLTranslationService extends BaseTranslationService {
             );
         }
 
-        const { text, sourceLang, targetLang, apiKey, tier } = params;
-
-        // Determine endpoint based on tier or key suffix
-        // Use provided tier if available, otherwise guess from key
-        const isFreeKey = tier === 'free' || (!tier && apiKey.endsWith(':fx'));
-        const endpoint = this.getEndpoint(isFreeKey ? 'free' : 'pro');
-
-        // Convert to DeepL's expected format (uppercase, special codes for Chinese)
-        const body = new URLSearchParams();
-        body.append('text', text);
-        body.append('target_lang', toDeepLLanguage(targetLang));
-        if (sourceLang !== 'auto') {
-            body.append('source_lang', toDeepLLanguage(sourceLang));
-        }
+        const { apiKey } = params;
+        const endpoint = this.getEndpoint(keyTier(apiKey, params.tier));
+        const body = translationBody(params);
 
         try {
             const response = await fetch(endpoint, {
@@ -60,50 +95,14 @@ export class DeepLTranslationService extends BaseTranslationService {
                 body: body
             });
 
-            if (!response.ok) {
-                // Handle specific DeepL error codes
-                if (response.status === 403) {
-                    throw new TranslationError('INVALID_API_KEY', 'Invalid DeepL API Key', {
-                        serviceId: this.service.id,
-                        httpStatus: 403
-                    });
-                }
-                if (response.status === 456) {
-                    throw new TranslationError('QUOTA_EXCEEDED', 'DeepL Quota Exceeded', {
-                        serviceId: this.service.id,
-                        httpStatus: 456
-                    });
-                }
-
-                throw new TranslationError(
-                    response.status === 429 || response.status === 529 ? 'RATE_LIMITED' : 'SERVICE_UNAVAILABLE',
-                    `DeepL returned status ${response.status}`,
-                    { serviceId: this.service.id, httpStatus: response.status }
-                );
-            }
-
-            const data: unknown = await response.json();
-            const result: unknown = data && typeof data === 'object' &&
-                'translations' in data && Array.isArray(data.translations)
-                ? data.translations[0] : undefined;
-            if (!result || typeof result !== 'object' ||
-                !('text' in result) || typeof result.text !== 'string' || !result.text.trim() ||
-                !('detected_source_language' in result) || typeof result.detected_source_language !== 'string' ||
-                !result.detected_source_language.trim()) {
-                throw new TranslationError('SERVICE_UNAVAILABLE', 'Invalid DeepL translation response', { serviceId: this.service.id });
-            }
-
-            return {
-                translation: result.text,
-                detectedSourceLang: fromDeepLLanguage(result.detected_source_language),
-                serviceId: this.service.id
-            };
+            if (!response.ok) throw responseError(response.status, this.service.id);
+            return translationResult(await response.json(), this.service.id);
 
         } catch (error) {
             params.signal?.throwIfAborted();
             if (error instanceof TranslationError) throw error;
             if (error instanceof SyntaxError) {
-                throw new TranslationError('SERVICE_UNAVAILABLE', 'Invalid DeepL translation response', { serviceId: this.service.id });
+                throw invalidResponse(this.service.id);
             }
 
             throw new TranslationError(
@@ -114,7 +113,7 @@ export class DeepLTranslationService extends BaseTranslationService {
         }
     }
 
-    override async validateApiKey(apiKey: string, tier?: ApiTier, signal = AbortSignal.timeout(4000)): Promise<ValidationResult> {
+    async validateApiKey(apiKey: string, tier?: ApiTier, signal = AbortSignal.timeout(4000)): Promise<ValidationResult> {
         if (!apiKey) return { valid: false, error: 'Empty key' };
         if (!await hasProviderAccess(this.service.id)) {
             return { valid: false, error: 'DeepL access required. Allow provider access in settings before testing.' };
@@ -122,8 +121,8 @@ export class DeepLTranslationService extends BaseTranslationService {
 
         // Lightweight check: Get Usage or Translate trivial text
         // Usage endpoint: GET /v2/usage
-        const isFreeKey = tier === 'free' || (!tier && apiKey.endsWith(':fx'));
-        const endpoint = isFreeKey
+        const resolvedTier = keyTier(apiKey, tier);
+        const endpoint = resolvedTier === 'free'
             ? 'https://api-free.deepl.com/v2/usage'
             : 'https://api.deepl.com/v2/usage';
 
@@ -138,9 +137,9 @@ export class DeepLTranslationService extends BaseTranslationService {
             });
 
             if (response.ok) {
-                return { valid: true, tier: isFreeKey ? 'free' : 'pro' };
+                return { valid: true, tier: resolvedTier };
             } else {
-                return { valid: false, error: 'DeepL rejected the test request.', tier: isFreeKey ? 'free' : 'pro' };
+                return { valid: false, error: 'DeepL rejected the test request.', tier: resolvedTier };
             }
         } catch {
             return { valid: false, error: 'Could not complete the DeepL test.' };

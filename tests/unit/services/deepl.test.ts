@@ -67,6 +67,7 @@ describe('DeepLTranslationService', () => {
 
         it.each([
             null, {}, { translations: [] },
+            { translations: [null] }, { translations: ["not a translation record"] },
             { translations: [{ detected_source_language: 'EN' }] },
             { translations: [{ text: {}, detected_source_language: 'EN' }] },
             { translations: [{ text: '  ', detected_source_language: 'EN' }] },
@@ -130,6 +131,14 @@ describe('DeepLTranslationService', () => {
             expect((await service.validateApiKey('user-key')).valid).toBe(false);
             expect(await service.isAvailable('user-key')).toBe(true);
             expect(await service.isAvailable()).toBe(false);
+            expect(fetchMock).toHaveBeenCalledTimes(1);
+        });
+
+        it('reports an unavailable explicit key test without exposing network diagnostics or retrying', async () => {
+            fetchMock.mockRejectedValue(new TypeError('Network failed with secret-key in provider diagnostics'));
+            expect(await service.validateApiKey('secret-key')).toEqual({
+                valid: false, error: 'Could not complete the DeepL test.',
+            });
             expect(fetchMock).toHaveBeenCalledTimes(1);
         });
 

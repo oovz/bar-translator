@@ -18,6 +18,15 @@ describe('GoogleTranslationWebService', () => {
     });
     afterEach(() => vi.restoreAllMocks());
 
+    it('uses its configured default endpoint when no tier is requested', () => {
+        expect(service.getEndpoint()).toBe('https://translate.googleapis.com/translate_a/single');
+    });
+
+    it('is available without an API credential and without probing the provider', async () => {
+        expect(await service.isAvailable()).toBe(true);
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it('joins translated segments in order while preserving text and skipping null optional output', async () => {
         fetchMock.mockResolvedValue(Response.json([[
             ['Bonjour. ', 'Hello. ', null, null, 1],
@@ -91,6 +100,13 @@ describe('GoogleTranslationWebService', () => {
         expect(response.bodyUsed).toBe(false);
     });
 
+    it('preserves the HTTP failure classification when the error response has no body', async () => {
+        fetchMock.mockResolvedValue(new Response(null, { status: 503 }));
+        await expect(service.translate(params)).rejects.toMatchObject({
+            code: 'SERVICE_UNAVAILABLE', serviceId: 'google-web', httpStatus: 503,
+        });
+    });
+
     it.each([[429, 'RATE_LIMITED'], [302, 'SERVICE_UNAVAILABLE'], [503, 'SERVICE_UNAVAILABLE']])(
         'reports HTTP %s as %s without reading server diagnostics or retrying', async (status, code) => {
             const cancel = vi.fn();
@@ -110,7 +126,7 @@ describe('GoogleTranslationWebService', () => {
 
     it.each([
         null, { translation: 'Bonjour' }, [], [null], [[]], [[[]]],
-        [[[42]]], [[['Bonjour'], ['invalid segment'], {}]],
+        [[[42]]], [[[42, null]]], [[['Bonjour'], ['invalid segment'], {}]],
         [[[null]]], [[[' \n']]],
     ])('rejects a malformed or empty translation response', async payload => {
         fetchMock.mockResolvedValue(Response.json(payload));
@@ -127,6 +143,17 @@ describe('GoogleTranslationWebService', () => {
             });
         },
     );
+
+    it('rejects a successful response with no body as a provider failure', async () => {
+        fetchMock.mockResolvedValue(new Response(null));
+        await expect(service.translate(params)).rejects.toMatchObject({ code: 'WEB_REQUEST_FAILED' });
+    });
+
+    it('accepts a translation body exactly at the byte limit', async () => {
+        const translation = 'x'.repeat(1024 * 1024 - JSON.stringify([[['']]]).length);
+        fetchMock.mockResolvedValue(new Response(JSON.stringify([[[translation]]])));
+        expect(await service.translate(params)).toEqual({ translation, serviceId: 'google-web' });
+    });
 
     it('bounds a chunked response regardless of its claimed length and cancels the body', async () => {
         const cancel = vi.fn();
