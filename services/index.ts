@@ -7,7 +7,7 @@ import { TranslationError } from '@/utils/errors';
 import { getInstanceName } from '@/utils/instances';
 import { hasInstanceAccess } from '@/utils/permissions';
 import { getSetup } from '@/utils/storage';
-import { getServiceDefinition, getAllServiceDefinitions } from './base';
+import { getServiceDefinition } from './base';
 import type { TranslationService } from './base';
 import { GoogleTranslationWebService } from './google-web';
 import { DeepLTranslationService } from './deepl';
@@ -26,13 +26,7 @@ export function registerService(handler: TranslationServiceHandler): void {
 export function getService(id: ServiceId): TranslationServiceHandler | undefined {
     return serviceRegistry.get(id);
 }
-export function getRegisteredServices(): TranslationServiceHandler[] {
-    return Array.from(serviceRegistry.values());
-}
-export function isServiceRegistered(id: ServiceId): boolean {
-    return serviceRegistry.has(id);
-}
-export { getServiceDefinition, getAllServiceDefinitions };
+export { getServiceDefinition };
 
 function attribution(instance: TranslationInstance) {
     return { serviceId: instance.providerId, instanceId: instance.id, instanceName: getInstanceName(instance) };
@@ -110,19 +104,34 @@ async function translateConfiguredInstance(instance: TranslationInstance, params
     }, params, deadline);
 }
 
+function enabledInstanceIds(setup: TranslationSetup): string[] {
+    const ids = [...new Set(setup.preferences.fallbackOrder)];
+    if (!ids.length) throw new TranslationError('NO_SERVICES_ENABLED', 'No translation instances enabled. Check settings.');
+    return ids;
+}
+
+function exhaustedFallback(lastError: TranslationError | undefined, warnings: TranslationWarning[]): TranslationError {
+    if (lastError) return new TranslationError(lastError.code, lastError.message, {
+        serviceId: lastError.serviceId, instanceId: lastError.instanceId,
+        instanceName: lastError.instanceName, httpStatus: lastError.httpStatus, warnings,
+    });
+    return new TranslationError('ALL_SERVICES_FAILED', 'All translation instances failed.', { warnings });
+}
+
+function checkDeadline(deadline: number, warnings: TranslationWarning[]): void {
+    if (performance.now() >= deadline) throw new TranslationError('TIMEOUT', 'Translation timed out.', { warnings });
+}
+
 /** Each enabled instance gets one attempt; same-provider instances remain distinct. */
 export async function translateWithFallback(params: TranslateParams, setup: TranslationSetup): Promise<TranslateResultWithMeta> {
     params.signal?.throwIfAborted();
     const deadline = performance.now() + TOTAL_TIMEOUT_MS;
-    const enabledIds = [...new Set(setup.preferences.fallbackOrder)];
-    if (!enabledIds.length) {
-        throw new TranslationError('NO_SERVICES_ENABLED', 'No translation instances enabled. Check settings.');
-    }
+    const enabledIds = enabledInstanceIds(setup);
     const warnings: TranslationWarning[] = [];
     let lastError: TranslationError | undefined;
     for (const [index, instanceId] of enabledIds.entries()) {
         params.signal?.throwIfAborted();
-        if (performance.now() >= deadline) throw new TranslationError('TIMEOUT', 'Translation timed out.', { warnings });
+        checkDeadline(deadline, warnings);
         const instance = setup.instances.find(candidate => candidate.id === instanceId);
         if (!instance) {
             lastError = new TranslationError('SERVICE_UNAVAILABLE', 'Translation instance is unavailable.', { instanceId });
@@ -141,11 +150,7 @@ export async function translateWithFallback(params: TranslateParams, setup: Tran
             warnings.push({ code: lastError.code, ...attribution(instance) });
         }
     }
-    if (lastError) throw new TranslationError(lastError.code, lastError.message, {
-        serviceId: lastError.serviceId, instanceId: lastError.instanceId,
-        instanceName: lastError.instanceName, httpStatus: lastError.httpStatus, warnings,
-    });
-    throw new TranslationError('ALL_SERVICES_FAILED', 'All translation instances failed.', { warnings });
+    throw exhaustedFallback(lastError, warnings);
 }
 
 /** Explicit instance operation used by callers that intentionally omit fallback. */
@@ -154,16 +159,19 @@ export async function translateDirect(instance: TranslationInstance, params: Tra
     return translateConfiguredInstance(instance, params, performance.now() + ATTEMPT_TIMEOUT_MS);
 }
 
-/** Optional user-triggered test; completion never gates later translations. */
-export async function testInstance(instance: TranslationInstance): Promise<ValidationResult> {
-    const setup = await getSetup();
-    const saved = setup.instances.find(candidate => candidate.id === instance.id);
-    const identity = (candidate: TranslationInstance) => JSON.stringify([
+function recipientIdentity(candidate: TranslationInstance): string {
+    return JSON.stringify([
         candidate.providerId,
         candidate.providerId === 'libretranslate' ? [candidate.endpoint, candidate.hosting] : null,
         'credential' in candidate ? [candidate.credential?.key, candidate.credential?.tier] : null,
     ]);
-    if (!saved || !setup.preferences.fallbackOrder.includes(saved.id) || identity(saved) !== identity(instance)) {
+}
+
+/** Optional user-triggered test; completion never gates later translations. */
+export async function testInstance(instance: TranslationInstance): Promise<ValidationResult> {
+    const setup = await getSetup();
+    const saved = setup.instances.find(candidate => candidate.id === instance.id);
+    if (!saved || !setup.preferences.fallbackOrder.includes(saved.id) || recipientIdentity(saved) !== recipientIdentity(instance)) {
         return { valid: false, error: 'Enable and save the current instance before testing.' };
     }
     const missing = await prerequisiteError(instance);

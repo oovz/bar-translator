@@ -112,6 +112,48 @@ describe('Translation Orchestration', () => {
         vi.useRealTimers();
     });
 
+    it('does not advertise configured providers that lack permission or a required key', async () => {
+        expect(await isServiceAvailable('deepl', {})).toBe(false);
+        vi.mocked(chrome.permissions.contains).mockImplementation(async () => false);
+        expect(await isServiceAvailable('google-web', {})).toBe(false);
+    });
+
+    it('rejects a completed result at the exact attempt deadline before a delayed timer callback', async () => {
+        const now = vi.spyOn(performance, 'now').mockReturnValue(0);
+        mockGoogleTranslate.mockImplementation(async () => {
+            now.mockReturnValue(4000);
+            return { translation: 'Too late', serviceId: 'google-web' };
+        });
+        try {
+            await expect(translateDirect('google-web', defaultParams, {})).rejects.toMatchObject({ code: 'TIMEOUT' });
+        } finally { now.mockRestore(); }
+    });
+
+    it('does not dispatch another provider when a failed attempt consumes the exact total deadline', async () => {
+        const now = vi.spyOn(performance, 'now').mockReturnValue(0);
+        mockGoogleTranslate.mockImplementation(async () => {
+            now.mockReturnValue(10000);
+            throw new Error('Provider failed after blocking work');
+        });
+        mockDeepLTranslate.mockResolvedValue({ translation: 'Too late', serviceId: 'deepl' });
+        try {
+            await expect(translateWithFallback(defaultParams, defaultPrefs, validApiKeys)).rejects.toMatchObject({ code: 'TIMEOUT' });
+            expect(mockDeepLTranslate).not.toHaveBeenCalled();
+        } finally { now.mockRestore(); }
+    });
+
+    it('clears a supplied key when translating through a custom server with an explicitly absent credential', async () => {
+        const original = getService('libretranslate')!;
+        const translate = vi.fn().mockResolvedValue({ translation: 'Hola', serviceId: 'libretranslate' });
+        registerService({ service: getServiceDefinition('libretranslate'), translate });
+        try {
+            await translateInstanceDirect({ id: 'home', providerId: 'libretranslate', name: 'Home',
+                hosting: 'custom', endpoint: 'http://localhost:5000', credential: undefined },
+            { ...defaultParams, apiKey: 'previous-recipient-secret' });
+            expect(translate).toHaveBeenCalledWith(expect.objectContaining({ apiKey: undefined, endpoint: 'http://localhost:5000' }));
+        } finally { registerService(original); }
+    });
+
     it('uses the first enabled service (primary)', async () => {
         mockGoogleTranslate.mockResolvedValue({
             translation: 'Hola',
@@ -128,6 +170,7 @@ describe('Translation Orchestration', () => {
         expect(result.translation).toBe('Hola');
         expect(result.serviceId).toBe('google-web');
         expect(result.usedFallback).toBe(false);
+        expect(result.cached).toBe(false);
         expect(mockGoogleTranslate).toHaveBeenCalled();
         expect(mockDeepLTranslate).not.toHaveBeenCalled();
     });
@@ -450,6 +493,17 @@ describe('Translation Orchestration', () => {
             expect((await testInstance(instance)).valid).toBe(false);
             expect(fetch).not.toHaveBeenCalled();
         } finally { read.mockRestore(); fetch.mockRestore(); }
+    });
+
+    it('warns when a configured instance has disappeared, then tries the next enabled recipient', async () => {
+        const setup = configuredSetup(defaultPrefs);
+        setup.preferences.fallbackOrder = ['removed', 'google-web'];
+        mockGoogleTranslate.mockResolvedValue({ translation: 'Hola', serviceId: 'google-web' });
+        expect(await translateSetupWithFallback(defaultParams, setup)).toMatchObject({
+            translation: 'Hola', instanceId: 'google-web', usedFallback: true,
+            warnings: [{ code: 'SERVICE_UNAVAILABLE', instanceId: 'removed' }],
+        });
+        expect(mockGoogleTranslate).toHaveBeenCalledTimes(1);
     });
 
     it('includes a stalled permission check in the finite attempt budget', async () => {
