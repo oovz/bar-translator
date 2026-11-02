@@ -248,36 +248,6 @@ export function getLanguageInfo(code: string): LanguageInfo | undefined {
     return LANGUAGE_MAP.get(bcp47.toLowerCase());
 }
 
-import { t } from '@/utils/i18n';
-
-/**
- * Get display name for a language code.
- */
-export function getLanguageName(code: string): string {
-    const info = getLanguageInfo(code);
-    if (!info) return code.toUpperCase();
-
-    // Try to find localized name
-    // Replace hyphens with underscores for keys (e.g. 'zh-CN' -> 'lang_zh_cn')
-    const key = `lang_${info.code.toLowerCase().replace(/-/g, '_')}`;
-    const localized = t(key);
-
-    // If t() returns the key itself, it means no translation found
-    if (localized && localized !== key) {
-        return localized;
-    }
-
-    return info.name;
-}
-
-/**
- * Get native name for a language code.
- */
-export function getLanguageNativeName(code: string): string {
-    const info = getLanguageInfo(code);
-    return info?.nativeName ?? info?.name ?? code.toUpperCase();
-}
-
 /**
  * Get languages suitable for target selection (excludes auto-detect).
  */

@@ -48,20 +48,6 @@ export abstract class BaseTranslationService implements TranslationServiceHandle
     abstract translate(params: TranslateParams): Promise<TranslateResult>;
 
     /**
-     * Validate API key. Override in services that require API keys.
-     */
-    async validateApiKey?(_apiKey: string): Promise<ValidationResult> {
-        return { valid: true };
-    }
-
-    /**
-     * Get supported languages. Override to provide service-specific list.
-     */
-    async getSupportedLanguages?(): Promise<LanguageInfo[]> {
-        return [];
-    }
-
-    /**
      * A supplied credential is enough; only translations and explicit tests validate it.
      */
     async isAvailable(apiKey?: string): Promise<boolean> {
@@ -80,23 +66,6 @@ export abstract class BaseTranslationService implements TranslationServiceHandle
             return this.service.proEndpoint;
         }
         return this.service.endpoint ?? '';
-    }
-
-    /**
-     * Build authorization header based on auth method.
-     */
-    buildAuthHeader(apiKey: string): Record<string, string> {
-        switch (this.service.authMethod) {
-            case 'header-auth-key':
-                return { Authorization: `DeepL-Auth-Key ${apiKey}` };
-            case 'header-bearer':
-                return { Authorization: `Bearer ${apiKey}` };
-            case 'api-key-header':
-                return { 'X-API-Key': apiKey };
-            case 'none':
-            default:
-                return {};
-        }
     }
 }
 
@@ -154,11 +123,4 @@ export function getServiceDefinition(id: ServiceId): TranslationService {
     const service = TRANSLATION_SERVICES.find((s) => s.id === id);
     if (!service) throw new Error(`Unknown service: ${id}`);
     return service;
-}
-
-/**
- * Get all service definitions.
- */
-export function getAllServiceDefinitions(): readonly TranslationService[] {
-    return TRANSLATION_SERVICES;
 }
