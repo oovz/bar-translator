@@ -24,6 +24,20 @@ vi.stubGlobal('browser', {
 });
 
 describe('parseOmniboxInput', () => {
+    it('keeps source implicit for a target-only query but uses the default when text follows', () => {
+        const defaults = { defaultSourceLang: 'de', defaultTargetLang: 'en', languageOverrides: {} };
+        expect(parseOmniboxInput('fr', defaults)).toEqual({ targetLang: 'fr', text: '', isLanguageQuery: true });
+        expect(parseOmniboxInput('fr Hello', defaults)).toEqual({
+            sourceLang: 'de', targetLang: 'fr', text: 'Hello', isLanguageQuery: false,
+        });
+    });
+
+    it('preserves the existing first-pair interpretation when an input contains extra separators', () => {
+        expect(parseOmniboxInput('en>fr>de Hello')).toEqual({
+            sourceLang: 'en', targetLang: 'fr', text: 'Hello', isLanguageQuery: false,
+        });
+    });
+
     describe('empty input', () => {
         it('handles empty string', () => {
             const result = parseOmniboxInput('');
@@ -163,5 +177,23 @@ describe('formatSuggestionDescription', () => {
         expect(result).toContain('&lt;test&gt;');
         expect(result).toContain('&amp;');
         expect(result).toContain('&quot;');
+    });
+});
+
+describe('single-character translation text', () => {
+    it.each(['en>fr X', 'fr X'])('treats %s as text to translate, not a language query', input => {
+        const parsed = parseOmniboxInput(input);
+        expect(parsed.text).toBe('X');
+        expect(parsed.targetLang).toBe('fr');
+        expect(parsed.isLanguageQuery).toBe(false);
+    });
+});
+
+describe('invalid language pairs remain ordinary text', () => {
+    it.each(['invalid>fr Hello', 'en>invalid Hello'])('does not consume a partially valid pair in %s', input => {
+        const defaults = { defaultSourceLang: 'auto', defaultTargetLang: 'de', languageOverrides: {} };
+        expect(parseOmniboxInput(input, defaults)).toEqual({
+            text: input, sourceLang: 'auto', targetLang: 'de', isLanguageQuery: false,
+        });
     });
 });
