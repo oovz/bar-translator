@@ -50,29 +50,34 @@ export async function copyToClipboard(text: string, signal?: AbortSignal): Promi
             await navigator.clipboard.writeText(text);
             return true;
         }
-        await ensureOffscreenDocument(signal);
-        signal?.throwIfAborted();
-
-        if (!await hasCopyAccess()) return false;
-        signal?.throwIfAborted();
-
-        const message: CopyToClipboardMessage = {
-            type: 'COPY_TO_CLIPBOARD',
-            text,
-        };
-
-        const response = await chrome.runtime.sendMessage(message);
-
-        if (response?.success) {
-            return true;
-        }
-
-        console.error('[Clipboard] Copy failed');
-        return false;
+        return await copyUsingOffscreenDocument(text, signal);
     } catch {
         console.error('[Clipboard] Copy failed');
         return false;
     }
+}
+
+/** Chromium rechecks access after asynchronous document creation. */
+async function copyUsingOffscreenDocument(text: string, signal?: AbortSignal): Promise<boolean> {
+    await ensureOffscreenDocument(signal);
+    signal?.throwIfAborted();
+
+    if (!await hasCopyAccess()) return false;
+    signal?.throwIfAborted();
+
+    const message: CopyToClipboardMessage = {
+        type: 'COPY_TO_CLIPBOARD',
+        text,
+    };
+
+    const response = await chrome.runtime.sendMessage(message);
+
+    if (response?.success) {
+        return true;
+    }
+
+    console.error('[Clipboard] Copy failed');
+    return false;
 }
 
 /**
