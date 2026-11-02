@@ -9,6 +9,25 @@
 import type { TranslationErrorCode, ServiceId, InstanceId, TranslationWarning } from '@/src/types';
 import { isRetryableError, shouldFallback } from '@/src/types';
 
+const USER_MESSAGES: Record<TranslationErrorCode, string> = {
+    PERMISSION_REQUIRED: 'Provider access required. Please check your settings.',
+    API_KEY_REQUIRED: 'API key required. Please check your settings.',
+    NO_SERVICES_ENABLED: 'No translation services enabled. Enable at least one service in settings.',
+    TIMEOUT: 'Translation timed out. Please try again.',
+    NETWORK_ERROR: 'Network error. Please check your connection.',
+    INVALID_API_KEY: 'Invalid API key. Please check your settings.',
+    QUOTA_EXCEEDED: 'Translation quota exceeded. Try a different service.',
+    RATE_LIMITED: 'Too many requests. Please wait a moment.',
+    SERVICE_UNAVAILABLE: 'Translation service is temporarily unavailable.',
+    INSTANCE_TEXT_TOO_LONG: 'This translation instance cannot accept this much text.',
+    INSTANCE_LANGUAGE_UNSUPPORTED: 'This translation instance does not support the requested language pair.',
+    INVALID_LANGUAGE: 'Unsupported language code.',
+    TEXT_TOO_LONG: 'Text is too long for translation.',
+    WEB_REQUEST_FAILED: 'Translation failed. Try an API-based service.',
+    AUTH_METHOD_DEPRECATED: 'Authentication method outdated. Please update the extension.',
+    ALL_SERVICES_FAILED: 'All translation services failed.',
+};
+
 /**
  * Custom error class for translation failures.
  */
@@ -54,101 +73,8 @@ export class TranslationError extends Error {
      * Create user-friendly error message.
      */
     getUserMessage(): string {
-        switch (this.code) {
-            case 'PERMISSION_REQUIRED':
-                return 'Provider access required. Please check your settings.';
-            case 'API_KEY_REQUIRED':
-                return 'API key required. Please check your settings.';
-            case 'NO_SERVICES_ENABLED':
-                return 'No translation services enabled. Enable at least one service in settings.';
-            case 'TIMEOUT':
-                return 'Translation timed out. Please try again.';
-            case 'NETWORK_ERROR':
-                return 'Network error. Please check your connection.';
-            case 'INVALID_API_KEY':
-                return 'Invalid API key. Please check your settings.';
-            case 'QUOTA_EXCEEDED':
-                return 'Translation quota exceeded. Try a different service.';
-            case 'RATE_LIMITED':
-                return 'Too many requests. Please wait a moment.';
-            case 'SERVICE_UNAVAILABLE':
-                return 'Translation service is temporarily unavailable.';
-            case 'INSTANCE_TEXT_TOO_LONG':
-                return 'This translation instance cannot accept this much text.';
-            case 'INSTANCE_LANGUAGE_UNSUPPORTED':
-                return 'This translation instance does not support the requested language pair.';
-            case 'INVALID_LANGUAGE':
-                return 'Unsupported language code.';
-            case 'TEXT_TOO_LONG':
-                return 'Text is too long for translation.';
-            case 'WEB_REQUEST_FAILED':
-                return 'Translation failed. Try an API-based service.';
-            case 'AUTH_METHOD_DEPRECATED':
-                return 'Authentication method outdated. Please update the extension.';
-            case 'ALL_SERVICES_FAILED':
-                return 'All translation services failed.';
-            default:
-                return this.message || 'Translation failed.';
-        }
+        return USER_MESSAGES[this.code];
     }
-}
-
-/**
- * Create TranslationError from HTTP response.
- */
-export function createErrorFromResponse(
-    status: number,
-    serviceId: ServiceId
-): TranslationError {
-    switch (status) {
-        case 401:
-        case 403:
-            return new TranslationError('INVALID_API_KEY', 'Authentication failed', {
-                serviceId,
-                httpStatus: status,
-            });
-        case 429:
-            return new TranslationError('RATE_LIMITED', 'Rate limit exceeded', {
-                serviceId,
-                httpStatus: status,
-            });
-        case 456: // DeepL quota exceeded
-            return new TranslationError('QUOTA_EXCEEDED', 'Quota exceeded', {
-                serviceId,
-                httpStatus: status,
-            });
-        case 500:
-        case 502:
-        case 503:
-        case 504:
-            return new TranslationError(
-                'SERVICE_UNAVAILABLE',
-                'Service unavailable',
-                {
-                    serviceId,
-                    httpStatus: status,
-                }
-            );
-        default:
-            return new TranslationError(
-                'SERVICE_UNAVAILABLE',
-                `HTTP error ${status}`,
-                {
-                    serviceId,
-                    httpStatus: status,
-                }
-            );
-    }
-}
-
-/**
- * Create TranslationError from network failure.
- */
-export function createNetworkError(
-    error: Error,
-    serviceId?: ServiceId
-): TranslationError {
-    return new TranslationError('NETWORK_ERROR', error.message, { serviceId });
 }
 
 /**

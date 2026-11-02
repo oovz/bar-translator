@@ -7,53 +7,103 @@ import { t } from '@/utils/i18n';
 export type PreferenceUpdate = Partial<UserPreferences> | ((current: UserPreferences) => Partial<UserPreferences>);
 export type SetupUpdate = (current: TranslationSetup) => TranslationSetup | Promise<TranslationSetup>;
 
-export function usePreferences() {
-    const [state, setState] = useState<SetupState>({ setup: createDefaultSetup(), storageType: 'local' });
-    const [changingStorage, setChangingStorage] = useState(false);
-    const [loading, setLoading] = useState(true);
-    const [ready, setReady] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const revision = useRef(0);
-    const active = useRef(true);
+interface PreferencesView {
+    state: SetupState;
+    changingStorage: boolean;
+    loading: boolean;
+    ready: boolean;
+    error: string | null;
+}
 
-    const refresh = useCallback(async (retryMigration = false) => {
-        const request = ++revision.current;
+/** Reads and writes share one generation so an older operation cannot replace a newer setup. */
+class PreferencesSession {
+    private revision = 0;
+    private active = true;
+
+    constructor(private view: PreferencesView, private readonly publish: (view: PreferencesView) => void) {}
+
+    activate(): void { this.active = true; }
+    dispose(): void { this.active = false; ++this.revision; }
+
+    private apply(patch: Partial<PreferencesView>): void {
+        this.view = { ...this.view, ...patch };
+        this.publish(this.view);
+    }
+
+    private applyCurrent(request: number, patch: Partial<PreferencesView>): void {
+        if (this.active && request === this.revision) this.apply(patch);
+    }
+
+    async refresh(retryMigration = false): Promise<void> {
+        const request = ++this.revision;
         try {
-            const next = await (retryMigration ? retrySetupMigration() : getSetupState());
-            if (active.current && request === revision.current) { setState(next); setReady(true); setError(null); }
+            const state = await (retryMigration ? retrySetupMigration() : getSetupState());
+            this.applyCurrent(request, { state, ready: true, error: null });
         } catch {
-            if (active.current && request === revision.current) setError(t('settingsLoadFailed'));
+            this.applyCurrent(request, { error: t('settingsLoadFailed') });
         } finally {
-            if (active.current && request === revision.current) setLoading(false);
+            this.applyCurrent(request, { loading: false });
         }
-    }, []);
+    }
+
+    async updateSetup(updater: SetupUpdate): Promise<boolean> {
+        this.apply({ error: null });
+        const request = ++this.revision;
+        try {
+            const setup = await persistSetup(updater);
+            this.applyCurrent(request, { state: { ...this.view.state, setup } });
+            return true;
+        } catch {
+            if (this.active) this.apply({ error: t('settingsSaveFailed') });
+            return false;
+        }
+    }
+
+    async changeStorageType(nextType: CredentialStorageType, resolution?: SetupResolution): Promise<void> {
+        this.apply({ changingStorage: true, error: null });
+        const request = ++this.revision;
+        try {
+            const state = await switchSetupStorage(nextType, resolution);
+            this.applyCurrent(request, { state });
+        } catch {
+            // A read may recover a committed selection after a late write error.
+            await this.refresh();
+            throw new Error(t('storageChangeFailed'));
+        } finally {
+            if (this.active) this.apply({ changingStorage: false });
+        }
+    }
+}
+
+function initialView(): PreferencesView {
+    return {
+        state: { setup: createDefaultSetup(), storageType: 'local' },
+        changingStorage: false, loading: true, ready: false, error: null,
+    };
+}
+
+export function usePreferences() {
+    const [view, publish] = useState(initialView);
+    const sessionRef = useRef<PreferencesSession | null>(null);
+    if (!sessionRef.current) sessionRef.current = new PreferencesSession(view, publish);
+    const session = sessionRef.current;
+    const refresh = useCallback((retryMigration = false) => session.refresh(retryMigration), [session]);
+    const updateSetup = useCallback((updater: SetupUpdate) => session.updateSetup(updater), [session]);
+    const changeStorageType = useCallback((nextType: CredentialStorageType, resolution?: SetupResolution) =>
+        session.changeStorageType(nextType, resolution), [session]);
 
     useEffect(() => {
-        active.current = true;
+        session.activate();
         void refresh();
         const changed = (changes: Record<string, chrome.storage.StorageChange>, areaName: string) => {
             if (isSetupStorageChange(changes, areaName)) void refresh();
         };
         chrome.storage.onChanged.addListener(changed);
         return () => {
-            active.current = false;
-            ++revision.current;
+            session.dispose();
             chrome.storage.onChanged.removeListener(changed);
         };
-    }, [refresh]);
-
-    const updateSetup = useCallback(async (updater: SetupUpdate): Promise<boolean> => {
-        setError(null);
-        const request = ++revision.current;
-        try {
-            const setup = await persistSetup(updater);
-            if (active.current && request === revision.current) setState(current => ({ ...current, setup }));
-            return true;
-        } catch {
-            if (active.current) setError(t('settingsSaveFailed'));
-            return false;
-        }
-    }, []);
+    }, [refresh, session]);
 
     const updatePreferences = useCallback((updates: PreferenceUpdate) => updateSetup(current => ({
         ...current,
@@ -63,35 +113,19 @@ export function usePreferences() {
         },
     })), [updateSetup]);
 
-    const changeStorageType = useCallback(async (nextType: CredentialStorageType, resolution?: SetupResolution) => {
-        setChangingStorage(true);
-        setError(null);
-        const request = ++revision.current;
-        try {
-            const next = await switchSetupStorage(nextType, resolution);
-            if (active.current && request === revision.current) setState(next);
-        } catch {
-            // A read may recover a committed selection after a late write error.
-            await refresh();
-            throw new Error(t('storageChangeFailed'));
-        } finally {
-            if (active.current) setChangingStorage(false);
-        }
-    }, [refresh]);
-
     return {
-        setup: state.setup,
-        preferences: state.setup.preferences,
-        storageType: state.storageType,
-        conflict: state.conflict,
-        migrationError: state.migrationError,
-        changingStorage,
+        setup: view.state.setup,
+        preferences: view.state.setup.preferences,
+        storageType: view.state.storageType,
+        conflict: view.state.conflict,
+        migrationError: view.state.migrationError,
+        changingStorage: view.changingStorage,
         changeStorageType,
-        loading,
-        ready,
+        loading: view.loading,
+        ready: view.ready,
         reload: refresh,
         retryMigration: () => refresh(true),
-        error,
+        error: view.error,
         updateSetup,
         updatePreferences,
     };

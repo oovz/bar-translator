@@ -36,10 +36,7 @@ export function Combobox({ value, options, onChange, placeholder }: ComboboxProp
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const displayedOptions = isFiltering ? options.filter(opt =>
-        opt.name.toLowerCase().includes(search.toLowerCase()) ||
-        opt.code.toLowerCase().includes(search.toLowerCase())
-    ) : options;
+    const displayedOptions = isFiltering ? filterLanguages(options, search) : options;
 
     return (
         <div class="combobox-container" ref={containerRef}>
@@ -86,4 +83,9 @@ export function Combobox({ value, options, onChange, placeholder }: ComboboxProp
             )}
         </div>
     );
+}
+
+function filterLanguages(options: readonly LanguageInfo[], search: string) {
+    const query = search.toLowerCase();
+    return options.filter(option => option.name.toLowerCase().includes(query) || option.code.toLowerCase().includes(query));
 }

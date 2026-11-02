@@ -17,6 +17,24 @@ import type {
     TranslateResult
 } from '@/src/types';
 
+function detectedLanguage(info: unknown): string | undefined {
+    return info && typeof info === 'object' && 'detectedSource' in info && typeof info.detectedSource === 'string'
+        ? info.detectedSource : undefined;
+}
+
+function translationResult(data: unknown, serviceId: TranslationService['id']): TranslateResult {
+    if (!data || typeof data !== 'object' ||
+        !('translation' in data) || typeof data.translation !== 'string' || !data.translation.trim()) {
+        throw new TranslationError('SERVICE_UNAVAILABLE',
+            'Could not get translation from Lingva response', { serviceId });
+    }
+    return {
+        translation: data.translation,
+        serviceId,
+        detectedSourceLang: detectedLanguage('info' in data ? data.info : undefined),
+    };
+}
+
 export class LingvaTranslationService extends BaseTranslationService {
     constructor(public readonly service: TranslationService) {
         super();
@@ -56,27 +74,7 @@ export class LingvaTranslationService extends BaseTranslationService {
                 );
             }
 
-            const data: unknown = await response.json();
-
-            if (!data || typeof data !== 'object' ||
-                !('translation' in data) || typeof data.translation !== 'string' || !data.translation.trim()) {
-                throw new TranslationError(
-                    'SERVICE_UNAVAILABLE',
-                    'Could not get translation from Lingva response',
-                    { serviceId: this.service.id }
-                );
-            }
-
-            const info = 'info' in data ? data.info : undefined;
-            const detectedSourceLang = info && typeof info === 'object' &&
-                'detectedSource' in info && typeof info.detectedSource === 'string'
-                ? info.detectedSource : undefined;
-
-            return {
-                translation: data.translation,
-                serviceId: this.service.id,
-                detectedSourceLang
-            };
+            return translationResult(await response.json(), this.service.id);
 
         } catch (error) {
             params.signal?.throwIfAborted();

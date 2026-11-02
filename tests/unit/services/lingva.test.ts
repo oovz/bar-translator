@@ -26,7 +26,7 @@ describe('Lingva translation', () => {
             .rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', serviceId: 'lingva' });
     });
 
-    it.each([null, {}, { translation: [] }, { translation: { text: 'Hola' } }, { translation: 123 }, { translation: '  ' }])(
+    it.each([null, 'not a response object', {}, { translation: [] }, { translation: { text: 'Hola' } }, { translation: 123 }, { translation: '  ' }])(
         'rejects malformed translation payload %j as a provider failure', async payload => {
             fetchMock.mockResolvedValue(Response.json(payload));
             await expect(service.translate({ text: 'Hello', sourceLang: 'en', targetLang: 'es' }))

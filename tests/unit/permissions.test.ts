@@ -209,3 +209,17 @@ describe('configured instance grants', () => {
         expect(await hasInstanceAccess(managed)).toBe(true);
     });
 });
+
+describe('permission request validation', () => {
+    it.each(['ftp://translate.example/path', 'https://user@translate.example', 'https://:secret@translate.example'])('rejects an unsafe configured endpoint before requesting access: %s', endpoint => {
+        const instance: TranslationInstance = { id: 'custom', providerId: 'libretranslate', name: 'Custom', hosting: 'custom', endpoint };
+        expect(() => requestInstanceAccess(instance)).toThrow('Invalid translation endpoint.');
+        expect(chrome.permissions.request).not.toHaveBeenCalled();
+    });
+
+    it('accepts clipboard removal reporting false when permissions are already absent', async () => {
+        remove.mockResolvedValue(false);
+        await expect(removeCopyAccess()).resolves.toBeUndefined();
+        expect(permissions.size).toBe(0);
+    });
+});

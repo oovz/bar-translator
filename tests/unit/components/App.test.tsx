@@ -1,4 +1,6 @@
 /** @vitest-environment jsdom */
+import { render as renderPreact } from 'preact';
+import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor, within } from '@testing-library/preact';
 import App from '@/entrypoints/options/App';
@@ -53,6 +55,7 @@ describe('whole-setup settings application', () => {
         }
         const view = render(<App />);
         await view.findByText('privacyDesc');
+        expect(document.title).toBe('extName settings');
         for (const storage of [window.localStorage, window.sessionStorage]) {
             for (const key of keys) expect(storage.getItem(key)).toBeNull();
             expect(storage.getItem('unrelated')).toBe('preserved');
@@ -193,6 +196,64 @@ describe('whole-setup settings application', () => {
         expect(switchSetupStorage).toHaveBeenCalledWith('local', undefined);
     });
 
+    it('saves and clears a regional dialect without discarding another language override', async () => {
+        state.setup.preferences.languageOverrides = { zh: 'zh-TW' };
+        const view = render(<App />);
+        const label = await view.findByText('lang_pt (pt)');
+        const select = within(label.parentElement!).getByRole('combobox') as HTMLSelectElement;
+        expect(within(select).getByRole('option', { name: 'lang_variant_brazil' })).toHaveProperty('value', 'pt-BR');
+        fireEvent.change(select, { target: { value: 'pt-BR' } });
+        await waitFor(() => expect(state.setup.preferences.languageOverrides).toEqual({ zh: 'zh-TW', pt: 'pt-BR' }));
+        expect(select.value).toBe('pt-BR');
+        fireEvent.change(select, { target: { value: '' } });
+        await waitFor(() => expect(state.setup.preferences.languageOverrides).toEqual({ zh: 'zh-TW' }));
+        expect(select.value).toBe('');
+    });
+
+    it('shows save failures as alerts while leaving successfully loaded settings free of error alerts', async () => {
+        const view = render(<App />);
+        const label = await view.findByText('lang_pt (pt)');
+        expect(view.queryByRole('alert')).toBeNull();
+        vi.mocked(updateSetup).mockRejectedValueOnce(new Error('Storage unavailable'));
+        fireEvent.change(within(label.parentElement!).getByRole('combobox'), { target: { value: 'pt-BR' } });
+        expect((await view.findByRole('alert')).textContent).toBe('settingsSaveFailed');
+        expect(state.setup.preferences.languageOverrides).toEqual({});
+    });
+
+    it('ignores a settings hash change during deferred listener cleanup after page teardown', async () => {
+        const previous = window.location.href;
+        const errors: unknown[] = [];
+        const recordError = (event: ErrorEvent) => { errors.push(event.error); event.preventDefault(); };
+        window.addEventListener('error', recordError);
+        try {
+            window.history.replaceState(null, '', '#copy');
+            const view = render(<App />);
+            const checkbox = await view.findByLabelText('enableCopy');
+            await waitFor(() => expect(document.activeElement).toBe(checkbox.closest('#copy')));
+            // Preact removes DOM immediately but cleans passive subscriptions after paint.
+            renderPreact(null, view.container);
+            window.history.replaceState(null, '', '#providers');
+            window.dispatchEvent(new Event('hashchange'));
+            expect(errors).toEqual([]);
+        } finally {
+            await act(async () => {});
+            window.removeEventListener('error', recordError);
+            window.history.replaceState(null, '', previous);
+        }
+    });
+
+    it('focuses a deep-linked section even when the host does not provide scrolling', async () => {
+        const previous = window.location.href;
+        try {
+            window.history.replaceState(null, '', '#copy');
+            const view = render(<App />);
+            const checkbox = await view.findByLabelText('enableCopy');
+            await waitFor(() => expect(document.activeElement).toBe(checkbox.closest('#copy')));
+        } finally {
+            window.history.replaceState(null, '', previous);
+        }
+    });
+
     it('reports a settings read failure rather than silently presenting fresh defaults', async () => {
         vi.mocked(getSetupState).mockRejectedValueOnce(new Error('Incomplete sync'));
         const view = render(<App />);
@@ -204,4 +265,20 @@ describe('whole-setup settings application', () => {
         await waitFor(() => expect(addProvider(view)).not.toBeNull());
         expect(view.queryByText('settingsLoadFailed')).toBeNull();
     });
+    it.each(['providers', 'copy'])('focuses and scrolls to the %s section when its settings link is followed', async id => {
+        const view = render(<App />);
+        await view.findByText('privacyDesc');
+        const section = view.container.querySelector<HTMLElement>(`#${id}`)!;
+        section.scrollIntoView = vi.fn();
+        const previous = window.location.href;
+        try {
+            window.history.replaceState(null, '', `#${id}`);
+            fireEvent(window, new Event('hashchange'));
+            await waitFor(() => expect(document.activeElement).toBe(section));
+            expect(section.scrollIntoView).toHaveBeenCalledOnce();
+        } finally {
+            window.history.replaceState(null, '', previous);
+        }
+    });
+
 });

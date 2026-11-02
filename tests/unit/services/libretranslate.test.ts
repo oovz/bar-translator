@@ -79,6 +79,33 @@ describe('LibreTranslateService', () => {
         expect(JSON.parse(fetchMock.mock.calls[0]![1]!.body as string).source).toBe('auto');
     });
 
+    it.each([
+        ['zh-Hans', 'zh-CN'], ['zh-Hant', 'zh-TW'], ['pt-BR', 'pt-BR'], ['EN', 'en'],
+    ])('maps detected language %s to %s', async (language, expected) => {
+        fetchMock.mockResolvedValue(Response.json({ translatedText: 'Hola', detectedLanguage: { language } }));
+        expect(await service.translate(params)).toMatchObject({ translation: 'Hola', detectedSourceLang: expected });
+    });
+
+    it.each([[4096, 'API_KEY_REQUIRED'], [4097, 'SERVICE_UNAVAILABLE']])(
+        'interprets documented server errors only within the %s-character boundary', async (length, code) => {
+            const prefix = 'Visit https://server.example/';
+            const suffix = ' to get an API key.';
+            const error = prefix + 'x'.repeat(Number(length) - prefix.length - suffix.length) + suffix;
+            fetchMock.mockResolvedValue(Response.json({ error }, { status: 400 }));
+            await expect(service.translate(params)).rejects.toMatchObject({ code, httpStatus: 400 });
+        },
+    );
+
+    it.each([0, 100])('accepts detected-language confidence at boundary %s', async confidence => {
+        fetchMock.mockResolvedValue(Response.json({ translatedText: 'Hola', detectedLanguage: { language: 'en', confidence } }));
+        expect(await service.translate(params)).toMatchObject({ translation: 'Hola', detectedSourceLang: 'en' });
+    });
+
+    it.each([-1, '90', null])('rejects invalid detected-language confidence %j', async confidence => {
+        fetchMock.mockResolvedValue(Response.json({ translatedText: 'Hola', detectedLanguage: { language: 'en', confidence } }));
+        await expect(service.translate(params)).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    });
+
     it('accepts unchanged translations without claiming a provider failure', async () => {
         fetchMock.mockResolvedValue(Response.json({ translatedText: '123' }));
         expect((await service.translate({ ...params, text: '123' })).translation).toBe('123');
@@ -113,6 +140,8 @@ describe('LibreTranslateService', () => {
 
     it.each([
         null, { translatedText: ['Hola'] }, { translatedText: ' ' },
+        { translatedText: 'Hola', detectedLanguage: null },
+        { translatedText: 'Hola', detectedLanguage: { language: ['en'] } },
         { translatedText: 'Hola', detectedLanguage: { language: 42 } },
         { translatedText: 'Hola', detectedLanguage: { language: 'en', confidence: 101 } },
     ])('rejects malformed translation data as an instance failure', async payload => {
@@ -128,6 +157,11 @@ describe('LibreTranslateService', () => {
     it('preserves a known rate-limit status even when a proxy supplies non-JSON diagnostics', async () => {
         fetchMock.mockResolvedValue(new Response('<html>slow down</html>', { status: 429 }));
         await expect(service.translate(params)).rejects.toMatchObject({ code: 'RATE_LIMITED', httpStatus: 429 });
+    });
+
+    it('rejects a successful response with no body as a provider failure', async () => {
+        fetchMock.mockResolvedValue(new Response(null));
+        await expect(service.translate(params)).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
     });
 
     it('bounds a chunked response and cancels reading an oversized body', async () => {
@@ -181,9 +215,31 @@ describe('LibreTranslateService', () => {
         expect(cancel).toHaveBeenCalledTimes(1);
     });
 
+    it('requires at least one well-formed advertised language to confirm a connection', async () => {
+        fetchMock.mockResolvedValueOnce(Response.json([]))
+            .mockResolvedValueOnce(Response.json([{ code: 'en', name: 'English', targets: ['en'] }]));
+        expect(await probeLibreTranslate('http://localhost:5000')).toBe(false);
+        expect(await probeLibreTranslate('http://localhost:5000')).toBe(true);
+    });
+
+    it.each([
+        [null],
+        [{ code: 42, name: 'English', targets: ['en'] }],
+        [{ code: 'not a code', name: 'English', targets: ['en'] }],
+        [{ code: 'en', name: 42, targets: ['en'] }],
+        [{ code: 'en', name: 'English', targets: 'en' }],
+        [{ code: 'en', name: 'English', targets: [42] }],
+        [{ code: 'en', name: 'English', targets: ['not a code'] }],
+    ].map(payload => [payload]))('does not confirm a connection from malformed language discovery %j', async payload => {
+        fetchMock.mockResolvedValue(Response.json(payload));
+        expect(await probeLibreTranslate('http://localhost:5000')).toBe(false);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     describe('explicit connection test', () => {
         it('chooses an advertised language pair and verifies a fixed translation after discovery', async () => {
-            fetchMock.mockResolvedValueOnce(Response.json(languages))
+            fetchMock.mockResolvedValueOnce(Response.json(languages.map(language => language.code === 'en'
+                ? { ...language, targets: ['en', 'es'] } : language)))
                 .mockResolvedValueOnce(Response.json({ translatedText: 'Hola' }));
             expect(await testLibreTranslate('http://localhost:5000/libre', 'test-key')).toEqual({ valid: true });
             expect(fetchMock).toHaveBeenCalledTimes(2);

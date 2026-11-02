@@ -22,88 +22,58 @@ import { isValidLanguageCode, resolveLanguageCode } from './languages';
  * @param defaults - Default preferences for fallback values
  * @returns Parsed input with language codes and text
  */
-export function parseOmniboxInput(
-    input: string,
-    defaults?: Pick<UserPreferences, 'defaultTargetLang' | 'defaultSourceLang' | 'languageOverrides'>
-): ParsedOmniboxInput {
-    const trimmed = input.trim();
-    const overrides = defaults?.languageOverrides;
+type ParserDefaults = Pick<UserPreferences, 'defaultTargetLang' | 'defaultSourceLang' | 'languageOverrides'>;
 
-    if (!trimmed) {
+function languagePair(token: string, overrides?: Record<string, string>): Pick<ParsedOmniboxInput, 'sourceLang' | 'targetLang'> | undefined {
+    const [source, target] = token.split('>');
+    if (!source || !target || !isValidLanguageCode(source) || !isValidLanguageCode(target)) return;
+    return {
+        sourceLang: resolveLanguageCode(source, overrides),
+        targetLang: resolveLanguageCode(target, overrides),
+    };
+}
+
+function defaultText(text: string, defaults?: ParserDefaults): ParsedOmniboxInput {
+    return {
+        targetLang: defaults?.defaultTargetLang,
+        sourceLang: defaults?.defaultSourceLang,
+        text,
+        isLanguageQuery: false,
+    };
+}
+
+function languageQuery(token: string, defaults?: ParserDefaults): ParsedOmniboxInput {
+    const pair = languagePair(token, defaults?.languageOverrides);
+    if (pair) return { ...pair, text: '', isLanguageQuery: true };
+    if (isValidLanguageCode(token)) {
         return {
+            targetLang: resolveLanguageCode(token, defaults?.languageOverrides),
             text: '',
             isLanguageQuery: true,
         };
     }
+    return defaultText(token, defaults);
+}
 
-    // Split by first space
+export function parseOmniboxInput(input: string, defaults?: ParserDefaults): ParsedOmniboxInput {
+    const trimmed = input.trim();
+    if (!trimmed) return { text: '', isLanguageQuery: true };
     const spaceIndex = trimmed.indexOf(' ');
+    if (spaceIndex === -1) return languageQuery(trimmed, defaults);
 
-    // No space - could be just a language code, source>target format, or text
-    if (spaceIndex === -1) {
-        // Check for source>target format (e.g., "en>fr")
-        if (trimmed.includes('>')) {
-            const [source, target] = trimmed.split('>');
-            if (source && target && isValidLanguageCode(source) && isValidLanguageCode(target)) {
-                return {
-                    sourceLang: resolveLanguageCode(source, overrides),
-                    targetLang: resolveLanguageCode(target, overrides),
-                    text: '',
-                    isLanguageQuery: true,
-                };
-            }
-        }
-
-        // Check if it looks like a single language code
-        if (isValidLanguageCode(trimmed)) {
-            return {
-                targetLang: resolveLanguageCode(trimmed, overrides),
-                text: '',
-                isLanguageQuery: true,
-            };
-        }
-        // Treat as text to translate
+    const token = trimmed.substring(0, spaceIndex);
+    const text = trimmed.substring(spaceIndex + 1).trim();
+    const pair = languagePair(token, defaults?.languageOverrides);
+    if (pair) return { ...pair, text, isLanguageQuery: text.length === 0 };
+    if (isValidLanguageCode(token)) {
         return {
-            targetLang: defaults?.defaultTargetLang,
+            targetLang: resolveLanguageCode(token, defaults?.languageOverrides),
             sourceLang: defaults?.defaultSourceLang,
-            text: trimmed,
-            isLanguageQuery: false,
+            text,
+            isLanguageQuery: text.length === 0,
         };
     }
-
-    const firstPart = trimmed.substring(0, spaceIndex);
-    const rest = trimmed.substring(spaceIndex + 1).trim();
-
-    // Check for source>target format (e.g., "en>fr")
-    if (firstPart.includes('>')) {
-        const [source, target] = firstPart.split('>');
-        if (source && target && isValidLanguageCode(source) && isValidLanguageCode(target)) {
-            return {
-                sourceLang: resolveLanguageCode(source, overrides),
-                targetLang: resolveLanguageCode(target, overrides),
-                text: rest,
-                isLanguageQuery: rest.length === 0,
-            };
-        }
-    }
-
-    // Check if first part is a language code
-    if (isValidLanguageCode(firstPart)) {
-        return {
-            targetLang: resolveLanguageCode(firstPart, overrides),
-            sourceLang: defaults?.defaultSourceLang,
-            text: rest,
-            isLanguageQuery: rest.length === 0,
-        };
-    }
-
-    // No language code found, use whole input as text
-    return {
-        targetLang: defaults?.defaultTargetLang,
-        sourceLang: defaults?.defaultSourceLang,
-        text: trimmed,
-        isLanguageQuery: false,
-    };
+    return defaultText(trimmed, defaults);
 }
 
 /**

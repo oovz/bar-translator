@@ -1,5 +1,7 @@
 /** @vitest-environment jsdom */
 import { useState } from 'preact/hooks';
+import Sortable from 'sortablejs';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, fireEvent, waitFor, within } from '@testing-library/preact';
 import { ServiceList } from '@/entrypoints/options/components/ServiceList';
@@ -73,6 +75,7 @@ describe('translation instances', () => {
         fireEvent.input(view.getByLabelText('instanceName'), { target: { value: 'Renamed account' } });
         fireEvent.click(view.getByText('saveInstance'));
         await view.findByText('instanceSaved');
+        expect(view.getByRole('status').textContent).toBe('instanceSaved');
         expect(saved.instances.find(instance => instance.id === 'deepl')).toEqual({
             id: 'deepl', providerId: 'deepl', name: 'Renamed account', credential,
         });
@@ -150,6 +153,17 @@ describe('translation instances', () => {
         expect(testInstance).not.toHaveBeenCalled();
     });
 
+    it('preserves previously retained access when a new enablement request rejects before granting anything', async () => {
+        origins.delete('https://api.deepl.com/*');
+        vi.mocked(chrome.permissions.request).mockRejectedValueOnce(new Error('Browser request interrupted'));
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByRole('button', { name: 'enableInstance' }));
+        await view.findByText('Browser request interrupted');
+        expect(saved.preferences.fallbackOrder).toEqual(['google-web']);
+        expect(origins.has('https://api-free.deepl.com/*')).toBe(true);
+        expect(chrome.permissions.remove).not.toHaveBeenCalled();
+    });
+
     it('keeps an instance disabled if access is removed before its enablement can be saved', async () => {
         vi.mocked(chrome.permissions.request).mockImplementation(async () => { origins.clear(); return true; });
         const view = render(<Harness />);
@@ -204,6 +218,7 @@ describe('translation instances', () => {
         expect((view.getByLabelText('optionalApiKey') as HTMLInputElement).value).toBe('');
         expect((view.getByLabelText('optionalApiKey') as HTMLInputElement).disabled).toBe(true);
         expect(view.getByText('httpEndpointWarning')).toBeTruthy();
+        expect(view.getByText('endpointKeyReset')).toBeTruthy();
         fireEvent.click(view.getByText('saveInstance'));
         await view.findByText('instanceSaved');
         expect(saved.instances.find(instance => instance.id === 'home')).toEqual({ id: 'home', providerId: 'libretranslate', name: 'Home', endpoint: 'http://192.168.1.4:5000/libre', hosting: 'custom', credential: undefined });
@@ -314,4 +329,254 @@ describe('translation instances', () => {
         expect(saved.preferences.fallbackOrder).toEqual(['deepl']);
         expect(saved.instances.some(instance => instance.id === 'deepl')).toBe(true);
     });
+    it('persists a drag reorder while preserving accounts enabled after the drag started', async () => {
+        saved.instances.push({ id: 'work', providerId: 'deepl', name: 'Work' });
+        saved.preferences.fallbackOrder = ['google-web', 'deepl'];
+        const view = render(<Harness />);
+        const options = vi.mocked(Sortable.create).mock.calls.at(-1)![1]!;
+        // Another page enables an account after this list's drag snapshot was rendered.
+        saved.preferences.fallbackOrder.push('work');
+        options.onEnd?.({ oldDraggableIndex: 0, newDraggableIndex: 1 } as Sortable.SortableEvent);
+        await waitFor(() => expect(saved.preferences.fallbackOrder).toEqual(['deepl', 'google-web', 'work']));
+        expect(within(view.getByRole('list', { name: 'activatedInstances' })).getAllByRole('listitem')
+            .map(item => item.getAttribute('data-id'))).toEqual(['deepl', 'google-web', 'work']);
+    });
+
+    it('switches between managed and custom hosting without forwarding credentials to a different recipient', async () => {
+        saved.instances.push({ id: 'home', providerId: 'libretranslate', name: 'Home', endpoint: 'https://home.example/libre', hosting: 'custom', credential: { key: 'secret', validated: true } });
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'home').getByText('configureInstance'));
+        fireEvent.change(view.getByLabelText('libreHosting'), { target: { value: 'managed' } });
+        expect((view.getByLabelText('instanceEndpoint') as HTMLInputElement).value).toBe('https://libretranslate.com');
+        expect((view.getByLabelText('apiKeyLabel') as HTMLInputElement).value).toBe('');
+        fireEvent.change(view.getByLabelText('libreHosting'), { target: { value: 'custom' } });
+        expect((view.getByLabelText('instanceEndpoint') as HTMLInputElement).value).toBe('https://home.example/libre');
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('instanceSaved');
+        expect(saved.instances.find(instance => instance.id === 'home')).toMatchObject({ endpoint: 'https://home.example/libre', credential: undefined });
+    });
+
+    it('uses a local endpoint when changing a new managed deployment to custom hosting', async () => {
+        const view = render(<Harness />);
+        fireEvent.click(within(view.container.querySelector('[data-provider="libretranslate"]')! as HTMLElement).getByRole('button'));
+        fireEvent.change(await view.findByLabelText('libreHosting'), { target: { value: 'custom' } });
+        expect((view.getByLabelText('instanceEndpoint') as HTMLInputElement).value).toBe('http://localhost:5000');
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('instanceSaved');
+        expect(saved.instances.find(instance => instance.providerId === 'libretranslate')).toMatchObject({ endpoint: 'http://localhost:5000', hosting: 'custom' });
+    });
+
+    it('repairs permission for an already enabled account without changing its priority', async () => {
+        saved.preferences.fallbackOrder = ['deepl', 'google-web'];
+        origins.clear();
+        const view = render(<Harness />);
+        fireEvent.click(await row(view, 'deepl').findByText('grantAccess'));
+        await waitFor(() => expect(row(view, 'deepl').queryByText('grantAccess')).toBeNull());
+        expect(origins.has('https://api-free.deepl.com/*')).toBe(true);
+        expect(origins.has('https://api.deepl.com/*')).toBe(true);
+        expect(saved.preferences.fallbackOrder).toEqual(['deepl', 'google-web']);
+        await waitFor(() => expect((row(view, 'deepl').getByRole('button', { name: 'disableInstance' }) as HTMLButtonElement).disabled).toBe(false));
+        expect(view.queryByRole('alert')).toBeNull();
+    });
+
+    it('reports a rejected key test and unlocks the unchanged account for another attempt', async () => {
+        saved.preferences.fallbackOrder = ['deepl'];
+        saved.instances = saved.instances.map(instance => instance.providerId === 'deepl'
+            ? { ...instance, credential: { key: 'secret:fx', tier: 'free', validated: false } } : instance);
+        vi.mocked(testInstance).mockRejectedValueOnce(new Error('Network unavailable'));
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
+        await waitFor(() => expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false));
+        fireEvent.click(view.getByText('testKey'));
+        await view.findByText('keyTestFailed');
+        expect(view.getByRole('alert').textContent).toBe('keyTestFailed');
+        expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false);
+        fireEvent.click(view.getByText('testKey'));
+        await view.findByText('valid');
+        expect(saved.instances.find(instance => instance.id === 'deepl')).toMatchObject({ credential: { key: 'secret:fx', validated: true } });
+    });
+
+    it('shows a credential on request and invalidates prior validation when its key or tier changes', async () => {
+        saved.instances = saved.instances.map(instance => instance.providerId === 'deepl'
+            ? { ...instance, credential: { key: 'old:fx', tier: 'free', validated: true, lastValidated: 123 } } : instance);
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
+        fireEvent.click(view.getByText('show'));
+        expect((view.getByLabelText('apiKeyLabel') as HTMLInputElement).type).toBe('text');
+        fireEvent.input(view.getByLabelText('apiKeyLabel'), { target: { value: 'replacement' } });
+        expect((view.getByLabelText('deepLTier') as HTMLSelectElement).value).toBe('pro');
+        fireEvent.click(view.getByText('hide'));
+        expect((view.getByLabelText('apiKeyLabel') as HTMLInputElement).type).toBe('password');
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('instanceSaved');
+        expect(saved.instances.find(instance => instance.id === 'deepl')).toMatchObject({ credential: { key: 'replacement', tier: 'pro', validated: false } });
+        fireEvent.change(view.getByLabelText('deepLTier'), { target: { value: 'free' } });
+        fireEvent.click(view.getByText('saveInstance'));
+        await waitFor(() => expect(saved.instances.find(instance => instance.id === 'deepl')).toMatchObject({ credential: { key: 'replacement', tier: 'free', validated: false } }));
+    });
+
+    it('preserves validated credentials when renaming an unchanged custom recipient', async () => {
+        const credential = { key: 'secret', validated: true, lastValidated: 123 };
+        saved.instances.push({ id: 'home', providerId: 'libretranslate', name: 'Home', hosting: 'custom', endpoint: 'https://home.example', credential });
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'home').getByText('configureInstance'));
+        fireEvent.input(view.getByLabelText('instanceName'), { target: { value: 'Renamed home' } });
+        fireEvent.click(view.getByText('saveInstance'));
+        await view.findByText('instanceSaved');
+        expect(saved.instances.find(instance => instance.id === 'home')).toMatchObject({ name: 'Renamed home', credential });
+    });
+
+    it('does not display validation success when recording the result fails', async () => {
+        saved.preferences.fallbackOrder = ['deepl'];
+        saved.instances = saved.instances.map(instance => instance.providerId === 'deepl'
+            ? { ...instance, credential: { key: 'secret:fx', tier: 'free', validated: false } } : instance);
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
+        await waitFor(() => expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false));
+        saveFails = true;
+        fireEvent.click(view.getByText('testKey'));
+        await view.findByText('keyTestFailed');
+        expect(view.queryByText('valid')).toBeNull();
+        expect(saved.instances.find(instance => instance.id === 'deepl')).toMatchObject({ credential: { validated: false } });
+    });
+
+    it('tests a keyless custom deployment without adding a credential record', async () => {
+        saved.instances.push({ id: 'home', providerId: 'libretranslate', name: 'Home', hosting: 'custom', endpoint: 'https://home.example' });
+        saved.preferences.fallbackOrder = ['home'];
+        origins.add('https://home.example/*');
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'home').getByText('configureInstance'));
+        await waitFor(() => expect((view.getByText('testKey') as HTMLButtonElement).disabled).toBe(false));
+        fireEvent.click(view.getByText('testKey'));
+        await view.findByText('valid');
+        expect(saved.instances.find(instance => instance.id === 'home')).not.toHaveProperty('credential');
+        expect(saved.preferences.fallbackOrder).toEqual(['home']);
+    });
+
+    it.each(['denied', 'rejected'])('keeps an enabled account and its configuration when permission repair is %s', async outcome => {
+        saved.preferences.fallbackOrder = ['deepl', 'google-web'];
+        saved.instances = saved.instances.map(instance => instance.providerId === 'deepl'
+            ? { ...instance, credential: { key: 'saved:fx', tier: 'free', validated: true } } : instance);
+        const before = structuredClone(saved);
+        origins.clear();
+        if (outcome === 'denied') vi.mocked(chrome.permissions.request).mockImplementationOnce(async () => false);
+        else vi.mocked(chrome.permissions.request).mockRejectedValueOnce(new Error('Browser refused request'));
+        const view = render(<Harness />);
+        const grant = await row(view, 'deepl').findByText('grantAccess');
+        fireEvent.click(grant);
+        await view.findByRole('alert');
+        expect(view.getByText('permissionDenied')).toBeTruthy();
+        expect(saved).toEqual(before);
+        expect(origins.size).toBe(0);
+        expect((grant as HTMLButtonElement).disabled).toBe(false);
+        expect(testInstance).not.toHaveBeenCalled();
+    });
+
+    it('keeps a new draft mounted and locked until its pending save finishes', async () => {
+        let finish!: (saved: boolean) => void;
+        const update = vi.fn(() => new Promise<boolean>(resolve => { finish = resolve; }));
+        const view = render(<ServiceList setup={saved} updateSetup={update} />);
+        fireEvent.click(view.container.querySelector('[data-provider="libretranslate"] [data-action="add-provider"]')!);
+        const name = await view.findByLabelText('instanceName') as HTMLInputElement;
+        fireEvent.input(name, { target: { value: 'Pending server' } });
+        fireEvent.click(view.getByText('saveInstance'));
+        await waitFor(() => expect(update).toHaveBeenCalledTimes(1));
+        expect(name.disabled).toBe(true);
+        expect((view.getByText('saveInstance') as HTMLButtonElement).disabled).toBe(true);
+        expect((view.getByText('cancel') as HTMLButtonElement).disabled).toBe(true);
+        await userEvent.setup().click(view.getByText('cancel'));
+        expect(view.getByLabelText('instanceName')).toBe(name);
+        finish(false);
+        expect((await view.findByRole('alert')).textContent).toBe('settingsSaveFailed');
+        expect(name.disabled).toBe(false);
+        expect((view.getByText('cancel') as HTMLButtonElement).disabled).toBe(false);
+        expect(saved.instances.some(instance => 'name' in instance && instance.name === 'Pending server')).toBe(false);
+    });
+
+    it('reports invalid draft names as errors without saving or presenting successful status', async () => {
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
+        expect(view.queryByRole('alert')).toBeNull();
+        fireEvent.input(view.getByLabelText('instanceName'), { target: { value: '   ' } });
+        fireEvent.click(view.getByText('saveInstance'));
+        expect((await view.findByRole('alert')).textContent).toBe('instanceNameInvalid');
+        expect(view.queryByRole('status')).toBeNull();
+        expect(saved.instances.find(instance => instance.id === 'deepl')).toMatchObject({ name: 'Saved account' });
+    });
+
+    it('locks a saved account and its activation while its explicit test is pending', async () => {
+        saved.preferences.fallbackOrder = ['deepl'];
+        saved.instances = saved.instances.map(instance => instance.providerId === 'deepl'
+            ? { ...instance, credential: { key: 'secret:fx', tier: 'free', validated: false } } : instance);
+        let finish!: (result: { valid: boolean }) => void;
+        vi.mocked(testInstance).mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'deepl').getByText('configureInstance'));
+        const test = view.getByText('testKey') as HTMLButtonElement;
+        await waitFor(() => expect(test.disabled).toBe(false));
+        fireEvent.click(test);
+        await view.findByText('checking');
+        expect((view.getByLabelText('instanceName') as HTMLInputElement).disabled).toBe(true);
+        expect(test.disabled).toBe(true);
+        expect((row(view, 'deepl').getByRole('button', { name: 'disableInstance' }) as HTMLButtonElement).disabled).toBe(true);
+        finish({ valid: true });
+        expect((await view.findByRole('status')).textContent).toBe('valid');
+        expect(test.disabled).toBe(false);
+    });
+
+    it.each(['deepl', 'managed', 'custom'] as const)('shows connection guidance only for custom hosting: %s', async kind => {
+        let id = 'deepl';
+        if (kind !== 'deepl') {
+            id = 'server';
+            saved.instances.push({ id, providerId: 'libretranslate', name: 'Server', hosting: kind,
+                endpoint: kind === 'managed' ? 'https://libretranslate.com' : 'https://home.example' });
+        }
+        const view = render(<Harness />);
+        fireEvent.click(row(view, id).getByText('configureInstance'));
+        if (kind === 'custom') expect(view.getByText('customConnectionDescription')).toBeTruthy();
+        else expect(view.queryByText('customConnectionDescription')).toBeNull();
+        if (kind !== 'deepl') expect((view.getByLabelText('instanceEndpoint') as HTMLInputElement).disabled).toBe(kind === 'managed');
+        expect(view.queryByText('endpointKeyReset')).toBeNull();
+    });
+
+    it('loads an externally changed custom recipient into the open editor without retaining its old key', async () => {
+        saved.instances.push({ id: 'server', providerId: 'libretranslate', name: 'Server', hosting: 'custom',
+            endpoint: 'https://old.example', credential: { key: 'old-key', validated: false } });
+        const update = vi.fn(async () => true);
+        const view = render(<ServiceList setup={saved} updateSetup={update} />);
+        fireEvent.click(row(view, 'server').getByText('configureInstance'));
+        const next = structuredClone(saved);
+        next.instances = next.instances.map(instance => instance.id === 'server'
+            ? { id: 'server', providerId: 'libretranslate', name: 'Server', hosting: 'managed', endpoint: 'https://libretranslate.com' } : instance);
+        view.rerender(<ServiceList setup={next} updateSetup={update} />);
+        await waitFor(() => expect((view.getByLabelText('instanceEndpoint') as HTMLInputElement).value).toBe('https://libretranslate.com'));
+        expect((view.getByLabelText('libreHosting') as HTMLSelectElement).value).toBe('managed');
+        expect((view.getByLabelText('apiKeyLabel') as HTMLInputElement).value).toBe('');
+        expect(update).not.toHaveBeenCalled();
+    });
+
+    it('preserves a custom server key when an endpoint input event does not change its recipient', async () => {
+        const credential = { key: 'secret', validated: true };
+        saved.instances.push({ id: 'server', providerId: 'libretranslate', name: 'Server', hosting: 'custom', endpoint: 'https://home.example', credential });
+        const view = render(<Harness />);
+        fireEvent.click(row(view, 'server').getByText('configureInstance'));
+        fireEvent.input(view.getByLabelText('instanceEndpoint'), { target: { value: 'https://home.example' } });
+        expect((view.getByLabelText('optionalApiKey') as HTMLInputElement).value).toBe('secret');
+        expect((view.getByText('saveInstance') as HTMLButtonElement).disabled).toBe(true);
+        expect(saved.instances.find(instance => instance.id === 'server')).toMatchObject({ credential });
+    });
+
+    it('keeps the provider section out of sequential keyboard navigation while permitting direct focus', async () => {
+        const view = render(<><button>Before providers</button><Harness /></>);
+        await view.findByLabelText('providerReady');
+        const user = userEvent.setup();
+        await user.tab();
+        expect(document.activeElement).toBe(view.getByText('Before providers'));
+        await user.tab();
+        expect(document.activeElement).toBe(row(view, 'google-web').getByRole('button', { name: 'disableInstance' }));
+        const section = view.container.querySelector<HTMLElement>('#providers')!;
+        section.focus();
+        expect(document.activeElement).toBe(section);
+    });
+
 });

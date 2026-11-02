@@ -45,11 +45,15 @@ export function normalizeEndpoint(value: string): string {
     let url: URL;
     try { url = new URL(value.trim()); }
     catch { throw new Error('Enter a complete HTTP or HTTPS endpoint URL.'); }
-    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.hostname.includes('*') ||
-        url.username || url.password || url.href.includes('?') || url.href.includes('#')) {
+    if (!isRecipientURL(url)) {
         throw new Error('Use an HTTP or HTTPS base URL without credentials, a query or a fragment.');
     }
     return url.href.replace(/\/+$/, '');
+}
+
+function isRecipientURL(url: URL): boolean {
+    return ['http:', 'https:'].includes(url.protocol) && !!url.hostname && !url.hostname.includes('*') &&
+        !url.username && !url.password && !url.href.includes('?') && !url.href.includes('#');
 }
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -60,19 +64,123 @@ function boundedString(value: unknown, maximum: number): value is string {
     return typeof value === 'string' && value.length > 0 && value.length <= maximum;
 }
 
-function parseCredential(value: unknown): ApiCredential | undefined {
-    if (value === undefined) return;
+function validCredentialTier(value: unknown): value is ApiCredential['tier'] {
+    return value === undefined || value === 'free' || value === 'pro';
+}
+
+function validValidationTime(value: unknown): value is number | undefined {
+    return value === undefined || (typeof value === 'number' && Number.isFinite(value));
+}
+
+function parseCredentialRecord(value: unknown) {
     if (!object(value) || typeof value.key !== 'string' || value.key.length > 8192 ||
         typeof value.validated !== 'boolean' ||
-        (value.tier !== undefined && value.tier !== 'free' && value.tier !== 'pro') ||
-        (value.lastValidated !== undefined && (typeof value.lastValidated !== 'number' || !Number.isFinite(value.lastValidated)))) {
+        !validCredentialTier(value.tier) || !validValidationTime(value.lastValidated)) {
         throw new Error('The saved instance credential is invalid.');
     }
+    return { key: value.key, validated: value.validated, tier: value.tier, lastValidated: value.lastValidated };
+}
+
+function parseCredential(value: unknown): ApiCredential | undefined {
+    if (value === undefined) return;
+    const credential = parseCredentialRecord(value);
     return {
-        key: value.key,
-        validated: value.validated,
-        ...(value.tier !== undefined ? { tier: value.tier } : {}),
-        ...(value.lastValidated !== undefined ? { lastValidated: value.lastValidated } : {}),
+        key: credential.key,
+        validated: credential.validated,
+        ...(credential.tier !== undefined ? { tier: credential.tier } : {}),
+        ...(credential.lastValidated !== undefined ? { lastValidated: credential.lastValidated } : {}),
+    };
+}
+
+function parseSingleton(entry: Record<string, unknown>, id: string, providerId: 'google-web' | 'lingva', singletons: Set<string>): TranslationInstance {
+    if (singletons.has(providerId) || id !== providerId ||
+        entry.name !== undefined || entry.credential !== undefined || entry.endpoint !== undefined) {
+        throw new Error('This provider has one fixed instance.');
+    }
+    singletons.add(providerId);
+    return { id, providerId };
+}
+
+function parseLibreEndpoint(entry: Record<string, unknown>): Pick<LibreTranslateInstance, 'endpoint' | 'hosting'> {
+    if (typeof entry.endpoint !== 'string' || (entry.hosting !== 'managed' && entry.hosting !== 'custom')) {
+        throw new Error('The saved LibreTranslate endpoint is invalid.');
+    }
+    const endpoint = normalizeEndpoint(entry.endpoint);
+    if (entry.hosting === 'managed' && endpoint !== MANAGED_LIBRETRANSLATE_ENDPOINT) {
+        throw new Error('The managed LibreTranslate instance must use its official endpoint.');
+    }
+    return { endpoint, hosting: entry.hosting };
+}
+
+function parseInstanceName(value: unknown): string {
+    if (!boundedString(value, 128) || !value.trim() || hasControlCharacters(value)) {
+        throw new Error('The saved instance provider or name is invalid.');
+    }
+    return value.trim();
+}
+
+function parseInstance(entry: Record<string, unknown>, id: string, singletons: Set<string>): TranslationInstance {
+    if (entry.providerId === 'google-web' || entry.providerId === 'lingva') {
+        return parseSingleton(entry, id, entry.providerId, singletons);
+    }
+    if (entry.providerId !== 'deepl' && entry.providerId !== 'libretranslate') {
+        throw new Error('The saved instance provider or name is invalid.');
+    }
+    const common = {
+        id, name: parseInstanceName(entry.name),
+        ...(entry.credential !== undefined ? { credential: parseCredential(entry.credential) } : {}),
+    };
+    if (entry.providerId === 'deepl') return { ...common, providerId: 'deepl' };
+    return { ...common, providerId: 'libretranslate', ...parseLibreEndpoint(entry) };
+}
+
+function parseInstances(entries: unknown[]): { instances: TranslationInstance[]; ids: Set<string> } {
+    const ids = new Set<string>();
+    const singletons = new Set<string>();
+    const instances = entries.map(entry => {
+        if (!object(entry) || !boundedString(entry.id, 128) || ids.has(entry.id)) {
+            throw new Error('Saved instances must have unique identities.');
+        }
+        ids.add(entry.id);
+        return parseInstance(entry, entry.id, singletons);
+    });
+    if (!singletons.has('google-web') || !singletons.has('lingva')) {
+        throw new Error('The saved setup is missing a fixed provider instance.');
+    }
+    return { instances, ids };
+}
+
+function parseFallbackOrder(order: unknown[], ids: Set<string>): string[] {
+    const enabled = new Set<string>();
+    const fallbackOrder = order.map((id: unknown) => {
+        if (typeof id !== 'string' || !ids.has(id) || enabled.has(id)) {
+            throw new Error('The saved enabled order refers to an unavailable or repeated instance.');
+        }
+        enabled.add(id);
+        return id;
+    });
+    return fallbackOrder;
+}
+
+function parseLanguageOverrides(overrides: Record<string, unknown>): Record<string, string> {
+    const languageOverrides: Record<string, string> = {};
+    for (const [language, variant] of Object.entries(overrides)) {
+        if (!boundedString(language, 32) || !boundedString(variant, 32)) {
+            throw new Error('The saved language override is invalid.');
+        }
+        Object.defineProperty(languageOverrides, language, { value: variant, enumerable: true, configurable: true, writable: true });
+    }
+    return languageOverrides;
+}
+
+function parsePreferences(prefs: Record<string, unknown>) {
+    if (!boundedString(prefs.defaultSourceLang, 32) || !boundedString(prefs.defaultTargetLang, 32) ||
+        !Array.isArray(prefs.fallbackOrder) || !object(prefs.languageOverrides)) {
+        throw new Error('The saved language or fallback settings are invalid.');
+    }
+    return {
+        defaultSourceLang: prefs.defaultSourceLang, defaultTargetLang: prefs.defaultTargetLang,
+        fallbackOrder: prefs.fallbackOrder, languageOverrides: prefs.languageOverrides,
     };
 }
 
@@ -82,62 +190,10 @@ export function validateSetup(value: unknown): TranslationSetup {
         !Array.isArray(value.instances) || typeof value.copyEnabled !== 'boolean') {
         throw new Error('The saved setup is invalid.');
     }
-    const prefs = value.preferences;
-    if (!boundedString(prefs.defaultSourceLang, 32) || !boundedString(prefs.defaultTargetLang, 32) ||
-        !Array.isArray(prefs.fallbackOrder) || !object(prefs.languageOverrides)) {
-        throw new Error('The saved language or fallback settings are invalid.');
-    }
-    const ids = new Set<string>();
-    const singletons = new Set<string>();
-    const instances = value.instances.map((entry: unknown): TranslationInstance => {
-        if (!object(entry) || !boundedString(entry.id, 128) || ids.has(entry.id)) {
-            throw new Error('Saved instances must have unique identities.');
-        }
-        ids.add(entry.id);
-        if (entry.providerId === 'google-web' || entry.providerId === 'lingva') {
-            if (singletons.has(entry.providerId) || entry.id !== entry.providerId ||
-                entry.name !== undefined || entry.credential !== undefined || entry.endpoint !== undefined) {
-                throw new Error('This provider has one fixed instance.');
-            }
-            singletons.add(entry.providerId);
-            return { id: entry.id, providerId: entry.providerId };
-        }
-        if ((entry.providerId !== 'deepl' && entry.providerId !== 'libretranslate') ||
-            !boundedString(entry.name, 128) || !entry.name.trim() || hasControlCharacters(entry.name)) {
-            throw new Error('The saved instance provider or name is invalid.');
-        }
-        const common = {
-            id: entry.id, name: entry.name.trim(),
-            ...(entry.credential !== undefined ? { credential: parseCredential(entry.credential) } : {}),
-        };
-        if (entry.providerId === 'deepl') return { ...common, providerId: 'deepl' };
-        if (typeof entry.endpoint !== 'string' || (entry.hosting !== 'managed' && entry.hosting !== 'custom')) {
-            throw new Error('The saved LibreTranslate endpoint is invalid.');
-        }
-        const endpoint = normalizeEndpoint(entry.endpoint);
-        if (entry.hosting === 'managed' && endpoint !== MANAGED_LIBRETRANSLATE_ENDPOINT) {
-            throw new Error('The managed LibreTranslate instance must use its official endpoint.');
-        }
-        return { ...common, providerId: 'libretranslate', endpoint, hosting: entry.hosting };
-    });
-    if (!singletons.has('google-web') || !singletons.has('lingva')) {
-        throw new Error('The saved setup is missing a fixed provider instance.');
-    }
-    const enabled = new Set<string>();
-    const fallbackOrder = prefs.fallbackOrder.map((id: unknown) => {
-        if (typeof id !== 'string' || !ids.has(id) || enabled.has(id)) {
-            throw new Error('The saved enabled order refers to an unavailable or repeated instance.');
-        }
-        enabled.add(id);
-        return id;
-    });
-    const languageOverrides: Record<string, string> = {};
-    for (const [language, variant] of Object.entries(prefs.languageOverrides)) {
-        if (!boundedString(language, 32) || !boundedString(variant, 32)) {
-            throw new Error('The saved language override is invalid.');
-        }
-        Object.defineProperty(languageOverrides, language, { value: variant, enumerable: true, configurable: true, writable: true });
-    }
+    const prefs = parsePreferences(value.preferences);
+    const { instances, ids } = parseInstances(value.instances);
+    const fallbackOrder = parseFallbackOrder(prefs.fallbackOrder, ids);
+    const languageOverrides = parseLanguageOverrides(prefs.languageOverrides);
     return {
         schemaVersion: 2,
         preferences: {

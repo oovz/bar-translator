@@ -494,27 +494,6 @@ export interface DeepLTranslateResponse {
   }>;
 }
 
-/**
- * Build Authorization header for DeepL API.
- *
- * @remarks
- * As of March 2025, DeepL requires Authorization header.
- * Query param auth deprecated, fully removed January 15, 2026.
- */
-export function buildDeepLAuthHeader(apiKey: string): string {
-  return `DeepL-Auth-Key ${apiKey}`;
-}
-
-/**
- * Get DeepL endpoint based on API key tier.
- */
-export function getDeepLEndpoint(apiKey: string): string {
-  const isFree = apiKey.endsWith(':fx');
-  return isFree
-    ? 'https://api-free.deepl.com/v2/translate'
-    : 'https://api.deepl.com/v2/translate';
-}
-
 // =============================================================================
 // Service Registry Types
 // =============================================================================

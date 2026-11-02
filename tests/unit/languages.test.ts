@@ -15,7 +15,8 @@ import {
     toDeepLLanguage,
     fromDeepLLanguage,
     getLanguageInfo,
-    getLanguageName,
+    getTargetLanguages,
+    getSourceLanguages,
     normalizeLanguageCode,
     resolveLanguageCode,
 } from '@/utils/languages';
@@ -200,12 +201,6 @@ describe('Language Utilities', () => {
         });
     });
 
-    describe('getLanguageName', () => {
-        it('returns uppercase code for unknown codes', () => {
-            expect(getLanguageName('xyz')).toBe('XYZ');
-        });
-    });
-
     describe('normalizeLanguageCode', () => {
         it('extracts base language code', () => {
             expect(normalizeLanguageCode('zh-CN')).toBe('zh');
@@ -245,5 +240,15 @@ describe('Language Utilities', () => {
             const overrides = { 'pt': 'pt-BR' };
             expect(resolveLanguageCode('PT', overrides)).toBe('pt-BR');
         });
+    });
+});
+
+describe('language selection choices', () => {
+    it('allows detection only for the source while preserving explicit target languages', () => {
+        expect(getSourceLanguages().some(language => language.code === 'auto')).toBe(true);
+        const targets = getTargetLanguages();
+        expect(targets.some(language => language.code === 'auto')).toBe(false);
+        expect(targets.some(language => language.code === 'en')).toBe(true);
+        expect(targets.some(language => language.code === 'zh-TW')).toBe(true);
     });
 });

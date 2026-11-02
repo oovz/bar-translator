@@ -2,7 +2,7 @@
 import { createHash, webcrypto } from 'node:crypto';
 import { setImmediate } from 'node:timers/promises';
 import { useState } from 'preact/hooks';
-import { render, fireEvent, within, waitFor } from '@testing-library/preact';
+import { act, cleanup, render, fireEvent, within, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { TranslationSetup } from '@/src/types';
 import type { SetupUpdate } from '@/entrypoints/options/hooks/usePreferences';
@@ -103,6 +103,8 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
+    // Unmount while permission/storage globals still exist for effect cleanup.
+    await act(() => cleanup());
     // Drain queued storage-event work before replacing the browser boundary.
     await api.getSetup().catch(() => undefined);
     vi.unstubAllGlobals();

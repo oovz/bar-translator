@@ -1233,6 +1233,18 @@ describe('instance configuration and stored copy intent', () => {
         expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it('keeps a completed translation when only credential validation metadata changes', async () => {
+        preferences = { ...preferences, fallbackOrder: ['deepl'] };
+        apiKeys = { deepl: { key: 'work:fx', tier: 'free', validated: false } };
+        fetchMock.mockResolvedValueOnce(Response.json({ translations: [{ text: 'Bonjour', detected_source_language: 'EN' }] }));
+        await change('fr Hello');
+        await vi.advanceTimersByTimeAsync(300);
+        apiKeys = { deepl: { key: 'work:fx', tier: 'free', validated: true, lastValidated: 1234 } };
+        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
+        expect(copiedText).toHaveBeenCalledExactlyOnceWith('Bonjour');
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps independent account names in fallback warnings without interpreting their markup', async () => {
         extraInstances = [{ id: 'work', providerId: 'deepl', name: '<Work> & account', credential: { key: 'work:fx', validated: false } }];
         preferences = { ...preferences, fallbackOrder: ['work', 'google-web'] };

@@ -1,16 +1,17 @@
 /** @vitest-environment jsdom */
 import { useState } from 'preact/hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, waitFor } from '@testing-library/preact';
+import { act, fireEvent, render, waitFor } from '@testing-library/preact';
 import userEvent from '@testing-library/user-event';
 import { CopySettings } from '@/entrypoints/options/components/CopySettings';
 import { createDefaultSetup } from '@/utils/instances';
+import type { TranslationSetup } from '@/src/types';
 import type { SetupUpdate } from '@/entrypoints/options/hooks/usePreferences';
 
 vi.mock('@/utils/storage', () => ({
     getSetup: vi.fn(async () => ({ ...createDefaultSetup(), copyEnabled: enabled })),
-    reconcileSetupAccess: vi.fn(async () => {
-        if (!enabled) await (await import('@/utils/permissions')).removeCopyAccess();
+    reconcileSetupAccess: vi.fn(async (previous: TranslationSetup) => {
+        if (previous.copyEnabled && !enabled) await (await import('@/utils/permissions')).removeCopyAccess();
     }),
 }));
 
@@ -133,6 +134,8 @@ describe('copy preference and device permissions', () => {
         fireEvent.click(view.getByLabelText('enableCopy'));
         await waitFor(() => expect(chrome.permissions.remove).toHaveBeenCalledWith({ permissions: ['clipboardWrite', 'offscreen'] }));
         expect((view.getByLabelText('enableCopy') as HTMLInputElement).checked).toBe(false);
+        await waitFor(() => expect(view.getByLabelText('enableCopy').getAttribute('aria-busy')).toBe('false'));
+        expect(view.queryByRole('alert')).toBeNull();
     });
 
     it('refreshes revoked access without changing shared intent and removes listeners', async () => {
@@ -149,4 +152,111 @@ describe('copy preference and device permissions', () => {
         view.unmount();
         await waitFor(() => expect(chrome.permissions.onRemoved.removeListener).toHaveBeenCalledWith(listener));
     });
+    it('keeps the section out of sequential keyboard navigation while retaining its usable toggle', async () => {
+        const view = render(<div><button>Before</button><Harness /><button>After</button></div>);
+        const user = userEvent.setup();
+        await user.tab();
+        expect(document.activeElement).toBe(view.getByText('Before'));
+        await user.tab();
+        expect(document.activeElement).toBe(view.getByLabelText('enableCopy'));
+        await user.tab();
+        expect(document.activeElement).toBe(view.getByText('After'));
+    });
+
+    it('shows missing device access while its initial check is pending and allows requesting it', async () => {
+        enabled = true;
+        let finishCheck!: (value: boolean) => void;
+        vi.mocked(chrome.permissions.contains).mockImplementationOnce(() => new Promise(resolve => { finishCheck = resolve; }));
+        const view = render(<Harness />);
+        expect(view.getByText('providerPermissionRequired')).toBeTruthy();
+        await userEvent.setup().click(view.getByText('grantAccess'));
+        expect(chrome.permissions.request).toHaveBeenCalledTimes(1);
+        await waitFor(() => expect(view.queryByText('grantAccess')).toBeNull());
+        expect(view.queryByText('providerPermissionRequired')).toBeNull();
+        expect(view.queryByRole('alert')).toBeNull();
+        await act(() => finishCheck(true));
+    });
+
+    it('does not show a permission warning while copy is disabled, even with a retained grant', async () => {
+        granted = true;
+        const view = render(<Harness />);
+        await act(async () => {});
+        expect(view.queryByText('providerPermissionRequired')).toBeNull();
+        expect(view.queryByText('grantAccess')).toBeNull();
+        expect((view.getByLabelText('enableCopy') as HTMLInputElement).checked).toBe(false);
+    });
+
+    it('prevents repeated permission repair clicks while the browser request is pending', async () => {
+        enabled = true;
+        let finish!: (value: boolean) => void;
+        vi.mocked(chrome.permissions.request).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+        const view = render(<Harness />);
+        const button = await view.findByText('grantAccess');
+        const user = userEvent.setup();
+        await user.click(button);
+        await user.click(button);
+        expect(chrome.permissions.request).toHaveBeenCalledTimes(1);
+        granted = true;
+        await act(() => finish(true));
+        await waitFor(() => expect(view.queryByText('grantAccess')).toBeNull());
+        expect(view.queryByRole('alert')).toBeNull();
+    });
+
+    it.each([
+        { reported: false, actual: true },
+        { reported: true, actual: false },
+    ])('rejects permission repair unless both the request and actual grant agree: %j', async ({ reported, actual }) => {
+        enabled = true;
+        vi.mocked(chrome.permissions.request).mockImplementationOnce(async () => { granted = actual; return reported; });
+        const view = render(<Harness />);
+        await userEvent.setup().click(await view.findByText('grantAccess'));
+        await view.findByText('permissionDenied');
+        expect(enabled).toBe(true);
+        expect(update).not.toHaveBeenCalled();
+    });
+
+    it('allows repairing access again after denial, then disabling copy after success', async () => {
+        enabled = true;
+        vi.mocked(chrome.permissions.request).mockImplementationOnce(async () => false);
+        const view = render(<Harness />);
+        const user = userEvent.setup();
+        await user.click(await view.findByText('grantAccess'));
+        await view.findByText('permissionDenied');
+        await user.click(view.getByText('grantAccess'));
+        await waitFor(() => expect(view.queryByText('grantAccess')).toBeNull());
+        expect(chrome.permissions.request).toHaveBeenCalledTimes(2);
+        expect(view.queryByRole('alert')).toBeNull();
+        await user.click(view.getByLabelText('enableCopy'));
+        await waitFor(() => expect(enabled).toBe(false));
+        expect(granted).toBe(false);
+    });
+
+    it('keeps the latest permission refresh when an older check completes afterward', async () => {
+        enabled = true;
+        let finishOld!: (value: boolean) => void;
+        vi.mocked(chrome.permissions.contains).mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }));
+        const view = render(<Harness />);
+        const listener = vi.mocked(chrome.permissions.onRemoved.addListener).mock.calls.at(-1)![0];
+        granted = false;
+        await act(async () => { listener({}); });
+        await view.findByText('grantAccess');
+        await act(async () => { finishOld(true); });
+        expect(view.getByText('grantAccess')).toBeTruthy();
+        expect(view.getByText('providerPermissionRequired')).toBeTruthy();
+        expect((view.getByLabelText('enableCopy') as HTMLInputElement).checked).toBe(true);
+    });
+
+    it('reports permissions that remain granted after the saved preference is disabled', async () => {
+        enabled = true;
+        granted = true;
+        vi.mocked(chrome.permissions.remove).mockImplementationOnce(async () => true);
+        const view = render(<Harness />);
+        await waitFor(() => expect(view.queryByText('grantAccess')).toBeNull());
+        await userEvent.setup().click(view.getByLabelText('enableCopy'));
+        await view.findByText('permissionRemoveFailed');
+        expect(enabled).toBe(false);
+        expect(granted).toBe(true);
+        expect((view.getByLabelText('enableCopy') as HTMLInputElement).checked).toBe(false);
+    });
+
 });

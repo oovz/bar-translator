@@ -1,9 +1,11 @@
 /** @vitest-environment jsdom */
+import { useState } from 'preact/hooks';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/preact';
+import { render, fireEvent, within } from '@testing-library/preact';
 import { PrivacySettings } from '@/entrypoints/options/components/PrivacySettings';
 import { createDefaultSetup } from '@/utils/instances';
-import type { SetupConflict } from '@/src/types';
+import type { CredentialStorageType, SetupConflict } from '@/src/types';
 
 function props() {
     return { storageType: 'local' as const, changingStorage: false, changeStorageType: vi.fn().mockResolvedValue(undefined) };
@@ -54,4 +56,52 @@ describe('whole-setup storage settings', () => {
         fireEvent.click(view.getByText('useSavedSetup'));
         expect(options.changeStorageType).toHaveBeenCalledWith('sync', { token: 'new-revision', choice: 'use-destination' });
     });
+    it('distinguishes current and saved language pairs and ordered provider identities in the comparison', () => {
+        const value = conflict();
+        value.source.preferences.defaultSourceLang = 'en';
+        value.source.preferences.defaultTargetLang = 'ja';
+        value.source.preferences.fallbackOrder = ['secret', 'google-web'];
+        value.destination.preferences.defaultSourceLang = 'auto';
+        value.destination.preferences.defaultTargetLang = 'fr';
+        value.destination.preferences.fallbackOrder = ['lingva', 'deepl'];
+        const view = render(<PrivacySettings {...props()} conflict={value} />);
+        const current = within(view.getByText('currentSetup').parentElement!);
+        const saved = within(view.getByText('savedSetup').parentElement!);
+        expect(current.getByText('en → ja')).toBeTruthy();
+        expect(current.getByText('Work → Google Web')).toBeTruthy();
+        expect(saved.getByText('auto → fr')).toBeTruthy();
+        expect(saved.getByText('Lingva → DeepL')).toBeTruthy();
+        expect(current.queryByText('Lingva → DeepL')).toBeNull();
+        expect(saved.queryByText('Work → Google Web')).toBeNull();
+        expect(view.container.textContent).not.toContain('never-display-this');
+    });
+
+    it('shows the selected storage mode warning as the user switches between local and sync', async () => {
+        function StorageSelection() {
+            const [mode, setMode] = useState<CredentialStorageType>('local');
+            return <PrivacySettings storageType={mode} changingStorage={false} changeStorageType={async next => { setMode(next); }} />;
+        }
+        const view = render(<StorageSelection />);
+        const user = userEvent.setup();
+        expect(view.getByText('storageLocalHint')).toBeTruthy();
+        expect(view.queryByText('storageSyncWarning')).toBeNull();
+        await user.selectOptions(view.getByLabelText('labelStorage'), 'sync');
+        expect(view.getByText('storageSyncWarning')).toBeTruthy();
+        expect(view.queryByText('storageLocalHint')).toBeNull();
+        await user.selectOptions(view.getByLabelText('labelStorage'), 'local');
+        expect(view.getByText('storageLocalHint')).toBeTruthy();
+        expect(view.queryByText('storageSyncWarning')).toBeNull();
+    });
+
+    it('tabs directly to the storage control rather than making the section an extra stop', async () => {
+        const view = render(<div><button>Before</button><PrivacySettings {...props()} /><button>After</button></div>);
+        const user = userEvent.setup();
+        await user.tab();
+        expect(document.activeElement).toBe(view.getByText('Before'));
+        await user.tab();
+        expect(document.activeElement).toBe(view.getByLabelText('labelStorage'));
+        await user.tab();
+        expect(document.activeElement).toBe(view.getByText('After'));
+    });
+
 });

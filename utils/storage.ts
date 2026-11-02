@@ -54,18 +54,20 @@ function setupAccess(setup: TranslationSetup): SetupAccess {
     return { origins: getEnabledOrigins(setup), copyEnabled: setup.copyEnabled };
 }
 
+function isAccessOrigin(origin: unknown): origin is string {
+    if (typeof origin !== 'string' || origin.length > 4096) return false;
+    try {
+        const url = new URL(origin);
+        return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password &&
+            !url.hostname.includes('*') && origin === `${url.protocol}//${url.hostname}/*`;
+    } catch { return false; }
+}
+
 async function readSetupAccess(): Promise<SetupAccess | undefined> {
     const value: unknown = (await chrome.storage.local.get(ACCESS_STORAGE_KEY))[ACCESS_STORAGE_KEY];
     if (value === undefined) return;
     if (!isRecord(value) || !Array.isArray(value.origins) || typeof value.copyEnabled !== 'boolean' ||
-        !value.origins.every((origin: unknown) => {
-            if (typeof origin !== 'string' || origin.length > 4096) return false;
-            try {
-                const url = new URL(origin);
-                return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password &&
-                    !url.hostname.includes('*') && origin === `${url.protocol}//${url.hostname}/*`;
-            } catch { return false; }
-        })) throw new Error('The saved access ownership is invalid. Its recovery data has been retained.');
+        !value.origins.every(isAccessOrigin)) throw new Error('The saved access ownership is invalid. Its recovery data has been retained.');
     return { origins: value.origins as string[], copyEnabled: value.copyEnabled };
 }
 
@@ -117,20 +119,39 @@ function chunkKeys(manifest: Manifest): string[] {
         `${SETUP_STORAGE_KEYS.CHUNK_PREFIX}${manifest.revision}:${i}`);
 }
 
+function isManifestRevision(value: unknown): value is string {
+    return typeof value === 'string' && /^[a-zA-Z0-9-]{1,128}$/.test(value);
+}
+
+function isChunkCount(value: unknown): value is number {
+    return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 64;
+}
+
 function parseManifest(value: unknown): Manifest {
-    if (!isRecord(value) || value.schemaVersion !== 2 || typeof value.revision !== 'string' ||
-        !/^[a-zA-Z0-9-]{1,128}$/.test(value.revision) || typeof value.chunkCount !== 'number' ||
-        !Number.isInteger(value.chunkCount) || value.chunkCount < 1 || value.chunkCount > 64 ||
-        typeof value.hash !== 'string' || !/^[a-f0-9]{64}$/.test(value.hash)) {
+    if (!isRecord(value) || value.schemaVersion !== 2 || !isManifestRevision(value.revision) ||
+        !isChunkCount(value.chunkCount) || typeof value.hash !== 'string' || !/^[a-f0-9]{64}$/.test(value.hash)) {
         throw new Error('The saved setup is incomplete or invalid. Its recovery data has been retained.');
     }
-    return value as unknown as Manifest;
+    return { schemaVersion: 2, revision: value.revision, chunkCount: value.chunkCount, hash: value.hash };
 }
 
 async function readManifest(area: CredentialStorageType): Promise<Manifest | undefined> {
     const result = await storage(area).get(SETUP_STORAGE_KEYS.MANIFEST);
     const value = result[SETUP_STORAGE_KEYS.MANIFEST];
     return value === undefined ? undefined : parseManifest(value);
+}
+
+function decodeSnapshot(parts: string[]): string {
+    let serialized: string;
+    try {
+        const binary = atob(parts.join(''));
+        if (binary.length > MAX_SETUP_BYTES) throw new Error('Too large');
+        const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
+        serialized = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch {
+        throw new Error('The saved setup cannot be decoded. Its recovery data has been retained.');
+    }
+    return serialized;
 }
 
 async function readSnapshot(area: CredentialStorageType): Promise<Snapshot | undefined> {
@@ -145,15 +166,7 @@ async function readSnapshot(area: CredentialStorageType): Promise<Snapshot | und
         }
         return value;
     });
-    let serialized: string;
-    try {
-        const binary = atob(parts.join(''));
-        if (binary.length > MAX_SETUP_BYTES) throw new Error('Too large');
-        const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
-        serialized = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-    } catch {
-        throw new Error('The saved setup cannot be decoded. Its recovery data has been retained.');
-    }
+    const serialized = decodeSnapshot(parts);
     if (await digest(serialized) !== manifest.hash) {
         throw new Error('The saved setup is incomplete or damaged. Its recovery data has been retained.');
     }
@@ -170,13 +183,7 @@ class SetupChangedError extends Error {
     constructor() { super('The setup changed. Review the current configurations and choose again.'); }
 }
 
-/** Publish immutable chunks before their pointer, leaving the active snapshot intact on failure. */
-async function writeSnapshot(
-    area: CredentialStorageType,
-    setup: TranslationSetup,
-    expectedRevision: string | undefined,
-    beforeCommit: () => Promise<void>,
-): Promise<Snapshot> {
+async function encodeSnapshot(setup: TranslationSetup): Promise<{ encoded: string; manifest: Manifest }> {
     const serialized = stableJSON(validateSetup(setup));
     const bytes = new TextEncoder().encode(serialized);
     if (bytes.length > MAX_SETUP_BYTES) throw new Error('The setup is too large to save.');
@@ -188,6 +195,30 @@ async function writeSnapshot(
         schemaVersion: 2, revision,
         chunkCount: Math.ceil(encoded.length / CHUNK_LENGTH), hash: await digest(serialized),
     };
+    return { encoded, manifest };
+}
+
+async function removeUncommittedChunks(area: CredentialStorageType, manifest: Manifest): Promise<void> {
+    try {
+        if ((await readManifest(area))?.revision !== manifest.revision) await storage(area).remove(chunkKeys(manifest));
+    } catch { /* Keep orphaned recovery data if cleanup is unavailable. */ }
+}
+
+async function removePreviousSnapshot(area: CredentialStorageType, previous: Manifest | undefined): Promise<void> {
+    if (!previous) return;
+    try { await storage(area).remove(chunkKeys(previous)); }
+    catch { /* A committed setup remains usable if old-snapshot cleanup fails. */ }
+}
+
+/** Publish immutable chunks before their pointer, leaving the active snapshot intact on failure. */
+async function writeSnapshot(
+    area: CredentialStorageType,
+    setup: TranslationSetup,
+    expectedRevision: string | undefined,
+    beforeCommit: () => Promise<void>,
+): Promise<Snapshot> {
+    const { encoded, manifest } = await encodeSnapshot(setup);
+    const { revision } = manifest;
     const keys = chunkKeys(manifest);
     const previous = await readManifest(area);
     if (previous?.revision !== expectedRevision) throw new SetupChangedError();
@@ -199,15 +230,10 @@ async function writeSnapshot(
         if ((await readManifest(area))?.revision !== expectedRevision) throw new SetupChangedError();
         await storage(area).set({ [SETUP_STORAGE_KEYS.MANIFEST]: manifest });
     } catch (error) {
-        try {
-            if ((await readManifest(area))?.revision !== revision) await storage(area).remove(keys);
-        } catch { /* Keep orphaned recovery data if cleanup is unavailable. */ }
+        await removeUncommittedChunks(area, manifest);
         throw error;
     }
-    if (previous) {
-        try { await storage(area).remove(chunkKeys(previous)); }
-        catch { /* A committed setup remains usable if old-snapshot cleanup fails. */ }
-    }
+    await removePreviousSnapshot(area, previous);
     return { setup: validateSetup(setup), revision };
 }
 
@@ -245,6 +271,39 @@ async function selectStorage(area: CredentialStorageType): Promise<Selection> {
     return selection;
 }
 
+function legacyLanguage(value: unknown, fallback: string): string {
+    return typeof value === 'string' && value ? value : fallback;
+}
+
+function legacyOrder(value: unknown): string[] {
+    const legacyIds = ['google-web', 'lingva', 'deepl'];
+    return Array.isArray(value)
+        ? [...new Set(value.filter((id: unknown): id is string => typeof id === 'string' && legacyIds.includes(id)))] : [];
+}
+
+function legacyPreferences(stored: Record<string, unknown>): TranslationSetup['preferences'] {
+    const prefs = { ...DEFAULT_PREFERENCES, ...stored };
+    return {
+        defaultSourceLang: legacyLanguage(prefs.defaultSourceLang, DEFAULT_PREFERENCES.defaultSourceLang),
+        defaultTargetLang: legacyLanguage(prefs.defaultTargetLang, DEFAULT_PREFERENCES.defaultTargetLang),
+        fallbackOrder: legacyOrder(prefs.fallbackOrder),
+        languageOverrides: isRecord(prefs.languageOverrides)
+            ? Object.fromEntries(Object.entries(prefs.languageOverrides).filter((pair): pair is [string, string] => typeof pair[1] === 'string')) : {},
+    };
+}
+
+function legacyCredential(keys: unknown): ApiCredential | undefined {
+    if (!isRecord(keys) || !isRecord(keys.deepl)) return;
+    const legacy = keys.deepl;
+    if (typeof legacy.key !== 'string') return;
+    return {
+        key: legacy.key,
+        validated: legacy.validated === true,
+        ...(legacy.tier === 'free' || legacy.tier === 'pro' ? { tier: legacy.tier } : {}),
+        ...(typeof legacy.lastValidated === 'number' && Number.isFinite(legacy.lastValidated) ? { lastValidated: legacy.lastValidated } : {}),
+    };
+}
+
 /** Legacy records remain untouched for older installations and recovery. */
 async function readLegacy(): Promise<{ setup: TranslationSetup; storageType: CredentialStorageType }> {
     const local = await chrome.storage.local.get([
@@ -259,29 +318,10 @@ async function readLegacy(): Promise<{ setup: TranslationSetup; storageType: Cre
     });
     const setup = createDefaultSetup(granted);
     const stored: unknown = synced[SYNC_STORAGE_KEYS.PREFERENCES];
-    if (isRecord(stored)) {
-        const prefs = { ...DEFAULT_PREFERENCES, ...stored };
-        const legacyIds = ['google-web', 'lingva', 'deepl'];
-        setup.preferences = {
-            defaultSourceLang: typeof prefs.defaultSourceLang === 'string' && prefs.defaultSourceLang ? prefs.defaultSourceLang : DEFAULT_PREFERENCES.defaultSourceLang,
-            defaultTargetLang: typeof prefs.defaultTargetLang === 'string' && prefs.defaultTargetLang ? prefs.defaultTargetLang : DEFAULT_PREFERENCES.defaultTargetLang,
-            fallbackOrder: Array.isArray(prefs.fallbackOrder)
-                ? [...new Set(prefs.fallbackOrder.filter((id: unknown): id is string => typeof id === 'string' && legacyIds.includes(id)))] : [],
-            languageOverrides: isRecord(prefs.languageOverrides)
-                ? Object.fromEntries(Object.entries(prefs.languageOverrides).filter((pair): pair is [string, string] => typeof pair[1] === 'string')) : {},
-        };
-    }
-    if (isRecord(keys) && isRecord(keys.deepl)) {
-        const legacy = keys.deepl;
-        if (typeof legacy.key === 'string') {
-            const credential: ApiCredential = {
-                key: legacy.key,
-                validated: legacy.validated === true,
-                ...(legacy.tier === 'free' || legacy.tier === 'pro' ? { tier: legacy.tier } : {}),
-                ...(typeof legacy.lastValidated === 'number' && Number.isFinite(legacy.lastValidated) ? { lastValidated: legacy.lastValidated } : {}),
-            };
-            setup.instances = setup.instances.map(instance => instance.providerId === 'deepl' ? { ...instance, credential } : instance);
-        }
+    if (isRecord(stored)) setup.preferences = legacyPreferences(stored);
+    const credential = legacyCredential(keys);
+    if (credential) {
+        setup.instances = setup.instances.map(instance => instance.providerId === 'deepl' ? { ...instance, credential } : instance);
     }
     return { setup: validateSetup(setup), storageType };
 }
@@ -335,21 +375,39 @@ async function pendingMigrationAfterFailure(cacheWrites = true): Promise<LoadedS
     return { ...source, migrationError: MIGRATION_SAVE_FAILED };
 }
 
+async function commitMigration(source: LoadedState, destination: Snapshot | undefined): Promise<LoadedState> {
+    let snapshot = destination;
+    if (!snapshot) {
+        snapshot = await writeSnapshot(source.storageType, source.setup, undefined, () => assertSourceUnchanged(source));
+    }
+    await assertSourceUnchanged(source);
+    const selected = await selectStorage(source.storageType);
+    return { setup: source.setup, storageType: source.storageType, selection: selected, sourceRevision: snapshot.revision };
+}
+
+async function loadSelectedState(selection: Selection): Promise<LoadedState> {
+    migrationCompleted = true;
+    failedMigrationSignature = undefined;
+    const snapshot = await readSnapshot(selection.storageType);
+    if (!snapshot) throw new Error('The selected setup is unavailable. Wait for sync or restore its saved configuration.');
+    return { setup: snapshot.setup, storageType: selection.storageType, selection, sourceRevision: snapshot.revision };
+}
+
+async function migrationRetryPending(source: LoadedState): Promise<boolean> {
+    return !!failedMigrationSignature && failedMigrationSignature === await legacySignature(source);
+}
+
 async function loadState(reload = false): Promise<LoadedState> {
     const selection = await readSelection();
     if (selection) {
-        migrationCompleted = true;
-        failedMigrationSignature = undefined;
-        const snapshot = await readSnapshot(selection.storageType);
-        if (!snapshot) throw new Error('The selected setup is unavailable. Wait for sync or restore its saved configuration.');
-        return { setup: snapshot.setup, storageType: selection.storageType, selection, sourceRevision: snapshot.revision };
+        return loadSelectedState(selection);
     }
     const legacy = await readLegacy();
     const source: LoadedState = { ...legacy, sourceRevision: await digest(stableJSON(legacy.setup)) };
     // Storage events caused by a partly written migration must not create an
     // automatic write/retry loop. Keep reading live legacy values while the
     // same migration awaits the explicit Retry action.
-    if (failedMigrationSignature && failedMigrationSignature === await legacySignature(source)) {
+    if (await migrationRetryPending(source)) {
         return { ...source, migrationError: MIGRATION_SAVE_FAILED };
     }
     let destination: Snapshot | undefined;
@@ -359,13 +417,7 @@ async function loadState(reload = false): Promise<LoadedState> {
         return { ...source, conflict: await conflictFor(source, destination, legacy.storageType, 'migration') };
     }
     try {
-        let snapshot = destination;
-        if (!snapshot) {
-            snapshot = await writeSnapshot(legacy.storageType, source.setup, undefined, () => assertSourceUnchanged(source));
-        }
-        await assertSourceUnchanged(source);
-        const selected = await selectStorage(legacy.storageType);
-        return { ...legacy, selection: selected, sourceRevision: snapshot.revision };
+        return await commitMigration(source, destination);
     } catch (error) {
         if (error instanceof SetupChangedError && !reload) return loadState(true);
         return pendingMigrationAfterFailure();
@@ -437,49 +489,70 @@ export function updateSetup(updater: (current: TranslationSetup) => TranslationS
     });
 }
 
+function validateStorageChoice(to: CredentialStorageType, resolution: SetupResolution | undefined): void {
+    if ((to !== 'local' && to !== 'sync') || (resolution && (
+        typeof resolution.token !== 'string' ||
+        (resolution.choice !== 'use-destination' && resolution.choice !== 'replace-destination')
+    ))) throw new Error('The setup storage choice is invalid.');
+}
+
+async function useDestination(source: LoadedState, destination: Snapshot, to: CredentialStorageType, reason: SetupConflict['reason']): Promise<SetupState> {
+    await assertSourceUnchanged(source);
+    if ((await readManifest(to))?.revision !== destination.revision) {
+        const refreshed = await readSnapshot(to);
+        if (!refreshed) throw new SetupChangedError();
+        return publicState({ ...source, conflict: await conflictFor(source, refreshed, to, reason) });
+    }
+    await rememberSetupAccess(source.setup, destination.setup);
+    const selection = await selectStorage(to);
+    return publicState({ setup: destination.setup, storageType: to, selection, sourceRevision: destination.revision });
+}
+
+async function copyToDestination(source: LoadedState, destination: Snapshot | undefined, to: CredentialStorageType): Promise<SetupState> {
+    await assertSourceUnchanged(source);
+    await rememberSetupAccess(source.setup);
+    let saved = destination;
+    if (!saved || !sameSetup(source.setup, saved.setup)) {
+        saved = await writeSnapshot(to, source.setup, destination?.revision, () => assertSourceUnchanged(source));
+    }
+    await assertSourceUnchanged(source);
+    const selection = await selectStorage(to);
+    return publicState({ setup: saved.setup, storageType: to, selection, sourceRevision: saved.revision });
+}
+
+async function copyOrRefreshConflict(source: LoadedState, destination: Snapshot | undefined, to: CredentialStorageType): Promise<SetupState> {
+    try {
+        return await copyToDestination(source, destination, to);
+    } catch (error) {
+        if (!(error instanceof SetupChangedError)) throw error;
+        const current = await loadState();
+        const updatedDestination = await readSnapshot(to);
+        if (!updatedDestination) throw error;
+        return publicState({ ...current, conflict: await conflictFor(current, updatedDestination, to, current.selection ? 'switch' : 'migration') });
+    }
+}
+
+async function resolveDestinationConflict(source: LoadedState, destination: Snapshot, to: CredentialStorageType, resolution: SetupResolution | undefined): Promise<SetupState | undefined> {
+    const conflict = await conflictFor(source, destination, to, source.selection ? 'switch' : 'migration');
+    if (!resolution || resolution.token !== conflict.token) return publicState({ ...source, conflict });
+    if (resolution.choice === 'use-destination') {
+        return useDestination(source, destination, to, conflict.reason);
+    }
+}
+
 export function switchSetupStorage(to: CredentialStorageType, resolution?: SetupResolution): Promise<SetupState> {
     return navigator.locks.request(SETUP_LOCK, async () => {
-        if ((to !== 'local' && to !== 'sync') || (resolution && (
-            typeof resolution.token !== 'string' ||
-            (resolution.choice !== 'use-destination' && resolution.choice !== 'replace-destination')
-        ))) throw new Error('The setup storage choice is invalid.');
+        validateStorageChoice(to, resolution);
         const source = await loadState();
         if (source.selection && source.storageType === to) return publicState(source);
         const destination = await readSnapshot(to);
         if (destination && !sameSetup(source.setup, destination.setup)) {
-            const conflict = await conflictFor(source, destination, to, source.selection ? 'switch' : 'migration');
-            if (!resolution || resolution.token !== conflict.token) return publicState({ ...source, conflict });
-            if (resolution.choice === 'use-destination') {
-                await assertSourceUnchanged(source);
-                if ((await readManifest(to))?.revision !== destination.revision) {
-                    const refreshed = await readSnapshot(to);
-                    if (!refreshed) throw new SetupChangedError();
-                    return publicState({ ...source, conflict: await conflictFor(source, refreshed, to, conflict.reason) });
-                }
-                await rememberSetupAccess(source.setup, destination.setup);
-                const selection = await selectStorage(to);
-                return publicState({ setup: destination.setup, storageType: to, selection, sourceRevision: destination.revision });
-            }
+            const resolved = await resolveDestinationConflict(source, destination, to, resolution);
+            if (resolved) return resolved;
         } else if (resolution) {
             throw new SetupChangedError();
         }
-        try {
-            await assertSourceUnchanged(source);
-            await rememberSetupAccess(source.setup);
-            let saved = destination;
-            if (!saved || !sameSetup(source.setup, saved.setup)) {
-                saved = await writeSnapshot(to, source.setup, destination?.revision, () => assertSourceUnchanged(source));
-            }
-            await assertSourceUnchanged(source);
-            const selection = await selectStorage(to);
-            return publicState({ setup: saved.setup, storageType: to, selection, sourceRevision: saved.revision });
-        } catch (error) {
-            if (!(error instanceof SetupChangedError)) throw error;
-            const current = await loadState();
-            const updatedDestination = await readSnapshot(to);
-            if (!updatedDestination) throw error;
-            return publicState({ ...current, conflict: await conflictFor(current, updatedDestination, to, current.selection ? 'switch' : 'migration') });
-        }
+        return copyOrRefreshConflict(source, destination, to);
     });
 }
 
