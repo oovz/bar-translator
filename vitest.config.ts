@@ -7,6 +7,11 @@ export default defineConfig({
     plugins: [preact()],
     test: {
         globals: true,
+        coverage: {
+            provider: 'v8',
+            reporter: ['text', 'lcov'],
+            include: ['{components,entrypoints,services,src,utils}/**/*.{ts,tsx}'],
+        },
         environment: 'node',
         setupFiles: ['./tests/setup.ts'],
         include: ['tests/unit/**/*.{test,spec}.{ts,tsx}', 'tests/integration/**/*.{test,spec}.{ts,tsx}'],
