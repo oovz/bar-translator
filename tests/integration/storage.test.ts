@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_PREFERENCES, type DeepLInstance, type TranslationSetup } from '@/src/types';
 import { createInstance } from '@/utils/instances';
@@ -52,6 +53,21 @@ function occupySyncQuota() {
 
 function releaseSyncQuota() {
     for (const key of Object.keys(sync)) if (key.startsWith('quota-')) delete sync[key];
+}
+
+/** Publish an internally consistent external snapshot, as another device would. */
+function installSnapshot(setup: TranslationSetup, overrides: Values = {}, parts = 1, bytes?: Uint8Array) {
+    const serialized = JSON.stringify(setup);
+    const encoded = Buffer.from(bytes ?? Buffer.from(serialized)).toString('base64');
+    const manifest = {
+        schemaVersion: 2, revision: 'external', chunkCount: parts,
+        hash: createHash('sha256').update(serialized).digest('hex'), ...overrides,
+    };
+    local[api.SETUP_STORAGE_KEYS.MANIFEST] = manifest;
+    for (let i = 0; i < parts; i++) {
+        local[`${api.SETUP_STORAGE_KEYS.CHUNK_PREFIX}${manifest.revision}:${i}`] =
+            encoded.slice(Math.floor(i * encoded.length / parts), Math.floor((i + 1) * encoded.length / parts));
+    }
 }
 
 beforeEach(async () => {
@@ -160,6 +176,7 @@ describe('whole-setup migration', () => {
         localArea.set.mockRejectedValue(new Error('Write unavailable'));
         const pending = await api.getSetupState();
         expect(pending.migrationError).toBeTruthy();
+        expect(localArea.set).toHaveBeenCalledTimes(1);
         expect(pending.setup.preferences).toEqual(sync.preferences);
         expect(deepL(pending.setup).credential?.key).toBe('device:fx');
         expect(pending.setup.copyEnabled).toBe(true);
@@ -174,6 +191,309 @@ describe('whole-setup migration', () => {
         expect(retried.migrationError).toBeUndefined();
         expect(retried.setup).toEqual(pending.setup);
         expect(await api.getSetup()).toEqual(pending.setup);
+    });
+
+    it('retries a transient destination read failure without caching it as a failed migration write', async () => {
+        sync.preferences = { ...DEFAULT_PREFERENCES, defaultTargetLang: 'fr' };
+        const read = localArea.get.getMockImplementation()!;
+        let failRead = true;
+        localArea.get.mockImplementation(async keys => {
+            if (keys === api.SETUP_STORAGE_KEYS.MANIFEST && failRead) {
+                failRead = false;
+                throw new Error('Storage temporarily unavailable');
+            }
+            return read(keys);
+        });
+        const pending = await api.getSetupState();
+        expect(pending.migrationError).toBeTruthy();
+        expect(pending.setup.preferences.defaultTargetLang).toBe('fr');
+        const recovered = await api.getSetupState();
+        expect(recovered.migrationError).toBeUndefined();
+        expect(recovered.setup).toEqual(pending.setup);
+        expect(local[api.SETUP_STORAGE_KEYS.SELECTION]).toBeDefined();
+    });
+
+    it('reloads changed legacy settings before completing their first migration', async () => {
+        const write = localArea.set.getMockImplementation()!;
+        let changeLegacy = true;
+        localArea.set.mockImplementation(async items => {
+            await write(items);
+            if (changeLegacy && Object.keys(items).some(key => key.startsWith(api.SETUP_STORAGE_KEYS.CHUNK_PREFIX))) {
+                changeLegacy = false;
+                sync.preferences = { ...DEFAULT_PREFERENCES, defaultTargetLang: 'fr' };
+            }
+        });
+        const migrated = await api.getSetupState();
+        expect(migrated.migrationError).toBeUndefined();
+        expect(migrated.setup.preferences.defaultTargetLang).toBe('fr');
+        expect(local[api.SETUP_STORAGE_KEYS.SELECTION]).toBeDefined();
+        expect(await api.getSetup()).toEqual(migrated.setup);
+    });
+
+    it('retains malformed access recovery data instead of accepting a non-URL origin', async () => {
+        const setup = await api.getSetup();
+        const access = { origins: ['not a URL'], copyEnabled: false };
+        local.translationSetupAccess_v2 = access;
+        await expect(api.reconcileSetupAccess()).rejects.toThrow('saved access ownership is invalid');
+        expect(local.translationSetupAccess_v2).toEqual(access);
+        expect(await api.getSetup()).toEqual(setup);
+    });
+
+    it.each([
+        { origins: [42], copyEnabled: false },
+        { origins: ['https://host.example/custom/*'], copyEnabled: false },
+        { origins: [`https://${'a'.repeat(4096)}/*`], copyEnabled: false },
+        { origins: [], copyEnabled: 'yes' },
+    ])('rejects malformed retained access ownership before saving an edit: %j', async access => {
+        const setup = await api.getSetup();
+        local.translationSetupAccess_v2 = access;
+        await expect(changeTarget('fr')).rejects.toThrow();
+        expect(local.translationSetupAccess_v2).toEqual(access);
+        expect(await api.getSetup()).toEqual(setup);
+    });
+
+    it('does not invent clipboard cleanup ownership when saving a non-copying setup', async () => {
+        await api.getSetup();
+        await changeTarget('fr');
+        const remove = vi.fn(async () => true);
+        Object.assign(chrome.permissions, { remove });
+        await api.reconcileSetupAccess();
+        expect(remove).not.toHaveBeenCalled();
+        expect((await api.getSetup()).copyEnabled).toBe(false);
+    });
+
+    it('does not repeat unchanged access-ownership writes during reconciliation', async () => {
+        await api.getSetup();
+        await api.reconcileSetupAccess();
+        expect(local.translationSetupAccess_v2).toEqual({ origins: ['https://translate.googleapis.com/*'], copyEnabled: false });
+        const writes = localArea.set.mock.calls.length;
+        await api.reconcileSetupAccess();
+        expect(localArea.set.mock.calls).toHaveLength(writes);
+    });
+
+    it('retains newly enabled provider ownership so disabling it releases its grants', async () => {
+        await api.getSetup();
+        const remove = vi.fn(async () => true);
+        Object.assign(chrome.permissions, { remove });
+        await api.reconcileSetupAccess();
+        await api.updateSetup(setup => ({ ...setup, preferences: { ...setup.preferences, fallbackOrder: ['google-web', 'deepl'] } }));
+        await api.reconcileSetupAccess();
+        await api.updateSetup(setup => ({ ...setup, preferences: { ...setup.preferences, fallbackOrder: ['google-web'] } }));
+        await api.reconcileSetupAccess();
+        expect(remove).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
+    });
+
+    it.each([
+        { schemaVersion: 3 },
+        { revision: 'bad:revision' },
+        { chunkCount: 1.5 },
+    ])('rejects an invalid manifest even when its snapshot payload is intact: %j', async metadata => {
+        const setup = await api.getSetup();
+        installSnapshot(setup, metadata);
+        const before = structuredClone(local);
+        await expect(api.getSetup()).rejects.toThrow();
+        expect(local).toEqual(before);
+    });
+
+    it('accepts the supported chunk-count limit but rejects a snapshot exceeding it', async () => {
+        const setup = await api.getSetup();
+        installSnapshot(setup, {}, 64);
+        expect(await api.getSetup()).toEqual(setup);
+        installSnapshot(setup, {}, 65);
+        await expect(api.getSetup()).rejects.toThrow();
+    });
+
+    it('rejects invalid UTF-8 rather than silently replacing bytes in a saved account name', async () => {
+        const setup = await api.getSetup();
+        deepL(setup).name = 'Work\ufffd';
+        const serialized = Buffer.from(JSON.stringify(setup));
+        const offset = serialized.indexOf(Buffer.from('\ufffd'));
+        const damaged = Buffer.concat([serialized.subarray(0, offset), Buffer.from([255]), serialized.subarray(offset + 3)]);
+        installSnapshot(setup, {}, 1, damaged);
+        await expect(api.getSetup()).rejects.toThrow('cannot be decoded');
+    });
+
+    it('saves and loads a setup at the supported serialized byte limit', async () => {
+        const setup = await api.getSetup();
+        const accounts = Array.from({ length: 32 }, (_, i) => ({
+            id: `account-${i}`, providerId: 'deepl' as const, name: `Account ${i}`,
+            credential: { key: '', validated: false },
+        }));
+        setup.instances.push(...accounts);
+        let remaining = 262144 - Buffer.byteLength(JSON.stringify(setup));
+        for (const account of accounts) {
+            const length = Math.min(remaining, 8192);
+            account.credential.key = 'a'.repeat(length);
+            remaining -= length;
+        }
+        expect(remaining).toBe(0);
+        expect(await api.updateSetup(() => setup)).toEqual(setup);
+        expect(await api.getSetup()).toEqual(setup);
+    });
+
+    it('removes unpublished destination chunks after a manifest commit fails', async () => {
+        const setup = await api.getSetup();
+        const write = syncArea.set.getMockImplementation()!;
+        syncArea.set.mockImplementation(async items => {
+            if (api.SETUP_STORAGE_KEYS.MANIFEST in items) throw new Error('Commit failed');
+            await write(items);
+        });
+        await expect(api.switchSetupStorage('sync')).rejects.toThrow('Commit failed');
+        expect(Object.keys(sync).filter(key => key.startsWith(api.SETUP_STORAGE_KEYS.CHUNK_PREFIX))).toEqual([]);
+        expect(await api.getSetup()).toEqual(setup);
+    });
+
+    it('rejects a non-string snapshot chunk even when coercion would decode valid settings', async () => {
+        const setup = await api.getSetup();
+        installSnapshot(setup);
+        const key = `${api.SETUP_STORAGE_KEYS.CHUNK_PREFIX}external:0`;
+        local[key] = [local[key]];
+        await expect(api.getSetup()).rejects.toThrow();
+    });
+
+    it('rejects an oversized individual chunk even when the overall setup is valid', async () => {
+        const setup = await api.getSetup();
+        deepL(setup).credential = { key: 'a'.repeat(5000), validated: false };
+        installSnapshot(setup);
+        await expect(api.getSetup()).rejects.toThrow();
+    });
+
+    it('removes obsolete chunks once a replacement setup is committed', async () => {
+        await api.getSetup();
+        const oldChunks = Object.keys(local).filter(key => key.startsWith(api.SETUP_STORAGE_KEYS.CHUNK_PREFIX));
+        await changeTarget('fr');
+        expect(oldChunks.every(key => !(key in local))).toBe(true);
+        expect((await api.getSetup()).preferences.defaultTargetLang).toBe('fr');
+    });
+
+    it.each([{ schemaVersion: 3 }, { revision: 42 }])('rejects an invalid persisted storage selector: %j', async patch => {
+        await api.getSetup();
+        const value = local[api.SETUP_STORAGE_KEYS.SELECTION];
+        local[api.SETUP_STORAGE_KEYS.SELECTION] = { ...(value as Values), ...patch };
+        await expect(api.getSetupState()).rejects.toThrow();
+    });
+
+    it('releases legacy Google ownership without inventing clipboard ownership', async () => {
+        vi.mocked(chrome.permissions.contains).mockImplementation(async query => query.origins?.[0] === 'https://translate.google.com/*');
+        const remove = vi.fn(async () => true);
+        Object.assign(chrome.permissions, { remove });
+        await api.getSetup();
+        await api.reconcileSetupAccess();
+        expect(remove).toHaveBeenCalledExactlyOnceWith({ origins: ['https://translate.google.com/*'] });
+    });
+
+    it('ignores provider-era storage events after completing whole-setup migration', async () => {
+        expect(api.isSetupStorageChange({ preferences: { newValue: {} } }, 'sync')).toBe(true);
+        await api.getSetup();
+        expect(api.isSetupStorageChange({ preferences: { newValue: {} } }, 'sync')).toBe(false);
+        expect(api.isSetupStorageChange({ [api.SETUP_STORAGE_KEYS.MANIFEST]: { newValue: {} } }, 'local')).toBe(true);
+    });
+
+    it('replaces unusable legacy language values and filters invalid legacy overrides', async () => {
+        sync.preferences = { ...DEFAULT_PREFERENCES, defaultSourceLang: '', defaultTargetLang: 42, languageOverrides: { zh: 'zh-TW', broken: 42 } };
+        const setup = await api.getSetup();
+        expect(setup.preferences.defaultSourceLang).toBe(DEFAULT_PREFERENCES.defaultSourceLang);
+        expect(setup.preferences.defaultTargetLang).toBe(DEFAULT_PREFERENCES.defaultTargetLang);
+        expect(setup.preferences.languageOverrides).toEqual({ zh: 'zh-TW' });
+    });
+
+    it('discards a non-finite legacy validation time while retaining the supplied key', async () => {
+        local.apiKeys_local = { deepl: { key: 'retained', validated: true, lastValidated: Infinity } };
+        expect(deepL(await api.getSetup()).credential).toEqual({ key: 'retained', validated: true });
+    });
+
+    it('leaves migration pending after repeated concurrent changes rather than retrying without a bound', async () => {
+        const write = localArea.set.getMockImplementation()!;
+        let attempts = 0;
+        localArea.set.mockImplementation(async items => {
+            await write(items);
+            if (Object.keys(items).some(key => key.startsWith(api.SETUP_STORAGE_KEYS.CHUNK_PREFIX)) && ++attempts <= 2) {
+                sync.preferences = { ...DEFAULT_PREFERENCES, defaultTargetLang: attempts === 1 ? 'fr' : 'de' };
+            }
+        });
+        const pending = await api.getSetupState();
+        expect(pending.migrationError).toBeTruthy();
+        expect(pending.setup.preferences.defaultTargetLang).toBe('de');
+        expect(local[api.SETUP_STORAGE_KEYS.SELECTION]).toBeUndefined();
+        expect(attempts).toBe(2);
+    });
+
+    it('filters storage notifications by ownership, area and migration state', async () => {
+        const changed = (key: string, area: string) => api.isSetupStorageChange({ [key]: { newValue: 'changed' } }, area);
+        expect(changed('unrelated', 'local')).toBe(false);
+        expect(changed('preferences', 'sync')).toBe(true);
+        await api.getSetup();
+        expect(changed(api.SETUP_STORAGE_KEYS.SELECTION, 'local')).toBe(true);
+        expect(changed(api.SETUP_STORAGE_KEYS.SELECTION, 'sync')).toBe(false);
+        expect(changed(api.SETUP_STORAGE_KEYS.MANIFEST, 'session')).toBe(false);
+        expect(changed(api.SETUP_STORAGE_KEYS.MANIFEST, 'sync')).toBe(true);
+        expect(changed(`${api.SETUP_STORAGE_KEYS.CHUNK_PREFIX}external:0`, 'local')).toBe(true);
+        expect(changed('unrelated', 'local')).toBe(false);
+        expect(changed('preferences', 'sync')).toBe(false);
+    });
+
+    it('retains an origin at the recovery-record length limit while saving an unrelated preference', async () => {
+        await api.getSetup();
+        const prefix = 'https://';
+        const suffix = '/*';
+        const origin = prefix + 'a'.repeat(4096 - prefix.length - suffix.length) + suffix;
+        local.translationSetupAccess_v2 = { origins: [origin], copyEnabled: false };
+        expect((await changeTarget('fr')).preferences.defaultTargetLang).toBe('fr');
+        expect(local.translationSetupAccess_v2).toMatchObject({ origins: expect.arrayContaining([origin]) });
+    });
+
+    it('recovers after a malformed destination pointer is observed and then removed', async () => {
+        const write = localArea.set.getMockImplementation()!;
+        localArea.set.mockRejectedValue(new Error('Write temporarily unavailable'));
+        const pending = await api.getSetupState();
+        expect(pending.migrationError).toBeTruthy();
+        localArea.set.mockImplementation(write);
+        local[api.SETUP_STORAGE_KEYS.MANIFEST] = false;
+        expect((await api.getSetupState()).migrationError).toBeTruthy();
+        delete local[api.SETUP_STORAGE_KEYS.MANIFEST];
+        const recovered = await api.getSetupState();
+        expect(recovered.migrationError).toBeUndefined();
+        expect(recovered.setup).toEqual(pending.setup);
+        expect(local[api.SETUP_STORAGE_KEYS.SELECTION]).toBeDefined();
+    });
+
+    it('does not restart the retry budget after a rejected selector write and a concurrently removed selector', async () => {
+        const write = localArea.set.getMockImplementation()!;
+        const read = localArea.get.getMockImplementation()!;
+        let recoveryRead = 0;
+        let lostSelection = false;
+        let changedLegacy = false;
+        let rejectSelection = true;
+        localArea.set.mockImplementation(async items => {
+            await write(items);
+            if (api.SETUP_STORAGE_KEYS.SELECTION in items && rejectSelection) {
+                rejectSelection = false;
+                recoveryRead = 1;
+                throw new Error('Selector persisted before the API rejected');
+            }
+            if (lostSelection && !changedLegacy && Object.keys(items).some(key => key.startsWith(api.SETUP_STORAGE_KEYS.CHUNK_PREFIX))) {
+                changedLegacy = true;
+                sync.preferences = { ...DEFAULT_PREFERENCES, defaultTargetLang: 'fr' };
+            }
+        });
+        localArea.get.mockImplementation(async keys => {
+            if (keys === api.SETUP_STORAGE_KEYS.SELECTION && recoveryRead === 1) {
+                recoveryRead = 2;
+                return read(keys);
+            }
+            if (keys === api.SETUP_STORAGE_KEYS.SELECTION && recoveryRead === 2) {
+                recoveryRead = 0;
+                lostSelection = true;
+                delete local[api.SETUP_STORAGE_KEYS.SELECTION];
+                delete local[api.SETUP_STORAGE_KEYS.MANIFEST];
+            }
+            return read(keys);
+        });
+        const pending = await api.getSetupState();
+        expect(pending.migrationError).toBeTruthy();
+        expect(pending.setup.preferences.defaultTargetLang).toBe('fr');
+        expect(local[api.SETUP_STORAGE_KEYS.SELECTION]).toBeUndefined();
+        expect(await api.getSetupState()).toEqual(pending);
     });
 
     it('lets a quota-blocked legacy Sync user explicitly recover to Local without losing settings', async () => {
@@ -260,6 +580,9 @@ describe('storage choices and recovery', () => {
             ...setup, instances: setup.instances.map(item => item.id === instance.id
                 ? { ...instance, name: 'Home', credential: { key: 'endpoint-key', validated: false } } : item),
         }));
+        expect(configured.instances.find(item => item.id === instance.id)).toMatchObject({
+            name: 'Home', credential: { key: 'endpoint-key', validated: false },
+        });
         await api.switchSetupStorage('sync');
         expect(await api.getSetup()).toEqual(configured);
     });
@@ -313,6 +636,25 @@ describe('storage choices and recovery', () => {
         expect(await api.getSetup()).toEqual(original);
     });
 
+    it('rejects an edit when another context publishes a different snapshot before its write', async () => {
+        const first = await api.getSetup();
+        const earlierSnapshot = structuredClone(local);
+        await changeTarget('fr');
+        await expect(api.updateSetup(setup => {
+            local = earlierSnapshot;
+            return { ...setup, copyEnabled: true };
+        })).rejects.toThrow('The setup changed');
+        expect(await api.getSetup()).toEqual(first);
+    });
+
+    it('keeps the new committed setup usable when obsolete chunk cleanup fails', async () => {
+        await api.getSetup();
+        localArea.remove.mockRejectedValue(new Error('Cleanup unavailable'));
+        const changed = await changeTarget('fr');
+        expect(changed.preferences.defaultTargetLang).toBe('fr');
+        expect(await api.getSetup()).toEqual(changed);
+    });
+
     it.each(['use-destination', 'replace-destination'] as const)('requires an explicit %s choice for differing setups without merging them', async choice => {
         await api.getSetup();
         await changeTarget('fr');
@@ -359,6 +701,84 @@ describe('storage choices and recovery', () => {
         expect(stale.conflict!.destination.preferences.defaultTargetLang).toBe('ja');
         expect(stale.conflict!.token).not.toBe(pending.conflict!.token);
         expect(stale.setup.preferences.defaultTargetLang).toBe('fr');
+    });
+
+    it('refreshes the conflict when an active Sync snapshot is republished during a Local replacement', async () => {
+        await api.getSetup();
+        await changeTarget('fr');
+        await api.switchSetupStorage('sync');
+        await changeTarget('de');
+        const originalSync = structuredClone(sync);
+        await changeTarget('ja');
+        const republishedSync = structuredClone(sync);
+        sync = originalSync;
+        const pending = await api.switchSetupStorage('local');
+        const write = localArea.set.getMockImplementation()!;
+        const read = syncArea.get.getMockImplementation()!;
+        let sourceGap = false;
+        localArea.set.mockImplementation(async items => {
+            await write(items);
+            if (Object.keys(items).some(key => key.startsWith(api.SETUP_STORAGE_KEYS.CHUNK_PREFIX))) sourceGap = true;
+        });
+        syncArea.get.mockImplementation(async keys => {
+            if (keys === api.SETUP_STORAGE_KEYS.MANIFEST && sourceGap) {
+                sourceGap = false;
+                sync = structuredClone(republishedSync);
+                return {};
+            }
+            return read(keys);
+        });
+        const refreshed = await api.switchSetupStorage('local', { token: pending.conflict!.token, choice: 'replace-destination' });
+        expect(refreshed.storageType).toBe('sync');
+        expect(refreshed.setup.preferences.defaultTargetLang).toBe('ja');
+        expect(refreshed.conflict?.source.preferences.defaultTargetLang).toBe('ja');
+        expect(refreshed.conflict?.destination.preferences.defaultTargetLang).toBe('fr');
+        expect(await api.getSetup()).toEqual(refreshed.setup);
+    });
+
+    it('refreshes the conflict rather than overwriting a source changed during destination publication', async () => {
+        const first = await api.getSetup();
+        await api.switchSetupStorage('sync');
+        await api.switchSetupStorage('local');
+        const firstLocal = structuredClone(local);
+        await changeTarget('fr');
+        const pending = await api.switchSetupStorage('sync');
+        const write = syncArea.set.getMockImplementation()!;
+        syncArea.set.mockImplementation(async items => {
+            await write(items);
+            if (Object.keys(items).some(key => key.startsWith(api.SETUP_STORAGE_KEYS.CHUNK_PREFIX))) {
+                local = structuredClone(firstLocal);
+            }
+        });
+        const refreshed = await api.switchSetupStorage('sync', { token: pending.conflict!.token, choice: 'replace-destination' });
+        expect(refreshed.storageType).toBe('local');
+        expect(refreshed.setup).toEqual(first);
+        expect(refreshed.conflict?.source).toEqual(first);
+        expect(await api.getSetup()).toEqual(first);
+    });
+
+    it.each([false, true])('rechecks a changed destination before selecting it (pointer temporarily absent: %s)', async missingPointer => {
+        const first = await api.getSetup();
+        const firstLocal = structuredClone(local);
+        await changeTarget('fr');
+        await api.switchSetupStorage('sync');
+        await changeTarget('de');
+        const pending = await api.switchSetupStorage('local');
+        const read = localArea.get.getMockImplementation()!;
+        let manifestReads = 0;
+        localArea.get.mockImplementation(async keys => {
+            if (keys === api.SETUP_STORAGE_KEYS.MANIFEST && ++manifestReads === 3) {
+                const selection = local[api.SETUP_STORAGE_KEYS.SELECTION];
+                local = { ...structuredClone(firstLocal), [api.SETUP_STORAGE_KEYS.SELECTION]: selection };
+                if (missingPointer) return {};
+            }
+            return read(keys);
+        });
+        const refreshed = await api.switchSetupStorage('local', { token: pending.conflict!.token, choice: 'use-destination' });
+        expect(refreshed.storageType).toBe('sync');
+        expect(refreshed.setup.preferences.defaultTargetLang).toBe('de');
+        expect(refreshed.conflict?.destination).toEqual(first);
+        expect(refreshed.conflict?.token).not.toBe(pending.conflict!.token);
     });
 
     it('serializes a key edit that overlaps a storage switch', async () => {
