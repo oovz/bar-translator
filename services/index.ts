@@ -1,14 +1,13 @@
 /** Provider adapters and bounded fallback across explicitly enabled instances. */
 import type {
     TranslationServiceHandler, TranslateParams, TranslateResult, TranslateResultWithMeta,
-    ServiceId, TranslationInstance, TranslationSetup, TranslationWarning, ValidationResult,
+    ServiceId, TranslationInstance, TranslationSetup, TranslationWarning, ValidationResult, TranslationService,
 } from '@/src/types';
 import { TranslationError } from '@/utils/errors';
 import { getInstanceName } from '@/utils/instances';
 import { hasInstanceAccess } from '@/utils/permissions';
 import { getSetup } from '@/utils/storage';
 import { getServiceDefinition } from './base';
-import type { TranslationService } from './base';
 import { GoogleTranslationWebService } from './google-web';
 import { DeepLTranslationService } from './deepl';
 import { LingvaTranslationService } from './lingva';
@@ -41,10 +40,6 @@ async function prerequisiteError(instance: TranslationInstance): Promise<Transla
         (instance.providerId === 'libretranslate' && instance.hosting === 'managed')) && !instance.credential?.key) {
         return new TranslationError('API_KEY_REQUIRED', 'API key required. Check settings.', details);
     }
-}
-
-export async function isInstanceAvailable(instance: TranslationInstance): Promise<boolean> {
-    return serviceRegistry.has(instance.providerId) && await prerequisiteError(instance) === undefined;
 }
 
 function attributedError(error: unknown, instance: TranslationInstance, warnings?: readonly TranslationWarning[]) {
@@ -142,7 +137,7 @@ export async function translateWithFallback(params: TranslateParams, setup: Tran
             const result = await translateConfiguredInstance(instance, params,
                 Math.min(deadline, performance.now() + ATTEMPT_TIMEOUT_MS));
             params.signal?.throwIfAborted();
-            return { ...result, ...attribution(instance), usedFallback: index > 0, cached: false, warnings };
+            return { ...result, ...attribution(instance), usedFallback: index > 0, warnings };
         } catch (error) {
             params.signal?.throwIfAborted();
             lastError = attributedError(error, instance);
@@ -153,12 +148,6 @@ export async function translateWithFallback(params: TranslateParams, setup: Tran
     throw exhaustedFallback(lastError, warnings);
 }
 
-/** Explicit instance operation used by callers that intentionally omit fallback. */
-export async function translateDirect(instance: TranslationInstance, params: TranslateParams): Promise<TranslateResult> {
-    params.signal?.throwIfAborted();
-    return translateConfiguredInstance(instance, params, performance.now() + ATTEMPT_TIMEOUT_MS);
-}
-
 function recipientIdentity(candidate: TranslationInstance): string {
     return JSON.stringify([
         candidate.providerId,
@@ -167,13 +156,8 @@ function recipientIdentity(candidate: TranslationInstance): string {
     ]);
 }
 
-/** Optional user-triggered test; completion never gates later translations. */
-export async function testInstance(instance: TranslationInstance): Promise<ValidationResult> {
-    const setup = await getSetup();
-    const saved = setup.instances.find(candidate => candidate.id === instance.id);
-    if (!saved || !setup.preferences.fallbackOrder.includes(saved.id) || recipientIdentity(saved) !== recipientIdentity(instance)) {
-        return { valid: false, error: 'Enable and save the current instance before testing.' };
-    }
+/** Explicit user-triggered check for the values currently in an editor; it never persists or enables. */
+export async function testConfiguredInstance(instance: TranslationInstance): Promise<ValidationResult> {
     const missing = await prerequisiteError(instance);
     if (missing) return { valid: false, error: missing.getUserMessage() };
     const signal = AbortSignal.timeout(ATTEMPT_TIMEOUT_MS);
@@ -186,6 +170,16 @@ export async function testInstance(instance: TranslationInstance): Promise<Valid
         return testLibreTranslate(instance.endpoint, instance.credential?.key, signal);
     }
     return { valid: true };
+}
+
+/** Optional user-triggered test; completion never gates later translations. */
+export async function testInstance(instance: TranslationInstance): Promise<ValidationResult> {
+    const setup = await getSetup();
+    const saved = setup.instances.find(candidate => candidate.id === instance.id);
+    if (!saved || !setup.preferences.fallbackOrder.includes(saved.id) || recipientIdentity(saved) !== recipientIdentity(instance)) {
+        return { valid: false, error: 'Enable and save the current instance before testing.' };
+    }
+    return testConfiguredInstance(instance);
 }
 
 export type { TranslationService, TranslationServiceHandler };

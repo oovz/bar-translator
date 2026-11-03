@@ -1,9 +1,8 @@
 /** Keyless, best-effort Google Translate integration using its unofficial GTX route. */
-import { BaseTranslationService } from './base';
 import { readBoundedJson } from './response-json';
 import { TranslationError } from '@/utils/errors';
 import { toGoogleLanguage } from '@/utils/languages';
-import type { TranslationService, TranslateParams, TranslateResult } from '@/src/types';
+import type { TranslationService, TranslationServiceHandler, TranslateParams, TranslateResult } from '@/src/types';
 
 const ENDPOINT = 'https://translate.googleapis.com/translate_a/single';
 
@@ -54,10 +53,8 @@ async function responseTranslation(response: Response, serviceId: TranslationSer
     }
 }
 
-export class GoogleTranslationWebService extends BaseTranslationService {
-    constructor(public readonly service: TranslationService) {
-        super();
-    }
+export class GoogleTranslationWebService implements TranslationServiceHandler {
+    constructor(public readonly service: TranslationService) {}
 
     async translate(params: TranslateParams): Promise<TranslateResult> {
         params.signal?.throwIfAborted();
