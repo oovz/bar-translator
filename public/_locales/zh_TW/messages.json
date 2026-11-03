@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "直接在瀏覽器網址列翻譯，思緒留在眼前的頁面。"
+        "message": "不必離開目前的頁面，在瀏覽器網址列翻譯。"
     },
     "loading": {
         "message": "載入中..."

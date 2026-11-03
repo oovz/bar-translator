@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "直接在浏览器地址栏翻译，让思路留在当前页面。"
+        "message": "无需离开当前页面，在浏览器地址栏翻译。"
     },
     "loading": {
         "message": "加载中..."
