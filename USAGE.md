@@ -1,38 +1,40 @@
 # Using Bar Translator
 
-Bar Translator translates from your browser's address bar, so you can read the result without leaving the page. It works in desktop Chrome, Firefox, and Microsoft Edge. Safari does not provide the address-bar feature the extension needs.
+Bar Translator brings quick translations to your browser's address bar, so you can stay on the page you're viewing. It works in desktop Chrome, Firefox, and Microsoft Edge. Safari doesn't provide the address-bar feature the extension needs.
 
-In Firefox, the finished translation appears below the instruction row. Wait for it before pressing Enter, or select the translation row to copy it when copying is on. The top row stays as instructions and does not show loading progress or copy confirmations. Chrome and Edge show the preview in the top row.
+This guide describes the version built from this repository. If your installed extension looks different, find its version in your browser's extension settings, then open its tag from the [releases](https://github.com/oovz/bar-translator/releases) and look for the usage guide in that release's source.
+
+In Firefox, look for the finished translation below the instruction row. Wait for it before pressing Enter, or select the translation row to copy it when copying is on. The top row stays as instructions; it doesn't show loading progress or copy confirmations. Chrome and Edge show the preview in the top row.
 
 ## First-time setup
 
-Settings open in a new tab when you first install Bar Translator. To return later, open the extension's options in your browser.
+Settings open in a new tab when you first install Bar Translator. You can always come back by opening the extension's options in your browser.
 
-1. Choose your source and target languages. Use **Auto-detect** if you want the provider to identify the source language.
-2. Choose your translation services. Google Web is active in a new setup. Lingva, DeepL, and LibreTranslate appear under **Available providers**.
+1. Pick your source and target languages. If you'd like the provider to identify the source language, choose **Auto-detect**.
+2. Choose a translation service. Google Web is already active in a new setup; to use it, select **Grant access** on its row and allow the browser request. You'll find Lingva, DeepL, and LibreTranslate under **Available providers**.
    - Choose **Add** beside Google Web or Lingva to activate that fixed provider. Your browser may ask for access. If access is denied, the fixed provider is not saved; choose **Add** again to retry.
    - Choose **Add** beside DeepL or LibreTranslate to open an editor. Choose **Add and enable** to save and request access, or **Save for later** to keep the configuration inactive. If access is denied, the saved configuration stays inactive so you can retry.
 3. For DeepL and LibreTranslate, use **Enable** and **Disable** to turn a saved configuration on or off. Use **Grant access** if an active service is missing browser permission. Google Web and Lingva have no separate switch: adding one activates it, and **Delete** removes it.
-4. Drag **Activated instances** or use the arrow buttons to choose the order in which services are tried.
-5. Turn on **Enter to copy** if you want to copy translations, and allow clipboard access.
+4. Drag **Activated instances** or use the arrow buttons to pick the order in which they're tried.
+5. Want to copy translations? Turn on **Enter to copy** and allow clipboard access.
 
 Opening an editor or saving a draft for later does not activate a service. **Add and enable** saves and activates it; **Save for later** keeps it under **Available providers**. Inactive DeepL and LibreTranslate configurations stay under **Available providers** with their saved order. Fixed providers appear there only when they are not active. **Delete** asks for confirmation before removing a configuration.
 
-Cancel an unfinished draft to discard it. After saving a configuration, use **Add another** to create another DeepL or LibreTranslate instance. Save any edits before changing a service's activation.
+You can cancel an unfinished draft to discard it. After saving a configuration, choose **Add another** to create another DeepL or LibreTranslate instance. Save any edits before changing a service's activation.
 
 Updates do not reopen settings automatically. If a provider needs access or a key, a message appears alongside the translation preview.
 
 ## Translate ordinary text
 
-Press **Ctrl+L** on Windows/Linux or **Cmd+L** on macOS to focus the address bar. Type `t`, press Space, then enter your text.
+Press **Ctrl+L** on Windows/Linux or **Cmd+L** on macOS to jump to the address bar. Type `t`, press Space, then enter your text.
 
 | Input | Translation |
 | --- | --- |
 | `t Hello world` | Uses your saved source and target languages. |
 
-A translation preview starts after a 300 ms pause in typing. While it loads, you can keep editing your text. The finished translation appears with separate suggestions for copying, provider warnings, or settings that need attention.
+The preview starts after a short pause in typing (300 ms). You can keep editing while it loads. Once it's ready, you'll see the translation along with any copy action, provider warnings, or settings that need attention.
 
-Wait for the result before pressing Enter. With **Enter to copy** on, pressing Enter on the finished translation copies it. You can also choose the separate copy action. With copying off, you can still read translations; Enter leaves your clipboard unchanged.
+Wait until the result is ready before pressing Enter. With **Enter to copy** on and clipboard access allowed, Enter copies the finished translation. You can also choose the separate copy action. If copying is off, you can still read translations; Enter leaves your clipboard as it is.
 
 > [!NOTE]
 > Pressing Enter before the result is ready ends the interaction and cancels the request without changing your clipboard. Editing or clearing your text also cancels the pending translation.
@@ -41,24 +43,26 @@ After changing settings or allowing access, edit your text or start translation 
 
 ## Language shortcuts
 
-To change languages for one translation, add a language code before your text. Your saved language choices stay the same.
+For a one-time language change, add a language code before your text. Your saved language choices stay the same.
 
 | Input | Override |
 | --- | --- |
 | `t fr Hello world` | Translates to French using your saved source language. |
 | `t en>fr Hello world` | Translates from English to French. |
 
-You can also choose regional language preferences in settings, such as using `zh-TW` whenever you enter `zh`.
+You can also pick regional language preferences in settings, such as using `zh-TW` whenever you enter `zh`.
+
+💡 If your text starts with a two-letter word made of A–Z letters, the extension reads it as a target language code. For example, `t It is late` treats `It` as Italian. To include the whole phrase, put your target code first: `t fr It is late`. The same trick works for a two-letter phrase, such as `t fr hi`.
 
 ## Providers, instances, and fallback
 
-An instance is a saved configuration of a provider. You can keep separate DeepL accounts or LibreTranslate servers under names you choose. Google Web and Lingva each have one configuration, using their provider name. Adding a fixed provider activates it; deleting its row removes it.
+An instance is a saved setup for a provider. For example, you can give separate DeepL accounts or LibreTranslate servers their own names. Google Web and Lingva each have one setup, using their provider name. Adding one activates it; deleting its row removes it.
 
-Bar Translator tries your active instances in order. It skips an instance that needs access or a key and shows a warning. If one cannot translate, the next may receive the same text. For example, a managed service placed after your local server may receive text when that server fails. Activate only the instances you are comfortable sending text to.
+Bar Translator tries your active instances in order. It skips one that needs access or a key and shows a warning. If one can't translate, the next may receive the same text. For example, a managed service placed after your local server may receive text if that server fails. Activate only the instances you're comfortable sending text to.
 
 Each instance is tried once. Each try has up to four seconds, including access checks and receiving the result. All tries share a ten-second limit, so later instances may not be reached if time runs out.
 
-Removing every instance or turning off every DeepL and LibreTranslate instance pauses translation, including after a browser restart. Turning off or deleting an instance removes browser access that no other active instance needs. Instances on the same host can share access, even if their ports or paths differ. On another device, your browser may ask you to allow access again.
+Translation pauses when no instances are active, even after a browser restart. To pause it, remove Google Web and Lingva and disable or remove any DeepL and LibreTranslate instances. Turning off or deleting an instance removes browser access that no other active instance needs. Instances on the same host can share access, even if their ports or paths differ. On another device, your browser may ask you to allow access again.
 
 ### Google Translate Web
 
@@ -94,7 +98,7 @@ Your computer may ask separately whether the browser can access the local networ
 
 ## Warnings and settings actions
 
-If translation is blocked by missing access, a missing or rejected key, or no active instances, press Enter on the error to open settings.
+If translation is blocked by missing access, a missing or rejected key, or no active instances, press Enter on the error to open settings and take a look.
 
 When another instance succeeds, its translation stays as the main result. A separate warning may let you open settings for the instance that needs attention. Temporary network or service errors do not open settings when you press Enter, and leave your clipboard unchanged.
 
@@ -116,13 +120,13 @@ Clipboard access lets the extension copy translations; it does not read your cli
 
 Firefox's installation notice mentions translation text and authentication information because your chosen providers receive your text and any key they require. You still choose the providers, supply the keys, and allow access separately. This notice does not enable analytics.
 
-Your text goes directly to the active instances tried in your chosen order. If several are tried, each may receive the same text. API keys go to their corresponding provider for translation and tests you choose to run. Each provider's own privacy terms apply.
+Your text goes directly to the active instances that are tried, in the order you've chosen. If several are tried, each may receive the same text. API keys go to their corresponding provider for translation and tests you choose to run. Each provider's own privacy terms apply.
 
 Bar Translator collects no usage analytics and does not create an analytics identity. Its production logs exclude your text, translations, credentials, and the contents of provider responses. The maintainer uses Chrome Web Store reporting separately from the extension.
 
 ### Settings storage
 
-Choose **Local** or **Sync** for your whole setup: languages, named instances, server addresses, keys, translation order, and copying preference. New installations use Local. Each device keeps its own storage choice and browser permissions.
+Choose **Local** or **Sync** for your whole setup: languages, named instances, server addresses, keys, translation order, and copying preference. New installations start with Local. Each device keeps its own storage choice and browser permissions.
 
 > [!WARNING]
 > API keys, tokens, and other credentials you save are stored as plain text in your browser profile. Anyone who gains access to that profile may be able to read and use them without your permission.
@@ -143,7 +147,7 @@ Older versions keep their own settings, so changes do not pass between old and u
 
 ## Browser builds
 
-To install a local build, use the repository's Node/pnpm versions, install dependencies, then build for your browser:
+To install a local build, use Node.js 24.15 or later in the 24.x series and pnpm 12.14.0. Install dependencies, then build for your browser:
 
 ```bash
 pnpm install --frozen-lockfile

@@ -1,15 +1,23 @@
 # Contributing
 
-Use Node.js 24.15 or later in the 24.x series and pnpm 12.14.0. The repository pins the package manager in `package.json` and the Node major version in `.node-version`.
+Thanks for being here! Bug reports, documentation fixes, translations, and code changes are all welcome.
+
+If you find a bug, let us know what you expected, what happened, which browser and version you use, and how to reproduce it. Please leave translation text, API keys, and other private information out of reports. When opening a pull request, tell us about the problem, your approach, and the checks you ran.
+
+## Set up
+
+You'll need Node.js 24.15 or later in the 24.x series and pnpm 12.14.0. The repository pins the package manager in `package.json` and the Node major version in `.node-version`.
 
 ```bash
 pnpm install --frozen-lockfile
 pnpm dev
 ```
 
+`pnpm dev` starts the Chrome development target. Use `pnpm dev:firefox` or `pnpm dev:edge` for the other browsers.
+
 ## Build and install
 
-Run the build for your browser:
+Build for your browser:
 
 ```bash
 pnpm build          # Chrome 116+
@@ -28,11 +36,14 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build:all
+pnpm exec web-ext lint --source-dir .output/firefox-mv3 --no-input --no-config-discovery
 pnpm exec playwright install chromium
 pnpm test:e2e
 pnpm test:e2e:firefox
 ```
 
-`pnpm test:unit` and `pnpm test:integration` run each Vitest layer separately. `pnpm coverage` produces coverage reports. Browser tests use isolated profiles and fixture responses. They do not contact live translation providers.
+`pnpm test:unit` and `pnpm test:integration` run each Vitest layer separately. For a quicker feedback loop, use `pnpm test:watch`; `pnpm coverage` produces a coverage report. The browser test commands build their target before running. On Linux, Playwright may also need system dependencies; see the [CI workflow](.github/workflows/ci.yml).
 
-Firefox tests use Selenium Manager to acquire Firefox and geckodriver. To use installed executables, set `FIREFOX_EXECUTABLE_PATH` and `GECKODRIVER_PATH`. Run `pnpm test:e2e:edge` when Edge is installed; `EDGE_EXECUTABLE_PATH` selects a specific executable.
+Browser tests use isolated profiles and fixture responses. They do not verify live provider availability, OS clipboard access, or browser-account sync across devices.
+
+Firefox tests use Selenium Manager to find or acquire Firefox and geckodriver. To use installed executables, set `FIREFOX_EXECUTABLE_PATH` and `GECKODRIVER_PATH`; the [CI workflow](.github/workflows/ci.yml) records the pinned versions used there. Run `pnpm test:e2e:edge` when Edge is installed; `EDGE_EXECUTABLE_PATH` selects a specific executable.
