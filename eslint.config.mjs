@@ -4,7 +4,7 @@ import tseslint from '@typescript-eslint/eslint-plugin';
 import globals from 'globals';
 
 export default defineConfig(
-    { ignores: ['dist', '.wxt', '.output', 'coverage'] },
+    { ignores: ['dist', '.wxt', '.output', 'coverage', 'test-results', 'playwright-report', 'blob-report'] },
     js.configs.recommended,
     {
         extends: [
