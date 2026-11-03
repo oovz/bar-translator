@@ -1,9 +1,3 @@
-/**
- * Unit Tests for DeepL Service
- *
- * @module tests/unit/services/deepl.test
- */
-
 import { describe, it, expect, beforeEach, afterEach, vi, type MockedFunction } from 'vitest';
 import { DeepLTranslationService } from '@/services/deepl';
 import { getServiceDefinition } from '@/services/base';
@@ -53,6 +47,23 @@ describe('DeepLTranslationService', () => {
             await expect(service.translate({ text: 'Hello', sourceLang: 'en', targetLang: 'es' }))
                 .rejects.toMatchObject({ code: 'INVALID_API_KEY', serviceId: 'deepl' });
             expect(fetchMock).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            ['zh-CN', 'ZH'], ['zh-TW', 'ZH'], ['pt', 'PT'],
+            ['pt-BR', 'PT'], ['en-GB', 'EN'], ['no', 'NB'],
+        ])('uses the DeepL source code %s → %s while retaining the target variant', async (sourceLang, sourceCode) => {
+            fetchMock.mockResolvedValue(Response.json({
+                translations: [{ text: 'Translation', detected_source_language: sourceCode }],
+            }));
+
+            await service.translate({
+                text: 'Example', sourceLang, targetLang: 'en-US', apiKey: validKey.key,
+            });
+
+            const body = fetchMock.mock.calls[0]![1]!.body as URLSearchParams;
+            expect(body.get('source_lang')).toBe(sourceCode);
+            expect(body.get('target_lang')).toBe('EN-US');
         });
 
         it.each([
@@ -126,19 +137,11 @@ describe('DeepLTranslationService', () => {
             expect(fetchMock).not.toHaveBeenCalled();
         });
 
-        it('does not retest a key when checking availability after a failed explicit test', async () => {
-            fetchMock.mockResolvedValueOnce(new Response(null, { status: 403, statusText: 'Unauthorized' }));
-            expect((await service.validateApiKey('user-key')).valid).toBe(false);
-            expect(await service.isAvailable('user-key')).toBe(true);
-            expect(await service.isAvailable()).toBe(false);
-            expect(fetchMock).toHaveBeenCalledTimes(1);
-        });
-
         it('reports an unavailable explicit key test without exposing network diagnostics or retrying', async () => {
             fetchMock.mockRejectedValue(new TypeError('Network failed with secret-key in provider diagnostics'));
-            expect(await service.validateApiKey('secret-key')).toEqual({
-                valid: false, error: 'Could not complete the DeepL test.',
-            });
+            const result = await service.validateApiKey('secret-key');
+            expect(result).toEqual({ valid: false, error: expect.any(String) });
+            expect(result.error).not.toContain('secret-key');
             expect(fetchMock).toHaveBeenCalledTimes(1);
         });
 

@@ -1,12 +1,3 @@
-/**
- * Unit Tests for Language Code Utilities
- *
- * Tests for BCP 47 handling, ISO 639-1 user input conversion,
- * and service-specific language code mappings.
- *
- * @module tests/unit/languages.test
- */
-
 import { describe, it, expect } from 'vitest';
 import {
     isValidLanguageCode,
@@ -14,7 +5,6 @@ import {
     toGoogleLanguage,
     toDeepLLanguage,
     fromDeepLLanguage,
-    getLanguageInfo,
     getTargetLanguages,
     getSourceLanguages,
     normalizeLanguageCode,
@@ -175,29 +165,6 @@ describe('Language Utilities', () => {
             expect(fromDeepLLanguage('EN')).toBe('en');
             expect(fromDeepLLanguage('FR')).toBe('fr');
             expect(fromDeepLLanguage('DE')).toBe('de');
-        });
-    });
-
-    describe('getLanguageInfo', () => {
-        it('finds info by BCP 47 code', () => {
-            const zhCN = getLanguageInfo('zh-CN');
-            expect(zhCN).toBeDefined();
-            expect(zhCN?.code).toBe('zh-CN');
-        });
-
-        it('finds info by ISO 639-1 shortcut (via fromUserInput)', () => {
-            const zh = getLanguageInfo('zh');
-            expect(zh).toBeDefined();
-            expect(zh?.code).toBe('zh-CN');
-        });
-
-        it('is case-insensitive', () => {
-            expect(getLanguageInfo('EN')).toEqual(getLanguageInfo('en'));
-            expect(getLanguageInfo('ZH-CN')).toEqual(getLanguageInfo('zh-cn'));
-        });
-
-        it('returns undefined for unknown codes', () => {
-            expect(getLanguageInfo('xyz')).toBeUndefined();
         });
     });
 
