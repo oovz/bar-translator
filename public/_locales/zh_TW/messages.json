@@ -40,46 +40,23 @@
     "availableProviders": {
         "message": "可用供應商"
     },
-    "servicesDesc": {
-        "message": "僅啟用您允許接收文字的執行個體。系統依序嘗試；先前的執行個體失敗時，後續執行個體也可能收到相同文字。可拖曳或使用箭頭調整順序。"
-    },
     "primary": {
         "message": "首選"
     },
     "free": {
         "message": "免費"
     },
-    "keyRequired": {
-        "message": "需要金鑰"
-    },
     "keyNeeded": {
         "message": "需要金鑰"
     },
-    "makePreferred": {
-        "message": "設為首選"
-    },
     "apiKeyLabel": {
         "message": "API 金鑰"
-    },
-    "enterApiKey": {
-        "message": "輸入 $1 API 金鑰",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
     },
     "show": {
         "message": "顯示"
     },
     "hide": {
         "message": "隱藏"
-    },
-    "validateKey": {
-        "message": "驗證金鑰"
-    },
-    "reValidate": {
-        "message": "重新驗證"
     },
     "checking": {
         "message": "檢查中..."
@@ -93,23 +70,8 @@
     "retry": {
         "message": "重試"
     },
-    "invalidApiKey": {
-        "message": "API 金鑰無效"
-    },
-    "apiKeyRequired": {
-        "message": "需要 API 金鑰"
-    },
-    "enableFallback": {
-        "message": "啟用備用服務"
-    },
-    "fallbackDesc": {
-        "message": "如果首選服務失敗，嘗試其他服務"
-    },
     "dragToReorder": {
         "message": "拖曳以重新排序優先級（頂部 = 首先嘗試）"
-    },
-    "noFallbackAvailable": {
-        "message": "沒有可用的備用服務。新增 API 金鑰以啟用更多服務。"
     },
     "noServicesEnabled": {
         "message": "未啟用任何服務。請啟用至少一個服務以使用翻譯。"
@@ -169,12 +131,6 @@
     },
     "noResults": {
         "message": "無結果"
-    },
-    "serviceTypeApi": {
-        "message": "官方 API"
-    },
-    "serviceTypeWeb": {
-        "message": "網頁介面"
     },
     "requiresApiKey": {
         "message": "• 需要 API 金鑰"
@@ -358,9 +314,6 @@
     "permissionChangeFailed": {
         "message": "無法變更存取權限，請重試。"
     },
-    "testNeedsAccess": {
-        "message": "請先啟用服務並授予存取權限，再測試金鑰。"
-    },
     "keyChangedDuringTest": {
         "message": "API 金鑰已變更，請測試目前的金鑰。"
     },
@@ -439,17 +392,6 @@
     "instanceTestDescription": {
         "message": "測試會傳送固定的範例要求。測試為選用，不會啟用或停用此執行個體。"
     },
-    "configureNamedInstance": {
-        "message": "設定 $1",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
-    },
-    "configureInstance": {
-        "message": "設定"
-    },
     "enableInstance": {
         "message": "啟用 $1",
         "placeholders": {
@@ -526,14 +468,8 @@
     "setupMigrationPending": {
         "message": "無法完成已儲存設定的升級。原有設定仍在使用，請重試後再編輯。"
     },
-    "draftInstance": {
-        "message": "尚未儲存"
-    },
     "cancel": {
         "message": "取消"
-    },
-    "addProviderInstance": {
-        "message": "新增實例：$1"
     },
     "googleProviderDescription": {
         "message": "使用 Google 網頁服務，無需 API 金鑰。"
@@ -548,16 +484,10 @@
         "message": "使用託管服務，或連線至您自己的伺服器。"
     },
     "newInstanceDescription": {
-        "message": "先儲存設定，再啟用以將其加入翻譯順序。"
-    },
-    "connect": {
-        "message": "連線"
-    },
-    "connectInstance": {
-        "message": "連線至 $1"
+        "message": "儲存供日後使用會保持服務停用且不會聯絡供應商。新增並啟用會要求瀏覽器存取權限，不會測試憑證。"
     },
     "customConnectionDescription": {
-        "message": "連線會在設定過程中聯繫此伺服器，但不會傳送翻譯文字或金鑰。如有提示，請允許瀏覽器存取區域網路。"
+        "message": "啟用現有自訂伺服器或授予存取權限時，會檢查連線，不會傳送文字或金鑰。如有提示，請允許存取區域網路。"
     },
     "instanceConnected": {
         "message": "已連線至 $1。"
@@ -565,7 +495,115 @@
     "customConnectionFailed": {
         "message": "無法確認與 $1 的連線。如有提示，請允許瀏覽器存取區域網路，然後再次點選測試。"
     },
-    "addInstance": {
-        "message": "新增實例"
+    "servicesWorkflowDesc": {
+        "message": "只有已啟用的執行個體會接收文字。它們會依照從上到下的順序嘗試；拖曳或使用箭頭調整順序。如果一個失敗，下一個可能會收到相同的文字。"
+    },
+    "serviceOff": {
+        "message": "已停用"
+    },
+    "serviceNotTested": {
+        "message": "未測試"
+    },
+    "grantInstanceAccess": {
+        "message": "授予 $1 存取權限"
+    },
+    "providerConfiguredCount": {
+        "message": "已設定: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "addAnother": {
+        "message": "再新增一個"
+    },
+    "addProvider": {
+        "message": "新增"
+    },
+    "addAndEnable": {
+        "message": "新增並啟用"
+    },
+    "saveForLater": {
+        "message": "儲存供日後使用"
+    },
+    "enable": {
+        "message": "啟用"
+    },
+    "disable": {
+        "message": "停用"
+    },
+    "showServiceDetails": {
+        "message": "$1 的詳細資訊",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "settings": {
+        "message": "設定"
+    },
+    "lang_zh": {
+        "message": "中文"
+    },
+    "deleteConfirmation": {
+        "message": "刪除 $1？此操作無法復原。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteConfirmationLabel": {
+        "message": "確認刪除 $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "draftTestDescription": {
+        "message": "測試會在不儲存或啟用服務的情況下檢查目前的值。"
+    },
+    "instanceEnabledStatus": {
+        "message": "$1 已啟用。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDisabledStatus": {
+        "message": "$1 已停用。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDeletedStatus": {
+        "message": "$1 已刪除。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessGrantedStatus": {
+        "message": "已為 $1 授予瀏覽器存取權限。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessRemovedStatus": {
+        "message": "已移除 $1 的瀏覽器存取權限。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
     }
 }

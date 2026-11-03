@@ -40,46 +40,23 @@
     "availableProviders": {
         "message": "利用可能なプロバイダー"
     },
-    "servicesDesc": {
-        "message": "テキストの送信を許可するインスタンスのみ有効にしてください。順番に試行し、失敗した場合は後続の有効なインスタンスにも同じテキストが送信されます。ドラッグまたは矢印で順番を変更できます。"
-    },
     "primary": {
         "message": "優先"
     },
     "free": {
         "message": "無料"
     },
-    "keyRequired": {
-        "message": "キーが必要"
-    },
     "keyNeeded": {
         "message": "キーが必要"
     },
-    "makePreferred": {
-        "message": "優先に設定"
-    },
     "apiKeyLabel": {
         "message": "APIキー"
-    },
-    "enterApiKey": {
-        "message": "$1 APIキーを入力",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
     },
     "show": {
         "message": "表示"
     },
     "hide": {
         "message": "非表示"
-    },
-    "validateKey": {
-        "message": "キーを検証"
-    },
-    "reValidate": {
-        "message": "再検証"
     },
     "checking": {
         "message": "確認中..."
@@ -93,23 +70,8 @@
     "retry": {
         "message": "再試行"
     },
-    "invalidApiKey": {
-        "message": "無効なAPIキー"
-    },
-    "apiKeyRequired": {
-        "message": "APIキーが必要です"
-    },
-    "enableFallback": {
-        "message": "フォールバックを有効化"
-    },
-    "fallbackDesc": {
-        "message": "優先サービスが失敗した場合に他のサービスを試行"
-    },
     "dragToReorder": {
         "message": "ドラッグして優先順位を変更（上 = 最初に試行）"
-    },
-    "noFallbackAvailable": {
-        "message": "利用可能なフォールバックサービスがありません。APIキーを追加してサービスを有効にしてください。"
     },
     "noServicesEnabled": {
         "message": "有効なサービスがありません。翻訳を使用するには少なくとも1つのサービスを有効にしてください。"
@@ -169,12 +131,6 @@
     },
     "noResults": {
         "message": "結果なし"
-    },
-    "serviceTypeApi": {
-        "message": "公式API"
-    },
-    "serviceTypeWeb": {
-        "message": "Webインターフェース"
     },
     "requiresApiKey": {
         "message": "• APIキーが必要"
@@ -358,9 +314,6 @@
     "permissionChangeFailed": {
         "message": "アクセス許可を変更できませんでした。再試行してください。"
     },
-    "testNeedsAccess": {
-        "message": "テストする前にサービスを有効にし、アクセスを許可してください。"
-    },
     "keyChangedDuringTest": {
         "message": "API キーが変更されました。現在のキーをテストしてください。"
     },
@@ -439,17 +392,6 @@
     "instanceTestDescription": {
         "message": "テストでは固定のサンプルリクエストを送信します。テストは任意で、インスタンスの有効・無効は変わりません。"
     },
-    "configureNamedInstance": {
-        "message": "$1を設定",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
-    },
-    "configureInstance": {
-        "message": "設定"
-    },
     "enableInstance": {
         "message": "$1を有効化",
         "placeholders": {
@@ -526,14 +468,8 @@
     "setupMigrationPending": {
         "message": "保存済み設定の更新を完了できませんでした。以前の設定は引き続き有効です。編集する前に再試行してください。"
     },
-    "draftInstance": {
-        "message": "未保存"
-    },
     "cancel": {
         "message": "キャンセル"
-    },
-    "addProviderInstance": {
-        "message": "インスタンスを追加: $1"
     },
     "googleProviderDescription": {
         "message": "API キー不要の Google ウェブサービスです。"
@@ -548,16 +484,10 @@
         "message": "管理サービスを使用するか、ご自分のサーバーに接続できます。"
     },
     "newInstanceDescription": {
-        "message": "この設定を保存してから有効にすると、翻訳の優先順位に追加されます。"
-    },
-    "connect": {
-        "message": "接続"
-    },
-    "connectInstance": {
-        "message": "$1 に接続"
+        "message": "後で使うために保存すると、サービスはオフのままで接続しません。追加して有効にするとブラウザーのアクセス許可を要求します。認証情報はテストしません。"
     },
     "customConnectionDescription": {
-        "message": "接続時にこのサーバーへアクセスしますが、翻訳テキストやキーは送信しません。確認が表示された場合は、ブラウザーのローカルネットワークへのアクセスを許可してください。"
+        "message": "既存のカスタムサーバーをオンにするかアクセスを許可すると、テキストやキーを送信せずに接続を確認します。求められた場合はローカルネットワークへのアクセスを許可してください。"
     },
     "instanceConnected": {
         "message": "$1 に接続しました。"
@@ -565,7 +495,115 @@
     "customConnectionFailed": {
         "message": "$1 への接続を確認できませんでした。確認が表示された場合はブラウザーのローカルネットワークへのアクセスを許可し、テストを再実行してください。"
     },
-    "addInstance": {
-        "message": "インスタンスを追加"
+    "servicesWorkflowDesc": {
+        "message": "有効なインスタンスだけがテキストを受信します。上から順に試し、ドラッグまたは矢印で並べ替えます。失敗した場合は次のインスタンスが同じテキストを受信することがあります。"
+    },
+    "serviceOff": {
+        "message": "オフ"
+    },
+    "serviceNotTested": {
+        "message": "未テスト"
+    },
+    "grantInstanceAccess": {
+        "message": "$1へのアクセスを許可"
+    },
+    "providerConfiguredCount": {
+        "message": "設定済み: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "addAnother": {
+        "message": "別のサービスを追加"
+    },
+    "addProvider": {
+        "message": "追加"
+    },
+    "addAndEnable": {
+        "message": "追加して有効にする"
+    },
+    "saveForLater": {
+        "message": "後で使うために保存"
+    },
+    "enable": {
+        "message": "有効にする"
+    },
+    "disable": {
+        "message": "無効にする"
+    },
+    "showServiceDetails": {
+        "message": "$1の詳細",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "settings": {
+        "message": "設定"
+    },
+    "lang_zh": {
+        "message": "中国語"
+    },
+    "deleteConfirmation": {
+        "message": "$1 を削除しますか？この操作は元に戻せません。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteConfirmationLabel": {
+        "message": "$1 の削除を確認",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "draftTestDescription": {
+        "message": "テストでは、サービスを保存または有効化せずに現在の値を確認します。"
+    },
+    "instanceEnabledStatus": {
+        "message": "$1 を有効にしました。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDisabledStatus": {
+        "message": "$1 を無効にしました。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDeletedStatus": {
+        "message": "$1 を削除しました。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessGrantedStatus": {
+        "message": "$1 のブラウザー アクセスを許可しました。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessRemovedStatus": {
+        "message": "$1 のブラウザー アクセスを削除しました。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
     }
 }
