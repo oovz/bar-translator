@@ -70,9 +70,6 @@ jobs:
       - name: Firefox browser tests
         id: firefox
         if: ${{ !cancelled() && (steps.browser.outcome == 'success' || steps.browser.outcome == 'failure') }}
-        # Selenium Manager downloads these exact Mozilla releases. Browser proxy
-        # preferences apply at launch; Manager downloads run outside the browser.
-        # https://www.selenium.dev/documentation/selenium_manager/#configuration
         env:
           SE_FIREFOX_VERSION: '158.0.1'
           SE_GECKODRIVER_VERSION: '0.37.1'
