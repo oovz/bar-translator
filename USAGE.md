@@ -1,20 +1,24 @@
 # Using Bar Translator
 
-Bar Translator lets you translate from the address bar in desktop Chrome, Firefox, and Microsoft Edge. Choose your usual languages once, then type text to translate while keeping your current page open. Safari does not support the address-bar feature the extension needs.
+Bar Translator translates from your browser's address bar, so you can read the result without leaving the page. It works in desktop Chrome, Firefox, and Microsoft Edge. Safari does not provide the address-bar feature the extension needs.
 
-In Firefox, look for the finished translation below the top instruction row. Wait for it to appear before pressing Enter, or select the translation row to copy it when copying is enabled. The top row stays as instructions; it does not show loading progress or copy confirmations. Chrome and Edge show the preview in their top row.
+In Firefox, the finished translation appears below the instruction row. Wait for it before pressing Enter, or select the translation row to copy it when copying is on. The top row stays as instructions and does not show loading progress or copy confirmations. Chrome and Edge show the preview in the top row.
 
 ## First-time setup
 
 Settings open in a new tab when you first install Bar Translator. To return later, open the extension's options in your browser.
 
 1. Choose your source and target languages. Use **Auto-detect** if you want the provider to identify the source language.
-2. Choose your translation services. Only Google Web is active in a new setup. Lingva, DeepL and LibreTranslate appear under **Available providers**. For DeepL or LibreTranslate, choose **Configure**, fill in the details, and save.
-3. Activate the saved instances you want to use. Choose **Grant access** if an active instance needs permission, or **Connect** for a custom LibreTranslate server. Allow access when your browser asks.
-4. Drag **Activated instances** or use their arrow buttons to choose which one is tried first.
+2. Choose your translation services. Google Web is active in a new setup. Lingva, DeepL, and LibreTranslate appear under **Available providers**.
+   - Choose **Add** beside Google Web or Lingva to activate that fixed provider. Your browser may ask for access. If access is denied, the fixed provider is not saved; choose **Add** again to retry.
+   - Choose **Add** beside DeepL or LibreTranslate to open an editor. Choose **Add and enable** to save and request access, or **Save for later** to keep the configuration inactive. If access is denied, the saved configuration stays inactive so you can retry.
+3. For DeepL and LibreTranslate, use **Enable** and **Disable** to turn a saved configuration on or off. Use **Grant access** if an active service is missing browser permission. Google Web and Lingva have no separate switch: adding one activates it, and **Delete** removes it.
+4. Drag **Activated instances** or use the arrow buttons to choose the order in which services are tried.
 5. Turn on **Enter to copy** if you want to copy translations, and allow clipboard access.
 
-Configuring an instance does not activate it. You can cancel an unfinished draft or use **Add instance** to save another DeepL or LibreTranslate configuration. Saved instances that are turned off stay under **Available providers**. Save any edits before changing an instance's activation.
+Opening an editor or saving a draft for later does not activate a service. **Add and enable** saves and activates it; **Save for later** keeps it under **Available providers**. Inactive DeepL and LibreTranslate configurations stay under **Available providers** with their saved order. Fixed providers appear there only when they are not active. **Delete** asks for confirmation before removing a configuration.
+
+Cancel an unfinished draft to discard it. After saving a configuration, use **Add another** to create another DeepL or LibreTranslate instance. Save any edits before changing a service's activation.
 
 Updates do not reopen settings automatically. If a provider needs access or a key, a message appears alongside the translation preview.
 
@@ -46,15 +50,15 @@ To change languages for one translation, add a language code before your text. Y
 
 You can also choose regional language preferences in settings, such as using `zh-TW` whenever you enter `zh`.
 
-## Providers, instances and fallback
+## Providers, instances, and fallback
 
-An instance is a saved configuration of a provider. For example, you can keep separate DeepL accounts or LibreTranslate servers under names you choose. Google Web and Lingva each have one configuration, with their provider name.
+An instance is a saved configuration of a provider. You can keep separate DeepL accounts or LibreTranslate servers under names you choose. Google Web and Lingva each have one configuration, using their provider name. Adding a fixed provider activates it; deleting its row removes it.
 
-Bar Translator tries your activated instances in order. It skips an instance that needs access or a key and shows a warning. If one cannot translate, the next may receive the same text. For example, a managed service placed after your local server may receive text when that server fails. Activate only the instances you are comfortable sending text to.
+Bar Translator tries your active instances in order. It skips an instance that needs access or a key and shows a warning. If one cannot translate, the next may receive the same text. For example, a managed service placed after your local server may receive text when that server fails. Activate only the instances you are comfortable sending text to.
 
 Each instance is tried once. Each try has up to four seconds, including access checks and receiving the result. All tries share a ten-second limit, so later instances may not be reached if time runs out.
 
-Turning off every instance pauses translation, including after a browser restart. Turning off or deleting an instance removes browser access that no other active instance needs. Instances on the same host can share access, even if their ports or paths differ. On another device, your browser may ask you to allow access again.
+Removing every instance or turning off every DeepL and LibreTranslate instance pauses translation, including after a browser restart. Turning off or deleting an instance removes browser access that no other active instance needs. Instances on the same host can share access, even if their ports or paths differ. On another device, your browser may ask you to allow access again.
 
 ### Google Translate Web
 
@@ -70,23 +74,23 @@ Lingva is a public Google Translate proxy that works without an API key. Its ava
 
 DeepL uses the official API with your own key. Add named instances for different accounts or API plans. You can activate an instance before adding its key, but it needs a key to translate. Activation asks for access to both `api-free.deepl.com` and `api.deepl.com`, whichever plan you use.
 
-Saving a key does not contact DeepL. To check it, activate the instance, allow access, then choose **Test**. This optional check reads your [DeepL account usage](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits).
+Saving a key does not contact DeepL. To check a saved account, activate it, allow access, then choose **Test**. This optional check reads your [DeepL account usage](https://developers.deepl.com/api-reference/usage-and-quota/check-usage-and-limits). In the add editor, **Test** checks the current values without saving or enabling the account and releases the access it requested.
 
 An unsuccessful test leaves the instance active, so it can be tried again when translating. If DeepL rejects the key, the translation or test shows an error or fallback warning.
 
 ### LibreTranslate
 
-Choose **Configure** beside LibreTranslate and name your instance. Use the managed service at `https://libretranslate.com` with your own API key, or enter a custom server. A custom server may work with or without a key, depending on how its operator set it up. Saving keeps the instance turned off and does not contact the server.
+Choose **Add** or **Add another** beside LibreTranslate and name your instance. Use the managed service at `https://libretranslate.com` with your own API key, or enter a custom server. A custom server may work with or without a key, depending on how its operator set it up. **Save for later** keeps a new instance turned off and does not contact the server; saving edits preserves its existing on/off state.
 
 Enter the server's base address, such as `http://localhost:5000`, `http://192.168.1.20:5000`, or `https://translate.example/libre/`. Leave off the `/translate` API path. The server must be reachable from this computer, and your browser must trust its HTTPS certificate. HTTP sends text and any key without encryption; settings show a warning when you use it.
 
 Changing a saved server address clears its old key to avoid sending it to a different server. Save the new address before entering a new key. Renaming an instance keeps its key and other settings.
 
-Choose **Connect** to allow browser access and check the server's connection. This first check sends no translation text or API key. Once access is allowed, the instance is active. If the check fails, a warning appears and your settings stay saved; the instance stays active and its key is not marked invalid. Allow local-network access if prompted, then choose **Test** to try again.
+Enabling an existing custom server with **Enable**, or repairing its missing permission with **Grant access**, allows browser access and checks the server's connection. This first check sends no translation text or API key. Once access is allowed, the instance is active. If the check fails, a warning appears and your settings stay saved; the instance stays active and its key is not marked invalid. Allow local-network access if prompted, then choose **Test** to try again.
 
-Your computer may ask separately whether the browser can access the local network. For example, [macOS may ask on the first connection](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy), which can fail while you answer the prompt. Connect lets you handle this during setup. The extension cannot approve it for you. Website permissions are separate; [Chrome extensions use their own host permissions](https://developer.chrome.com/blog/local-network-access).
+Your computer may ask separately whether the browser can access the local network. For example, [macOS may ask on the first connection](https://developer.apple.com/documentation/technotes/tn3179-understanding-local-network-privacy), which can fail while you answer the prompt. The connection check lets you handle this during setup. The extension cannot approve it for you. Website permissions are separate; [Chrome extensions use their own host permissions](https://developer.chrome.com/blog/local-network-access).
 
-The optional **Test** checks supported languages and sends a fixed sample for translation. It needs an active instance with browser access. Saving an address or key does not run it, and a failed test does not turn the instance off. Servers differ in their languages, models, and text limits; if one cannot handle your request, the next active instance may be tried.
+**Add and enable** requests browser access without probing the server. Use the explicit **Test** action when you are ready to make contact. The optional **Test** checks supported languages and sends a fixed sample for translation. In the add editor, it checks the current values and releases the access it requested when the configuration remains unsaved or disabled; it does not save or enable the instance. For a saved server, enable it and allow access before choosing **Test**. Saving an address or key does not run a test, and a failed test does not turn the instance off. Servers differ in their languages, models, and text limits; if one cannot handle your request, the next active instance may be tried.
 
 ## Warnings and settings actions
 
@@ -104,7 +108,7 @@ At installation, the extension requires only `storage` access. Other access is r
 | --- | --- |
 | Google Translate Web | `https://translate.googleapis.com/*` |
 | DeepL | Both `https://api-free.deepl.com/*` and `https://api.deepl.com/*` |
-| LibreTranslate | The configured HTTP(S) host, requested when enabling, connecting or repairing access |
+| LibreTranslate | The configured HTTP(S) host, requested when enabling, testing, or repairing access |
 | Enter to copy in Chrome/Edge | `clipboardWrite` and `offscreen`, requested together |
 | Enter to copy in Firefox | `clipboardWrite` |
 
@@ -124,7 +128,7 @@ Choose **Local** or **Sync** for your whole setup: languages, named instances, s
 > API keys, tokens, and other credentials you save are stored as plain text in your browser profile. Anyone who gains access to that profile may be able to read and use them without your permission.
 
 - **Local** keeps the setup you are using on this device.
-- **Sync** shares the whole setup, including credentials, through your browser account. Browser sync must be on. Chrome, Firefox and Edge do not sync with one another, and offline changes may take time to arrive.
+- **Sync** shares the whole setup, including credentials, through your browser account. Browser sync must be on. Chrome, Firefox, and Edge do not sync with one another, and offline changes may take time to arrive.
 - If a different setup is already saved in the destination, choose to use it or replace it with your current setup. The two are not merged. Your current setup stays active until the change succeeds, and you can retry a failed save.
 - Switching to Local does not erase the earlier Sync copy that other devices may use.
 
@@ -152,4 +156,4 @@ In Chrome or Edge, open `chrome://extensions` or `edge://extensions`, turn on de
 
 Firefox removes temporary installations when you restart the browser. Permanent installation in release Firefox requires Mozilla signing; a local build is not signed or published automatically. Keep the add-on ID `bar-translator@oovz` unchanged across upgrades so the browser recognizes its saved settings.
 
-[Back to the README](../README.md)
+[Back to the README](README.md)

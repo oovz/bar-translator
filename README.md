@@ -8,7 +8,7 @@ Translate in your browser's address bar and keep your page in view. Type your te
 
 [![Available in the Chrome Web Store](https://user-images.githubusercontent.com/22908993/166417152-f870bfbd-1770-4c28-b69d-a7303aebc9a6.png)](https://chromewebstore.google.com/detail/Bar%20Translator/edigfnmbafijmbnplkmddhemkghjkhno)
 
-Use Bar Translator on desktop **Chrome, Firefox, and Microsoft Edge**. See the [installation guide](docs/usage.md#browser-builds) for local browser builds.
+Use Bar Translator on desktop **Chrome, Firefox, and Microsoft Edge**. See the [installation guide](USAGE.md#browser-builds) for local browser builds.
 
 ## Translate with the languages you use
 
@@ -18,7 +18,7 @@ Use Bar Translator on desktop **Chrome, Firefox, and Microsoft Edge**. See the [
 
 For example, `t Hello world` translates “Hello world” to your saved target language. Choose **Auto-detect** as the source language if you want the provider to identify it.
 
-Enable **Enter to copy** in settings to copy a completed translation with Enter. Optional language prefixes let you change languages for one translation; the [user guide](docs/usage.md#language-shortcuts) has examples.
+Enable **Enter to copy** in settings to copy a completed translation with Enter. Optional language prefixes let you change languages for one translation; the [user guide](USAGE.md#language-shortcuts) has examples.
 
 ## Small by design
 
@@ -31,7 +31,7 @@ Enable **Enter to copy** in settings to copy a completed translation with Enter.
 
 Translation requests go directly to the providers you choose. Bar Translator collects no usage analytics.
 
-Your settings and API keys are stored locally by default. Choose **Sync** in settings to share your whole setup, including credentials, through your browser account. Read the [privacy and storage guide](docs/usage.md#permissions-and-privacy) for details.
+Your settings and API keys are stored locally by default. Choose **Sync** in settings to share your whole setup, including credentials, through your browser account. Read the [privacy and storage guide](USAGE.md#permissions-and-privacy) for details.
 
 > [!WARNING]
 > API keys, tokens, and other credentials are stored as plain text in your browser profile. Unauthorized access to that profile could expose them.
@@ -51,4 +51,4 @@ pnpm install
 pnpm dev
 ```
 
-See the [browser setup instructions](docs/usage.md#browser-builds) to build and install each supported desktop target.
+See the [browser setup instructions](USAGE.md#browser-builds) to build and install each supported desktop target. For build, test, and contribution instructions, see [CONTRIBUTING.md](CONTRIBUTING.md).
