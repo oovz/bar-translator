@@ -1,17 +1,5 @@
-/**
- * Offscreen Document - Clipboard Operations
- *
- * Handles clipboard write operations for the service worker.
- * Offscreen documents provide DOM access in MV3 extensions.
- *
- * @module entrypoints/offscreen
- */
-
 import type { CopyToClipboardMessage } from '@/src/types';
 
-/**
- * Handle messages from the service worker.
- */
 chrome.runtime.onMessage.addListener(
     (
         message: CopyToClipboardMessage,
