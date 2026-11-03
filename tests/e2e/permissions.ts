@@ -13,10 +13,8 @@ declare global {
 }
 
 /**
- * Mock only this settings page's optional-permission boundary. Native permission
- * dialogs are outside Playwright's page API; these tests cover the settings flow
- * and exact requests, not Chrome's native grant UI or actual network privileges.
- * Install before navigation. Reload starts with no mocked optional grants.
+ * Page-local permission mock; it does not grant browser access or open native dialogs.
+ * Install before navigation. Reload clears the mocked grants.
  */
 export async function mockOptionalPermissionsForSettings(page: Page): Promise<void> {
     await page.addInitScript(() => {

@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures';
 import { addInstance, chooseLanguage, configure, languageInput, message, nameAndKey, openSettings, saveInstance } from './setup-ui';
 
-test('switches complete setups with explicit use and replace choices instead of merging them', async ({ context, extensionId }) => {
+test('uses or replaces a saved setup when changing storage', async ({ context, extensionId }) => {
     const page = await openSettings(context, extensionId, true);
     const selector = page.getByRole('combobox', { name: await message(page, 'labelStorage'), exact: true });
     await expect(selector).toHaveValue('local');
@@ -23,6 +23,7 @@ test('switches complete setups with explicit use and replace choices instead of 
     await copy.click();
     await expect(copy).not.toBeChecked();
     await privateService.row.getByRole('button', { name: await message(page, 'deleteNamedInstance', ['Private service']), exact: true }).click();
+    await privateService.row.locator('[data-action="confirm-delete"]').click();
     await expect(privateService.row).toHaveCount(0);
 
     await selector.selectOption('local');

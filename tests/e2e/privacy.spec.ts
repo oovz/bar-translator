@@ -1,7 +1,7 @@
 import { test, expect } from './fixtures';
 import { addInstance, chooseLanguage, languageInput, message, nameAndKey, openSettings, saveInstance, setEnabled } from './setup-ui';
 
-test('keeps current configuration separate from legacy recovery data and avoids sensitive diagnostics', async ({ context, extensionId }) => {
+test('preserves recovery data and keeps credentials out of diagnostics', async ({ context, extensionId }) => {
     const requests: string[] = [];
     const diagnostics: string[] = [];
     context.on('request', request => {

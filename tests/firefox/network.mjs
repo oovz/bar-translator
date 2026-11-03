@@ -36,9 +36,7 @@ function originOf(value) {
     catch { return '<invalid origin>'; }
 }
 
-/** Firefox uses this proxy even for loopback. It never forwards a different origin,
- * route, query, credential, method, or HTTPS tunnel. Diagnostics retain origins only.
- */
+/** Forward exact fixture routes and retain only origins in diagnostics. */
 export async function startAllowlistProxy(fixtureOrigin) {
     const attempts = [];
     const upstream = new Set();
@@ -96,7 +94,7 @@ export const CURRENT_TRANSLATION = 'Resultado actual de Firefox';
 export const STALE_TRANSLATION = 'Resultado obsoleto de Firefox';
 export const OVERRIDE_TRANSLATION = 'Firefox en chino tradicional';
 
-/** Real HTTP with deliberately no CORS headers; production extension fetch is untouched. */
+/** Omit CORS headers so requests require the extension's host permission. */
 export async function startLibreFixture() {
     const requests = [];
     const violations = [];

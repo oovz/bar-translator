@@ -18,7 +18,7 @@ function throughProxy(proxy, target, method = 'GET') {
     });
 }
 
-test('Firefox proxy forwards only exact fixture routes and records only origins', async t => {
+test('forwards fixture routes and redacts blocked requests', async t => {
     const fixture = await startLibreFixture();
     t.after(() => fixture.close());
     const proxy = await startAllowlistProxy(fixture.origin);

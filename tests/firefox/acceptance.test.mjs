@@ -4,7 +4,7 @@ import test from 'node:test';
 import { launchFirefox } from './browser.mjs';
 import { CURRENT_TRANSLATION, LITERAL_TRANSLATION, OVERRIDE_TRANSLATION, STALE_TRANSLATION, startAllowlistProxy, startLibreFixture } from './network.mjs';
 
-test('Firefox grants and repairs real host access for saved settings and native omnibox previews', { timeout: 120_000 }, async t => {
+test('grants provider access and translates through the Firefox address bar', { timeout: 120_000 }, async t => {
     const fixture = await startLibreFixture();
     let proxy;
     t.after(async () => {
@@ -28,14 +28,13 @@ test('Firefox grants and repairs real host access for saved settings and native 
     assert.equal((await driver.findElements(By.css('#instance-priority .service-item'))).length, 1);
     assert.equal((await driver.findElements(By.css('#available-providers .service-item'))).length, 3);
     for (const provider of ['deepl', 'libretranslate']) {
-        const choice = `[data-provider="${provider}"]`;
+        const choice = `#available-providers [data-catalog-provider="${provider}"]`;
         assert.equal((await driver.findElements(By.css(`${choice} button`))).length, 1);
-        await (await element(`${choice} [data-action="add-provider"]`)).click();
-        const draft = await element('#available-providers .service-item:has([data-action="cancel-instance"])');
-        const draftId = await draft.getAttribute('data-id');
-        assert.equal(await browser.enabled(draftId), false);
-        await (await element(`${rowSelector(draftId)} [data-action="cancel-instance"]`)).click();
-        await wait(async () => !(await driver.findElements(By.css(rowSelector(draftId)))).length,
+        const draft = await browser.addInstance(provider);
+        assert.equal((await driver.findElements(By.css(rowSelector(draft.id)))).length, 0,
+            'unsaved draft must not be a configured service');
+        await (await element(`${draft.catalog} [data-action="cancel-instance"]`)).click();
+        await wait(async () => !(await driver.findElements(By.css(`${draft.catalog} .instance-editor`))).length,
             'cancelled provider draft remained visible');
         assert.deepEqual((await permissions()).origins, []);
         assertRequests(0, []);
@@ -43,47 +42,67 @@ test('Firefox grants and repairs real host access for saved settings and native 
     const initialEnabled = await driver.findElements(By.css('.service-item.enabled'));
     for (const row of initialEnabled) {
         const id = await row.getAttribute('data-id');
-        const name = await row.findElement(By.css('.service-name')).getText();
-        await clickMessage('disableInstance', rowSelector(id), [name]);
-        await wait(async () => !await browser.enabled(id), 'initial instance stayed enabled');
+        await browser.remove(id);
+        await wait(async () => !(await driver.findElements(By.css(rowSelector(id)))).length, 'initial instance was not removed');
     }
-    const previousIds = await driver.executeScript('return [...document.querySelectorAll(".service-item")].map(row => row.dataset.id);');
-    await (await element('[data-provider="libretranslate"] [data-action="add-provider"]')).click();
-    const id = await wait(async () => {
-        const ids = await driver.executeScript('return [...document.querySelectorAll(".service-item")].map(row => row.dataset.id);');
-        return ids.find(candidate => !previousIds.includes(candidate));
-    }, 'LibreTranslate instance editor did not open');
+    diagnostics.phase = 'fixed provider native permission';
+    const fixedTemplate = '#available-providers [data-catalog-provider="google-web"]';
+    const fixedAdd = async () => (await element(`${fixedTemplate} [data-action="add-provider"]`)).click();
+    await fixedAdd();
+    await browser.nativePermission(false);
+    await wait(async () => !(await driver.findElements(By.css(rowSelector('google-web')))).length,
+        'denied fixed provider was added');
+    assert.equal((await driver.findElements(By.css(fixedTemplate))).length, 1, 'denied fixed provider lost its Add choice');
+    await fixedAdd();
+    await browser.nativePermission(true);
+    await wait(async () => (await driver.findElements(By.css(rowSelector('google-web')))).length === 1,
+        'granted fixed provider was not added');
+    assert.equal(await browser.enabled('google-web'), true);
+    assert.equal((await driver.findElements(By.css(`${rowSelector('google-web')} button[data-action="enable-instance"], ${rowSelector('google-web')} button[data-action="disable-instance"]`))).length, 0,
+        'fixed provider offered an activation switch');
+    assert.equal((await driver.findElements(By.css(`${rowSelector('google-web')} .service-disclosure`))).length, 0,
+        'fixed provider offered a configuration disclosure');
+    assert.deepEqual((await permissions()).origins, ['https://translate.googleapis.com/*']);
+    await browser.remove('google-web');
+    await wait(async () => !(await driver.findElements(By.css(rowSelector('google-web')))).length,
+        'fixed provider was not removed');
+    await wait(async () => !(await permissions()).origins.length, 'removing the fixed provider did not release its access');
+    const { id, catalog } = await browser.addInstance('libretranslate');
     const scope = rowSelector(id);
     const name = 'Firefox loopback';
     await browser.fill(`instance-name-${id}`, name);
     await (await driver.findElement(By.id(`instance-hosting-${id}`))).findElement(By.css('option[value="custom"]')).click();
     await browser.fill(`instance-endpoint-${id}`, `${fixture.origin}/libre`);
-    await (await element(`${scope} [data-action="save-instance"]`)).click();
-    const saved = await message('instanceSaved');
-    await wait(async () => {
-        const statuses = await driver.findElements(By.css(`${scope} [role="status"]`));
-        return statuses.length && await statuses[0].getText() === saved;
-    }, 'instance save was not confirmed');
+    await clickMessage('saveForLater', catalog);
+    await wait(until.elementLocated(By.css(scope)), 'saved service did not appear');
+    await wait(async () => !(await driver.findElements(By.css(`${catalog} .instance-editor`))).length,
+        'save for later did not close inline setup');
+    assert.deepEqual((await permissions()).origins, [], 'save for later requested host access');
     assert.equal(await browser.enabled(id), false);
+    assert.equal((await driver.findElements(By.css(`#instance-priority [data-id="${id}"]`))).length, 0);
+    assert.equal((await driver.findElements(By.css(`#available-providers [data-id="${id}"]`))).length, 1);
+    assert.ok((await (await element(scope)).getText()).includes(`${fixture.origin}/libre`), 'disabled configuration lost its endpoint summary');
+    assert.equal((await driver.findElements(By.css('#available-providers [data-id="google-web"]'))).length, 0, 'removed singleton remained as a saved row');
+    assert.equal((await driver.findElements(By.css('#available-providers [data-catalog-provider="google-web"]'))).length, 1, 'removed singleton did not offer its Add choice');
     assertRequests(0, []);
     await browser.reload();
     assert.equal(await (await element(`${scope} .service-name`)).getText(), name);
     assert.equal(await browser.enabled(id), false);
 
     diagnostics.phase = 'native permission denial';
-    await (await element(`${scope} [data-action="connect-instance"]`)).click();
+    await browser.toggle(id);
     await browser.nativePermission(false);
-    await wait(until.elementIsEnabled(await element(`${scope} [data-action="connect-instance"]`)));
+    await wait(until.elementIsEnabled(await element(`${scope} [data-action="enable-instance"]`)));
     assert.equal(await browser.enabled(id), false);
     assert.deepEqual((await permissions()).origins, []);
     assertRequests(0, []);
 
     diagnostics.phase = 'native permission grant';
-    await (await element(`${scope} [data-action="connect-instance"]`)).click();
+    await browser.toggle(id);
     await browser.nativePermission(true);
     await wait(() => browser.enabled(id), 'granted instance did not become enabled');
     assert.deepEqual((await permissions()).origins, ['http://127.0.0.1/*']);
-    assertRequests(1, []); // Connect probes discovery without credentials or user text.
+    assertRequests(1, []);
     await browser.configure(id, name);
     await clickMessage('testKey', scope);
     const valid = await message('valid');
@@ -133,24 +152,25 @@ test('Firefox grants and repairs real host access for saved settings and native 
     assertRequests(2, ['Hello', 'hello firefox', 'language override', 'stale firefox', 'current firefox']);
 
     diagnostics.phase = 'revocation and native repair';
-    // Use Firefox's actual permission API to simulate a device-local revocation.
-    // Grant/deny always use Firefox's native prompt, never mocked permissions.
+    // Revoke through the browser API; repair uses the native prompt.
     assert.equal(await driver.executeScript('return browser.permissions.remove({origins: ["http://127.0.0.1/*"]});'), true);
     await wait(async () => !(await permissions()).origins.length, 'host revocation did not take effect');
     await browser.reload();
     assert.equal(await browser.enabled(id), true, 'revocation unexpectedly erased saved enabled intent');
-    await (await element(`${scope} [data-action="connect-instance"]`)).click();
+    await (await element(`${scope} [data-action="grant-access"]`)).click();
     await browser.nativePermission(true);
     await wait(async () => (await permissions()).origins.includes('http://127.0.0.1/*'), 'repair did not restore host permission');
     await wait(() => fixture.requests.filter(request => request.method === 'GET').length === 3, 'repair did not probe discovery');
     assertRequests(3, ['Hello', 'hello firefox', 'language override', 'stale firefox', 'current firefox']);
 
     diagnostics.phase = 'disable persistence and host cleanup';
-    await clickMessage('disableInstance', scope, [name]);
+    await browser.toggle(id);
     await wait(async () => !await browser.enabled(id) && !(await permissions()).origins.length,
         'disabling did not release the real host grant');
     await browser.reload();
     assert.equal(await browser.enabled(id), false);
+    assert.equal((await driver.findElements(By.css(`#available-providers [data-id="${id}"]`))).length, 1);
+    assert.equal((await driver.findElements(By.css(`#instance-priority [data-id="${id}"]`))).length, 0);
     assert.equal(await (await element(`${scope} .service-name`)).getText(), name);
     assert.deepEqual((await permissions()).origins, []);
     assert.equal(await (await element('#enable-copy')).isSelected(), false);
