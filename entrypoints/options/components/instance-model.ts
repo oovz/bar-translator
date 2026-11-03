@@ -1,12 +1,18 @@
 import { t } from '@/utils/i18n';
-import { normalizeEndpoint, MANAGED_LIBRETRANSLATE_ENDPOINT } from '@/utils/instances';
+import { getInstanceOrder, normalizeEndpoint, supportsMultipleInstances, MANAGED_LIBRETRANSLATE_ENDPOINT } from '@/utils/instances';
 import { getInstanceOrigins, hasInstanceAccess } from '@/utils/permissions';
-import type { ApiCredential, DeepLInstance, LibreTranslateInstance, TranslationInstance, TranslationSetup } from '@/src/types';
+import type { ApiCredential, DeepLInstance, LibreTranslateInstance, ServiceId, SingletonInstance, TranslationInstance, TranslationSetup } from '@/src/types';
 import type { SetupUpdate } from '../hooks/usePreferences';
 
 export interface ServiceListProps {
     readonly setup: TranslationSetup;
     readonly updateSetup: (updater: SetupUpdate) => Promise<boolean>;
+}
+
+export interface FocusRequest {
+    id?: string;
+    provider?: ServiceId;
+    editorId?: string;
 }
 
 export type ConfigurableInstance = DeepLInstance | LibreTranslateInstance;
@@ -56,7 +62,8 @@ export function addEditedInstance(current: TranslationSetup, next: ConfigurableI
     if (current.instances.some(candidate => candidate.id === next.id)) throw new Error(t('instanceChanged'));
     // Do not remove the untouched default if another page configured it meanwhile.
     const instances = current.instances.filter(candidate => !isReplacedDefault(candidate, current, replaces));
-    return { instance: next, setup: { ...current, instances: [...instances, next] } };
+    const instanceOrder = getInstanceOrder(current).filter(id => instances.some(instance => instance.id === id));
+    return { instance: next, setup: { ...current, instances: [...instances, next], instanceOrder: [...instanceOrder, next.id] } };
 }
 
 function isReplacedDefault(candidate: TranslationInstance, current: TranslationSetup, replaces?: DeepLInstance) {
@@ -88,33 +95,28 @@ export function recordInstanceTest(current: TranslationSetup, id: string, identi
     } : candidate) };
 }
 
-export function groupInstances(setup: TranslationSetup, draft: ConfigurableInstance | null) {
+export function groupInstances(setup: TranslationSetup) {
     const enabledIds = setup.preferences.fallbackOrder;
     const enabled = enabledIds.map(id => setup.instances.find(instance => instance.id === id)).filter(instance => instance !== undefined);
     const unusedDefault = setup.instances.find(instance => isUnusedDefaultDeepL(instance, enabledIds));
-    const configured = setup.instances.filter(instance => instance !== unusedDefault);
-    const disabled = configured.filter(instance => !enabledIds.includes(instance.id));
-    const inactive = disabled.filter(instance => instance.id !== draft?.id);
-    if (draft) inactive.push(setup.instances.find(instance => instance.id === draft.id) ?? draft);
-    // Provider choices are presentation-only; opening or cancelling setup never writes storage.
-    const placeholders = providerChoices(setup, draft);
-    const placeholderIds = new Set(placeholders.map(instance => instance.id));
-    return { enabledIds, enabled, unusedDefault, configured, inactive, placeholders, placeholderIds };
+    // Inactive fixed providers appear in the catalog.
+    const configured = getInstanceOrder(setup).map(id => setup.instances.find(instance => instance.id === id))
+        .filter((instance): instance is TranslationInstance => instance !== undefined && instance !== unusedDefault &&
+            (supportsMultipleInstances(instance.providerId) || enabledIds.includes(instance.id)));
+    return { enabledIds, enabled, unusedDefault, configured };
 }
 
-function providerChoices(setup: TranslationSetup, draft: ConfigurableInstance | null) {
-    const visibleIds = new Set([...setup.instances.map(instance => instance.id), ...(draft ? [draft.id] : [])]);
-    const placeholders: ConfigurableInstance[] = [];
-    for (const provider of ['deepl', 'libretranslate'] as const) {
-        if (draft?.providerId === provider) continue;
-        let id = `available:${provider}`;
-        while (visibleIds.has(id)) id = `available:${id}`;
-        visibleIds.add(id);
-        placeholders.push(provider === 'deepl'
-            ? { id, providerId: provider, name: 'DeepL' }
-            : { id, providerId: provider, name: 'LibreTranslate', endpoint: MANAGED_LIBRETRANSLATE_ENDPOINT, hosting: 'managed' });
-    }
-    return placeholders;
+export function addSingletonInstance(current: TranslationSetup, instance: SingletonInstance, signal?: AbortSignal) {
+    signal?.throwIfAborted();
+    const existing = current.instances.find(candidate => candidate.providerId === instance.providerId);
+    const order = getInstanceOrder(current);
+    const base = existing
+        ? current
+        : { ...current, instances: [...current.instances, instance],
+            instanceOrder: order.includes(instance.id) ? order : [...order, instance.id] };
+    if (base.preferences.fallbackOrder.includes(instance.id)) return base;
+    const enabled = new Set([...base.preferences.fallbackOrder, instance.id]);
+    return { ...base, preferences: { ...base.preferences, fallbackOrder: getInstanceOrder(base).filter(id => enabled.has(id)) } };
 }
 
 export async function toggleInstance(current: TranslationSetup, instance: TranslationInstance, enabling: boolean) {
@@ -122,7 +124,7 @@ export async function toggleInstance(current: TranslationSetup, instance: Transl
     if (enabling && !await hasInstanceAccess(latest)) throw new Error(t('permissionDenied'));
     const order = current.preferences.fallbackOrder.filter(id => id !== instance.id);
     if (enabling) order.push(instance.id);
-    return { ...current, preferences: { ...current.preferences, fallbackOrder: order } };
+    return { ...current, preferences: { ...current.preferences, fallbackOrder: getInstanceOrder(current).filter(id => order.includes(id)) } };
 }
 
 export function instanceTier(instance: ConfigurableInstance): 'free' | 'pro' {
@@ -137,20 +139,36 @@ export function effectiveEndpoint(endpoint: string): string {
 export function draftChanged(instance: ConfigurableInstance, draft: InstanceDraft, savedTier: 'free' | 'pro') {
     if (draft.name !== instance.name || draft.key !== (instance.credential?.key ?? '')) return true;
     if (instance.providerId === 'deepl') return draft.tier !== savedTier;
-    return draft.endpoint !== instance.endpoint || draft.hosting !== instance.hosting;
+    return effectiveEndpoint(draft.endpoint) !== instance.endpoint || draft.hosting !== instance.hosting;
 }
 
 export function needsCredential(instance: TranslationInstance) {
     const required = instance.providerId === 'deepl' || (instance.providerId === 'libretranslate' && instance.hosting === 'managed');
     return required && !instance.credential?.key;
 }
+
+export function draftNeedsCredential(instance: ConfigurableInstance, draft: InstanceDraft) {
+    const required = instance.providerId === 'deepl' || (instance.providerId === 'libretranslate' && draft.hosting === 'managed');
+    return required && !draft.key.trim();
+}
+/** Reorder enabled slots only; disabled accounts retain their saved positions. */
+export function reorderEnabledInstances(current: TranslationSetup, snapshot: readonly string[]) {
+    const active = current.preferences.fallbackOrder;
+    // Ignore deleted/disabled rows from an old drag and retain concurrently enabled accounts.
+    const requested = [...new Set(snapshot)].filter(id => active.includes(id));
+    const fallbackOrder = [...requested, ...active.filter(id => !requested.includes(id))];
+    let index = 0;
+    const instanceOrder = getInstanceOrder(current).map(id => active.includes(id) ? fallbackOrder[index++]! : id);
+    return { ...current, instanceOrder, preferences: { ...current.preferences, fallbackOrder } };
+}
+
 export function moveInstance(current: TranslationSetup, id: string, offset: number) {
     const order = [...current.preferences.fallbackOrder];
     const index = order.indexOf(id);
     if (index < 0 || index + offset < 0 || index + offset >= order.length) return current;
     order.splice(index, 1);
     order.splice(index + offset, 0, id);
-    return { ...current, preferences: { ...current.preferences, fallbackOrder: order } };
+    return reorderEnabledInstances(current, order);
 }
 
 function unchangedRecipient(current: TranslationSetup, instance: TranslationInstance, enabling: boolean) {

@@ -1,16 +1,19 @@
 import { useRef, useEffect, useLayoutEffect, useState } from 'preact/hooks';
 import { t } from '@/utils/i18n';
 import { MANAGED_LIBRETRANSLATE_ENDPOINT } from '@/utils/instances';
-import { testInstance } from '@/services';
+import { testConfiguredInstance, testInstance } from '@/services';
+import { requestInstanceAccess } from '@/utils/permissions';
+import { enableSavedInstance, releaseGrantedInstance } from '../hooks/enableSavedInstance';
 import type { DeepLInstance } from '@/src/types';
-import { needsCredential, configurationIdentity, editedInstance, addEditedInstance, replaceEditedInstance, recordInstanceTest, instanceTier, effectiveEndpoint, draftChanged } from './instance-model';
+import { needsCredential, draftNeedsCredential, configurationIdentity, editedInstance, addEditedInstance, replaceEditedInstance, recordInstanceTest, instanceTier, effectiveEndpoint, draftChanged } from './instance-model';
 import type { ConfigurableInstance, InstanceDraft, ServiceListProps } from './instance-model';
 
-export function InstanceEditor({ instance, enabled, allowed, isNew, replaces, transitioning, onTransitionBlockedChange, onCancel, updateSetup }: {
+export function InstanceEditor({ instance, enabled, allowed, isNew, isAdding = isNew, replaces, transitioning, onTransitionBlockedChange, onCancel, updateSetup }: {
     instance: ConfigurableInstance;
     enabled: boolean;
     allowed: boolean;
     isNew: boolean;
+    isAdding?: boolean;
     replaces?: DeepLInstance;
     transitioning: boolean;
     onTransitionBlockedChange: (blocked: boolean) => void;
@@ -21,24 +24,29 @@ export function InstanceEditor({ instance, enabled, allowed, isNew, replaces, tr
     const locked = busy || testing || transitioning;
     useTransitionBlock(dirty, busy, testing, onTransitionBlockedChange);
 
-    const save = () => saveInstanceDraft(instance, { name, key, tier, endpoint, hosting }, {
-        isNew, replaces, endpointChanged, savedTier, ownSaveIdentity, updateSetup, ...feedbackState,
-    });
+    const saveOptions = { isNew, replaces, endpointChanged, savedTier, ownSaveIdentity, updateSetup, ...feedbackState };
+    const save = async () => {
+        if (await saveInstanceDraft(instance, { name, key, tier, endpoint, hosting }, saveOptions) && isAdding) onCancel();
+    };
+    const addAndEnable = useAddAndEnable(instance, { name, key, tier, endpoint, hosting }, saveOptions, onCancel);
+    const testDraft = useTestDraft(instance, { name, key, tier, endpoint, hosting }, saveOptions, enabled);
+    const draftNeedsKey = draftNeedsCredential(instance, { name, key, tier, endpoint, hosting });
     const test = () => testSavedInstance(instance, updateSetup, testRevision, feedbackState);
 
     return <div class="api-key-section instance-editor" id={`instance-${instance.id}`}>
         <div class="form-group">
             <label htmlFor={`instance-name-${instance.id}`}>{t('instanceName')}</label>
-            <input id={`instance-name-${instance.id}`} class="input" value={name} maxLength={128} disabled={locked} autoFocus={isNew}
+            <input id={`instance-name-${instance.id}`} class="input" name="instance-name" value={name} maxLength={128} autoComplete="off" spellcheck={false} disabled={locked} autoFocus={isNew}
                 onInput={event => { setName(event.currentTarget.value); setFeedback(''); }} />
         </div>
         <EndpointFields instance={instance} hosting={hosting} endpoint={endpoint} locked={locked} endpointChanged={endpointChanged}
             changeHosting={changeHosting} changedEndpoint={changedEndpoint} />
         <CredentialFields instance={instance} hosting={hosting} apiKey={key} tier={tier} locked={locked} endpointChanged={endpointChanged}
             setKey={setKey} setTier={setTier} setFeedback={setFeedback} />
-        <EditorActions instance={instance} locked={locked} dirty={dirty} isNew={isNew} busy={busy} transitioning={transitioning}
+        <EditorActions instance={instance} locked={locked} dirty={dirty} isAdding={isAdding} addAndEnable={addAndEnable}
+            draftNeedsKey={draftNeedsKey} testDraft={testDraft}
             enabled={enabled} allowed={allowed} testing={testing} save={save} test={test} onCancel={onCancel} />
-        <EditorHints instance={instance} hosting={hosting} isNew={isNew} dirty={dirty} feedback={feedback} success={success} />
+        <EditorHints instance={instance} hosting={hosting} isNew={isAdding} dirty={dirty} feedback={feedback} success={success} />
     </div>;
 }
 
@@ -58,6 +66,100 @@ interface SaveInstanceOptions extends EditorFeedback {
     updateSetup: ServiceListProps['updateSetup'];
 }
 
+function useAddAndEnable(instance: ConfigurableInstance, draft: InstanceDraft, saveOptions: SaveInstanceOptions, onCancel: () => void) {
+    const activation = useRef<AbortController | null>(null);
+    useLayoutEffect(() => () => activation.current?.abort(), []);
+    // Validation and the permission request run synchronously inside the user gesture.
+    const addAndEnable = () => {
+        if (activation.current) return;
+        try {
+            const next = editedInstance(instance, draft, saveOptions.endpointChanged);
+            const grant = requestInstanceAccess(next);
+            const controller = new AbortController();
+            activation.current = controller;
+            void saveAndEnable(instance, next, grant, saveOptions, controller.signal, onCancel)
+                .finally(() => { if (activation.current === controller) activation.current = null; });
+        } catch (reason) {
+            const message = reason instanceof Error ? reason.message : t('settingsSaveFailed');
+            focusInvalidField(instance, message);
+            saveOptions.setFeedback(message);
+        }
+    };
+    return addAndEnable;
+}
+
+/** Preflight for an unsaved or inactive draft; it never writes, enables or disables the instance. */
+function useTestDraft(instance: ConfigurableInstance, draft: InstanceDraft, options: SaveInstanceOptions, enabled: boolean) {
+    const pending = useRef<AbortController | null>(null);
+    const enabledRef = useRef(enabled);
+    enabledRef.current = enabled;
+    useLayoutEffect(() => () => pending.current?.abort(), []);
+    const testDraft = () => {
+        if (pending.current) return;
+        const controller = new AbortController();
+        pending.current = controller;
+        let next: ConfigurableInstance;
+        let grant: Promise<boolean>;
+        try {
+            next = editedInstance(instance, draft, options.endpointChanged);
+            if (needsCredential(next)) throw new Error(t('keyNeeded'));
+            // The permission request starts in the click gesture before any await.
+            grant = requestInstanceAccess(next);
+        } catch (reason) {
+            pending.current = null;
+            const message = reason instanceof Error ? reason.message : t('keyTestFailed');
+            focusInvalidField(instance, message);
+            options.setSuccess(false);
+            options.setFeedback(message);
+            return;
+        }
+        options.setTesting(true);
+        options.setFeedback('');
+        options.setSuccess(false);
+        void runDraftTest(next, grant, controller, options, enabledRef)
+            .finally(() => { if (pending.current === controller) pending.current = null; });
+    };
+    return testDraft;
+}
+
+async function runDraftTest(instance: ConfigurableInstance, grant: Promise<boolean>, controller: AbortController,
+    options: SaveInstanceOptions, enabled: { current: boolean }) {
+    let granted = false;
+    try {
+        granted = await grant;
+        if (!granted) throw new Error(t('permissionDenied'));
+        controller.signal.throwIfAborted();
+        const result = await testConfiguredInstance(instance);
+        controller.signal.throwIfAborted();
+        options.setSuccess(result.valid);
+        options.setFeedback(result.valid ? t('valid') : t('keyTestFailed'));
+    } catch (reason) {
+        if (!controller.signal.aborted) {
+            options.setSuccess(false);
+            options.setFeedback(reason instanceof Error ? reason.message : t('keyTestFailed'));
+        }
+    } finally {
+        if (!controller.signal.aborted) options.setTesting(false);
+        if (granted && !enabled.current) await releaseDraftAccess(instance, controller.signal, options);
+    }
+}
+
+async function releaseDraftAccess(instance: ConfigurableInstance, signal: AbortSignal, feedback: Pick<EditorFeedback, 'setFeedback' | 'setSuccess'>) {
+    try { await releaseGrantedInstance(instance); }
+    catch {
+        if (!signal.aborted) {
+            feedback.setSuccess(false);
+            feedback.setFeedback(t('permissionRemoveFailed'));
+        }
+    }
+}
+
+function focusInvalidField(instance: ConfigurableInstance, message: string) {
+    const focus = (id: string) => document.getElementById(id)?.focus();
+    if (message === t('instanceNameInvalid')) focus(`instance-name-${instance.id}`);
+    else if (message === t('instanceEndpointInvalid')) focus(`instance-endpoint-${instance.id}`);
+}
+
 async function saveInstanceDraft(instance: ConfigurableInstance, draft: InstanceDraft, options: SaveInstanceOptions) {
     const { isNew, replaces, endpointChanged, savedTier, ownSaveIdentity, updateSetup, setBusy, setFeedback, setSuccess } = options;
     setBusy(true);
@@ -75,9 +177,35 @@ async function saveInstanceDraft(instance: ConfigurableInstance, draft: Instance
         if (!saved) { ownSaveIdentity.current = null; throw new Error(t('settingsSaveFailed')); }
         setSuccess(true);
         setFeedback(t('instanceSaved'));
+        return true;
     } catch (reason) {
-        setFeedback(reason instanceof Error ? reason.message : t('settingsSaveFailed'));
+        const message = reason instanceof Error ? reason.message : t('settingsSaveFailed');
+        focusInvalidField(instance, message);
+        setFeedback(message);
+        return false;
     } finally { setBusy(false); }
+}
+
+async function saveAndEnable(instance: ConfigurableInstance, next: ConfigurableInstance, grant: Promise<boolean>, options: SaveInstanceOptions,
+    signal: AbortSignal, onDone: () => void) {
+    const draft = savedInstanceDraft(next);
+    try {
+        const saved = saveInstanceDraft(instance, draft, options);
+        // The save helper owns its own busy state; keep the whole permission transaction locked.
+        const persisted = saved.then(result => { options.setBusy(true); return result; });
+        if (await enableSavedInstance(next, grant, persisted, options.updateSetup, signal)) onDone();
+    } catch (reason) {
+        if (!signal.aborted) {
+            options.setSuccess(false);
+            options.setFeedback(reason instanceof Error ? reason.message : t('settingsSaveFailed'));
+        }
+    } finally { if (!signal.aborted) options.setBusy(false); }
+}
+
+function savedInstanceDraft(next: ConfigurableInstance): InstanceDraft {
+    return { name: next.name, key: next.credential?.key ?? '', tier: instanceTier(next),
+        endpoint: next.providerId === 'libretranslate' ? next.endpoint : '',
+        hosting: next.providerId === 'libretranslate' ? next.hosting : 'managed' };
 }
 
 async function testSavedInstance(instance: ConfigurableInstance, updateSetup: ServiceListProps['updateSetup'], testRevision: { current: number }, feedback: EditorFeedback) {
@@ -119,7 +247,7 @@ function EndpointFields({ instance, hosting, endpoint, locked, endpointChanged, 
         instance.providerId === 'libretranslate' && <>
             <div class="form-group">
                 <label htmlFor={`instance-hosting-${instance.id}`}>{t('libreHosting')}</label>
-                <select id={`instance-hosting-${instance.id}`} class="select" value={hosting} disabled={locked}
+                <select id={`instance-hosting-${instance.id}`} class="select" name="instance-hosting" value={hosting} disabled={locked}
                     onChange={event => changeHosting(event.currentTarget.value as 'managed' | 'custom')}>
                     <option value="managed">{t('libreManaged')}</option>
                     <option value="custom">{t('libreCustom')}</option>
@@ -127,7 +255,7 @@ function EndpointFields({ instance, hosting, endpoint, locked, endpointChanged, 
             </div>
             <div class="form-group">
                 <label htmlFor={`instance-endpoint-${instance.id}`}>{t('instanceEndpoint')}</label>
-                <input id={`instance-endpoint-${instance.id}`} class="input" type="url" value={endpoint} disabled={locked || hosting === 'managed'}
+                <input id={`instance-endpoint-${instance.id}`} class="input" type="url" name="instance-endpoint" value={endpoint} disabled={locked || hosting === 'managed'}
                     maxLength={2048} autoComplete="off" spellcheck={false} onInput={event => changedEndpoint(event.currentTarget.value)} />
                 <div class="setting-hint">{t('endpointDescription')}</div>
                 {endpoint.toLowerCase().startsWith('http:') && <div class="feedback feedback-warning">{t('httpEndpointWarning')}</div>}
@@ -155,7 +283,7 @@ function CredentialFields({ instance, hosting, apiKey, tier, locked, endpointCha
         <div class="form-group">
             <label htmlFor={`instance-key-${instance.id}`}>{instance.providerId === 'libretranslate' && hosting === 'custom' ? t('optionalApiKey') : t('apiKeyLabel')}</label>
             <div class="api-key-input">
-                <input id={`instance-key-${instance.id}`} {...(showKey ? { type: 'text' as const } : { type: 'password' as const })} class="input" value={apiKey}
+                <input id={`instance-key-${instance.id}`} {...(showKey ? { type: 'text' as const } : { type: 'password' as const })} class="input" name="instance-key" value={apiKey}
                     disabled={locked || endpointChanged} maxLength={8192} autoComplete="off" spellcheck={false}
                     onInput={event => { setKey(event.currentTarget.value); if (instance.providerId === 'deepl') setTier(event.currentTarget.value.endsWith(':fx') ? 'free' : 'pro'); setFeedback(''); }} />
                 <button class="btn btn-sm" onClick={() => setShowKey(previous => !previous)}>{showKey ? t('hide') : t('show')}</button>
@@ -163,7 +291,7 @@ function CredentialFields({ instance, hosting, apiKey, tier, locked, endpointCha
         </div>
         {instance.providerId === 'deepl' && <div class="form-group">
             <label htmlFor={`instance-tier-${instance.id}`}>{t('deepLTier')}</label>
-            <select id={`instance-tier-${instance.id}`} class="select" value={tier} disabled={locked}
+            <select id={`instance-tier-${instance.id}`} class="select" name="instance-tier" value={tier} disabled={locked}
                 onChange={event => setTier(event.currentTarget.value as 'free' | 'pro')}>
                 <option value="free">DeepL API Free</option><option value="pro">DeepL API Pro</option>
             </select>
@@ -175,28 +303,40 @@ interface EditorActionsProps {
     instance: ConfigurableInstance;
     locked: boolean;
     dirty: boolean;
-    isNew: boolean;
-    busy: boolean;
-    transitioning: boolean;
     enabled: boolean;
     allowed: boolean;
     testing: boolean;
+    isAdding: boolean;
+    draftNeedsKey: boolean;
+    addAndEnable: () => void;
+    testDraft: () => void;
     save: () => Promise<void>;
     test: () => Promise<void>;
     onCancel: () => void;
 }
 
-function EditorActions({ instance, locked, dirty, isNew, busy, transitioning, enabled, allowed, testing, save, test, onCancel }: EditorActionsProps) {
-    return (
-        <div class="instance-editor-actions">
-            <button class="btn btn-sm btn-primary" data-action="save-instance" disabled={locked || !dirty} onClick={() => void save()}>{t('saveInstance')}</button>
-            {isNew && <button class="btn btn-sm" data-action="cancel-instance" disabled={busy || transitioning} onClick={onCancel}>{t('cancel')}</button>}
-            <button class="btn btn-sm" disabled={locked || dirty || !enabled || !allowed ||
-                needsCredential(instance)} onClick={() => void test()}>
-                {testing ? t('checking') : t('testKey')}
-            </button>
-        </div>
-    );
+function EditorActions(props: EditorActionsProps) {
+    return <div class="instance-editor-actions">
+        {props.isAdding ? <AddActions {...props} /> : <SavedActions {...props} />}
+    </div>;
+}
+
+function AddActions({ locked, draftNeedsKey, addAndEnable, testDraft, testing, save, onCancel }: EditorActionsProps) {
+    return <>
+        <button class="btn btn-sm btn-primary" data-action="add-and-enable" disabled={locked} onClick={addAndEnable}>{t('addAndEnable')}</button>
+        <button class="btn btn-sm" data-action="save-instance" disabled={locked} onClick={() => void save()}>{t('saveForLater')}</button>
+        <button class="btn btn-sm" data-action="test-draft" disabled={locked || draftNeedsKey} onClick={testDraft}>{testing ? t('checking') : t('testKey')}</button>
+        <button class="btn btn-sm" data-action="cancel-instance" disabled={locked} onClick={onCancel}>{t('cancel')}</button>
+    </>;
+}
+
+function SavedActions({ instance, locked, dirty, enabled, allowed, testing, save, test }: EditorActionsProps) {
+    return <>
+        <button class="btn btn-sm btn-primary" data-action="save-instance" disabled={locked || !dirty} onClick={() => void save()}>{t('saveInstance')}</button>
+        <button class="btn btn-sm" disabled={locked || dirty || !enabled || !allowed || needsCredential(instance)} onClick={() => void test()}>
+            {testing ? t('checking') : t('testKey')}
+        </button>
+    </>;
 }
 
 function useInstanceEditorState(instance: ConfigurableInstance, isNew: boolean) {
@@ -219,16 +359,14 @@ function useInstanceEditorState(instance: ConfigurableInstance, isNew: boolean) 
 
     const changedEndpoint = (next: string) => {
         setEndpoint(next);
-        if (instance.providerId === 'libretranslate' && next !== instance.endpoint) {
-            setKey('');
-        }
+        if (changedRecipient(instance, next)) setKey('');
         setFeedback('');
     };
     const changeHosting = (next: 'managed' | 'custom') => {
         setHosting(next);
         changedEndpoint(hostingEndpoint(instance, next));
     };
-    const endpointChanged = changedRecipient(instance, endpoint, isNew);
+    const endpointChanged = changedRecipient(instance, endpoint);
     const dirty = isNew || draftChanged(instance, { name, key, tier, endpoint, hosting }, savedTier);
     return { name, key, tier, endpoint, hosting, busy, testing, feedback, success, savedTier, ownSaveIdentity, testRevision, dirty, endpointChanged, changedEndpoint, changeHosting, setName, setKey, setTier, setFeedback, feedbackState };
 }
@@ -272,8 +410,8 @@ function hostingEndpoint(instance: ConfigurableInstance, next: 'managed' | 'cust
     if (next === 'managed') return MANAGED_LIBRETRANSLATE_ENDPOINT;
     return instance.providerId === 'libretranslate' && instance.hosting === 'custom' ? instance.endpoint : 'http://localhost:5000';
 }
-function changedRecipient(instance: ConfigurableInstance, endpoint: string, isNew: boolean) {
-    return !isNew && instance.providerId === 'libretranslate' && effectiveEndpoint(endpoint) !== instance.endpoint;
+function changedRecipient(instance: ConfigurableInstance, endpoint: string) {
+    return instance.providerId === 'libretranslate' && effectiveEndpoint(endpoint) !== instance.endpoint;
 }
 
 function useTransitionBlock(dirty: boolean, busy: boolean, testing: boolean, onTransitionBlockedChange: (blocked: boolean) => void) {
@@ -288,7 +426,12 @@ function EditorHints({ instance, hosting, isNew, dirty, feedback, success }: {
 }) {
     return <>
         <div class="setting-hint">{isNew ? t('newInstanceDescription') : dirty ? t('saveBeforeTesting') : t('instanceTestDescription')}</div>
-        {instance.providerId === 'libretranslate' && hosting === 'custom' && <div class="setting-hint">{t('customConnectionDescription')}</div>}
-        {feedback && <div class={`feedback ${success ? 'feedback-success' : 'feedback-error'}`} role={success ? 'status' : 'alert'}>{feedback}</div>}
+        {isNew && <div class="setting-hint">{t('draftTestDescription')}</div>}
+        {!isNew && instance.providerId === 'libretranslate' && hosting === 'custom' && <div class="setting-hint">{t('customConnectionDescription')}</div>}
+        {feedback && <EditorMessage message={feedback} success={success} />}
     </>;
+}
+
+function EditorMessage({ message, success }: { message: string; success: boolean }) {
+    return <div class={`feedback ${success ? 'feedback-success' : 'feedback-error'}`} role={success ? 'status' : 'alert'}>{message}</div>;
 }

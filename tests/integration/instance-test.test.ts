@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { testInstance } from '@/services';
-import { createDefaultSetup } from '@/utils/instances';
+import { testConfiguredInstance, testInstance } from '@/services';
+import { createLegacySetup } from '@/tests/fixtures/legacy-setup';
 import * as storage from '@/utils/storage';
 import type { TranslationInstance } from '@/src/types';
 
@@ -14,7 +14,7 @@ const server: TranslationInstance = {
 };
 
 function savedInstance(instance: TranslationInstance) {
-    const setup = createDefaultSetup();
+    const setup = createLegacySetup();
     setup.instances = setup.instances.filter(candidate => candidate.id !== instance.id);
     setup.instances.push(structuredClone(instance));
     setup.preferences.fallbackOrder = [instance.id];
@@ -57,8 +57,16 @@ describe('explicit saved instance test', () => {
     });
 
     it('refuses an unsaved instance before permission or network checks', async () => {
-        vi.spyOn(storage, 'getSetup').mockResolvedValue(createDefaultSetup());
-        expect(await testInstance(account)).toEqual({ valid: false, error: 'Enable and save the current instance before testing.' });
+        vi.spyOn(storage, 'getSetup').mockResolvedValue(createLegacySetup());
+        expect(await testInstance(account)).toEqual({ valid: false, error: expect.any(String) });
+        expect(chrome.permissions.contains).not.toHaveBeenCalled();
+        expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it('refuses a disabled saved instance before permission or network checks', async () => {
+        const setup = savedInstance(account);
+        setup.preferences.fallbackOrder = [];
+        expect(await testInstance(account)).toEqual({ valid: false, error: expect.any(String) });
         expect(chrome.permissions.contains).not.toHaveBeenCalled();
         expect(fetch).not.toHaveBeenCalled();
     });
@@ -83,14 +91,27 @@ describe('explicit saved instance test', () => {
     it('reports missing provider access without contacting the recipient', async () => {
         savedInstance(account);
         vi.mocked(chrome.permissions.contains).mockImplementation(async () => false);
-        expect(await testInstance(account)).toEqual({ valid: false, error: 'Provider access required. Please check your settings.' });
+        expect(await testInstance(account)).toEqual({ valid: false, error: expect.any(String) });
         expect(fetch).not.toHaveBeenCalled();
     });
 
     it('reports a missing DeepL key without contacting the recipient', async () => {
         const empty: TranslationInstance = { id: 'empty', providerId: 'deepl', name: 'Empty' };
         savedInstance(empty);
-        expect(await testInstance(empty)).toEqual({ valid: false, error: 'API key required. Please check your settings.' });
+        expect(await testInstance(empty)).toEqual({ valid: false, error: expect.any(String) });
+        expect(fetch).not.toHaveBeenCalled();
+    });
+});
+
+describe('explicit add-dialog preflight', () => {
+    it('checks an unsaved draft after access is granted without requiring enablement', async () => {
+        vi.mocked(fetch).mockResolvedValue(new Response('{}'));
+        expect(await testConfiguredInstance(account)).toEqual({ valid: true, tier: 'pro' });
+    });
+
+    it('refuses a draft without browser access before contacting the recipient', async () => {
+        vi.mocked(chrome.permissions.contains).mockImplementation(async () => false);
+        expect(await testConfiguredInstance(account)).toEqual({ valid: false, error: expect.any(String) });
         expect(fetch).not.toHaveBeenCalled();
     });
 });

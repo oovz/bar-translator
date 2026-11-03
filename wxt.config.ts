@@ -1,13 +1,11 @@
 import { defineConfig } from 'wxt';
 import preact from '@preact/preset-vite';
 
-// See https://wxt.dev/api/config.html
 export default defineConfig({
     manifestVersion: 3,
     zip: {
         includeSources: [
             'entrypoints/**',
-            'components/**',
             'services/**',
             'src/**',
             'utils/**',
@@ -17,6 +15,7 @@ export default defineConfig({
             'pnpm-workspace.yaml',
             'wxt.config.ts',
             'tsconfig.json',
+            'CONTRIBUTING.md',
             'LICENSE',
         ],
     },

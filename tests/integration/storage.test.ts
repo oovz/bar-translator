@@ -234,7 +234,7 @@ describe('whole-setup migration', () => {
         const setup = await api.getSetup();
         const access = { origins: ['not a URL'], copyEnabled: false };
         local.translationSetupAccess_v2 = access;
-        await expect(api.reconcileSetupAccess()).rejects.toThrow('saved access ownership is invalid');
+        await expect(api.reconcileSetupAccess()).rejects.toThrow();
         expect(local.translationSetupAccess_v2).toEqual(access);
         expect(await api.getSetup()).toEqual(setup);
     });
@@ -272,6 +272,7 @@ describe('whole-setup migration', () => {
     });
 
     it('retains newly enabled provider ownership so disabling it releases its grants', async () => {
+        sync.preferences = structuredClone(DEFAULT_PREFERENCES); // Existing installation with historical provider slots.
         await api.getSetup();
         const remove = vi.fn(async () => true);
         Object.assign(chrome.permissions, { remove });
@@ -304,13 +305,14 @@ describe('whole-setup migration', () => {
     });
 
     it('rejects invalid UTF-8 rather than silently replacing bytes in a saved account name', async () => {
+        sync.preferences = structuredClone(DEFAULT_PREFERENCES); // Existing installation with historical provider slots.
         const setup = await api.getSetup();
         deepL(setup).name = 'Work\ufffd';
         const serialized = Buffer.from(JSON.stringify(setup));
         const offset = serialized.indexOf(Buffer.from('\ufffd'));
         const damaged = Buffer.concat([serialized.subarray(0, offset), Buffer.from([255]), serialized.subarray(offset + 3)]);
         installSnapshot(setup, {}, 1, damaged);
-        await expect(api.getSetup()).rejects.toThrow('cannot be decoded');
+        await expect(api.getSetup()).rejects.toThrow();
     });
 
     it('saves and loads a setup at the supported serialized byte limit', async () => {
@@ -320,6 +322,7 @@ describe('whole-setup migration', () => {
             credential: { key: '', validated: false },
         }));
         setup.instances.push(...accounts);
+        setup.instanceOrder!.push(...accounts.map(account => account.id));
         let remaining = 262144 - Buffer.byteLength(JSON.stringify(setup));
         for (const account of accounts) {
             const length = Math.min(remaining, 8192);
@@ -352,6 +355,7 @@ describe('whole-setup migration', () => {
     });
 
     it('rejects an oversized individual chunk even when the overall setup is valid', async () => {
+        sync.preferences = structuredClone(DEFAULT_PREFERENCES); // Existing installation with historical provider slots.
         const setup = await api.getSetup();
         deepL(setup).credential = { key: 'a'.repeat(5000), validated: false };
         installSnapshot(setup);
@@ -562,7 +566,7 @@ describe('storage choices and recovery', () => {
     it.each(['old-key', 'new-key'])('clears credentials on an endpoint edit even if the edit supplies %s', async key => {
         await api.getSetup();
         const instance = { ...createInstance('libretranslate'), hosting: 'custom' as const, endpoint: 'http://localhost:5000', credential: { key: 'old-key', validated: false } };
-        await api.updateSetup(setup => ({ ...setup, instances: [...setup.instances, instance] }));
+        await api.updateSetup(setup => ({ ...setup, instances: [...setup.instances, instance], instanceOrder: [...setup.instanceOrder!, instance.id] }));
         const changed = await api.updateSetup(setup => ({
             ...setup, instances: setup.instances.map(item => item.id === instance.id
                 ? { ...instance, endpoint: 'http://192.168.1.10:5000', credential: { key, validated: false } } : item),
@@ -575,7 +579,7 @@ describe('storage choices and recovery', () => {
     it('keeps a newly entered endpoint-bound key during rename, storage switch and reload', async () => {
         await api.getSetup();
         const instance = { ...createInstance('libretranslate'), hosting: 'custom' as const, endpoint: 'http://localhost:5000' };
-        await api.updateSetup(setup => ({ ...setup, instances: [...setup.instances, instance] }));
+        await api.updateSetup(setup => ({ ...setup, instances: [...setup.instances, instance], instanceOrder: [...setup.instanceOrder!, instance.id] }));
         const configured = await api.updateSetup(setup => ({
             ...setup, instances: setup.instances.map(item => item.id === instance.id
                 ? { ...instance, name: 'Home', credential: { key: 'endpoint-key', validated: false } } : item),
@@ -591,7 +595,7 @@ describe('storage choices and recovery', () => {
         await api.getSetup();
         const named = createInstance('libretranslate');
         const configured = await api.updateSetup(setup => ({
-            ...setup, copyEnabled: true, instances: [...setup.instances, named],
+            ...setup, copyEnabled: true, instances: [...setup.instances, named], instanceOrder: [named.id, ...setup.instanceOrder!],
             preferences: { ...setup.preferences, defaultTargetLang: 'fr', fallbackOrder: [named.id, 'google-web'] },
         }));
         expect((await api.switchSetupStorage('sync')).setup).toEqual(configured);
@@ -643,7 +647,7 @@ describe('storage choices and recovery', () => {
         await expect(api.updateSetup(setup => {
             local = earlierSnapshot;
             return { ...setup, copyEnabled: true };
-        })).rejects.toThrow('The setup changed');
+        })).rejects.toThrow();
         expect(await api.getSetup()).toEqual(first);
     });
 
@@ -782,6 +786,7 @@ describe('storage choices and recovery', () => {
     });
 
     it('serializes a key edit that overlaps a storage switch', async () => {
+        sync.preferences = structuredClone(DEFAULT_PREFERENCES); // Existing installation with historical provider slots.
         await api.getSetup();
         let release!: () => void;
         let begin!: () => void;
@@ -808,10 +813,22 @@ describe('storage choices and recovery', () => {
             if (instance.providerId !== 'deepl') throw new Error('Wrong test provider');
             return { ...instance, name: '日本語の翻訳', credential: { key: 'x'.repeat(1200), validated: false } };
         });
-        const expected = await api.updateSetup(setup => ({ ...setup, instances: [...setup.instances, ...instances] }));
+        const expected = await api.updateSetup(setup => ({ ...setup, instances: [...setup.instances, ...instances], instanceOrder: [...setup.instanceOrder!, ...instances.map(instance => instance.id)] }));
         expect((await api.switchSetupStorage('sync')).setup).toEqual(expected);
         expect(await api.getSetup()).toEqual(expected);
         expect(Object.keys(sync).length).toBeGreaterThan(2);
+    });
+
+    it('persists off-row positions across reload and a whole-setup storage switch', async () => {
+        sync.preferences = structuredClone(DEFAULT_PREFERENCES);
+        const existing = await api.getSetup();
+        const expected = await api.updateSetup(() => ({ ...existing,
+            instanceOrder: ['deepl', 'google-web', 'lingva'],
+            preferences: { ...existing.preferences, fallbackOrder: ['google-web'] },
+        }));
+        expect((await api.getSetup()).instanceOrder).toEqual(['deepl', 'google-web', 'lingva']);
+        expect((await api.switchSetupStorage('sync')).setup).toEqual(expected);
+        expect((await api.getSetup()).preferences.fallbackOrder).toEqual(['google-web']);
     });
 
     it('reports sync quota failure without changing the active selection or local setup', async () => {

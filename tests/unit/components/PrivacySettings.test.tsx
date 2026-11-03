@@ -4,16 +4,16 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, within } from '@testing-library/preact';
 import { PrivacySettings } from '@/entrypoints/options/components/PrivacySettings';
-import { createDefaultSetup } from '@/utils/instances';
+import { createLegacySetup } from '@/tests/fixtures/legacy-setup';
 import type { CredentialStorageType, SetupConflict } from '@/src/types';
 
 function props() {
     return { storageType: 'local' as const, changingStorage: false, changeStorageType: vi.fn().mockResolvedValue(undefined) };
 }
 function conflict(): SetupConflict {
-    const source = createDefaultSetup();
+    const source = createLegacySetup();
     source.instances.push({ id: 'secret', providerId: 'deepl', name: 'Work', credential: { key: 'never-display-this', validated: false } });
-    const destination = createDefaultSetup();
+    const destination = createLegacySetup();
     destination.preferences.defaultTargetLang = 'fr';
     return { token: 'opaque', source, destination, destinationStorage: 'sync', reason: 'switch' };
 }

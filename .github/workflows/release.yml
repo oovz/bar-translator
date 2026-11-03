@@ -125,6 +125,7 @@ jobs:
             ".output/bar-translator-${GITHUB_REF_NAME#v}-chrome.crx" \
             ".output/bar-translator-${GITHUB_REF_NAME#v}-firefox.zip" \
             ".output/bar-translator-${GITHUB_REF_NAME#v}-edge.zip" \
+            ".output/bar-translator-${GITHUB_REF_NAME#v}-sources.zip" \
             --verify-tag --title "$GITHUB_REF_NAME" \
             --notes-file "$RUNNER_TEMP/release-notes.md"
         env:

@@ -40,46 +40,23 @@
     "availableProviders": {
         "message": "사용 가능한 제공업체"
     },
-    "servicesDesc": {
-        "message": "텍스트를 받을 수 있도록 허용한 인스턴스만 활성화하세요. 순서대로 시도하며 앞선 인스턴스가 실패하면 이후 인스턴스에도 같은 텍스트가 전송될 수 있습니다. 드래그하거나 화살표로 순서를 바꿀 수 있습니다."
-    },
     "primary": {
         "message": "기본"
     },
     "free": {
         "message": "무료"
     },
-    "keyRequired": {
-        "message": "키 필요"
-    },
     "keyNeeded": {
         "message": "키 필요"
     },
-    "makePreferred": {
-        "message": "기본으로 설정"
-    },
     "apiKeyLabel": {
         "message": "API 키"
-    },
-    "enterApiKey": {
-        "message": "$1 API 키 입력",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
     },
     "show": {
         "message": "표시"
     },
     "hide": {
         "message": "숨기기"
-    },
-    "validateKey": {
-        "message": "키 확인"
-    },
-    "reValidate": {
-        "message": "재확인"
     },
     "checking": {
         "message": "확인 중..."
@@ -93,23 +70,8 @@
     "retry": {
         "message": "재시도"
     },
-    "invalidApiKey": {
-        "message": "유효하지 않은 API 키"
-    },
-    "apiKeyRequired": {
-        "message": "API 키가 필요합니다"
-    },
-    "enableFallback": {
-        "message": "예비 서비스 활성화"
-    },
-    "fallbackDesc": {
-        "message": "기본 서비스 실패 시 다른 서비스 시도"
-    },
     "dragToReorder": {
         "message": "드래그하여 우선순위 변경 (위쪽 = 먼저 시도)"
-    },
-    "noFallbackAvailable": {
-        "message": "사용 가능한 예비 서비스가 없습니다. 더 많은 서비스를 활성화하려면 API 키를 추가하세요."
     },
     "noServicesEnabled": {
         "message": "활성화된 서비스가 없습니다. 번역을 사용하려면 최소 하나의 서비스를 활성화하세요."
@@ -169,12 +131,6 @@
     },
     "noResults": {
         "message": "결과 없음"
-    },
-    "serviceTypeApi": {
-        "message": "공식 API"
-    },
-    "serviceTypeWeb": {
-        "message": "웹 인터페이스"
     },
     "requiresApiKey": {
         "message": "• API 키 필요"
@@ -358,9 +314,6 @@
     "permissionChangeFailed": {
         "message": "접근 권한을 변경할 수 없습니다. 다시 시도하세요."
     },
-    "testNeedsAccess": {
-        "message": "테스트 전에 제공자를 활성화하고 접근 권한을 허용하세요."
-    },
     "keyChangedDuringTest": {
         "message": "API 키가 변경되었습니다. 현재 키를 다시 테스트하세요."
     },
@@ -439,17 +392,6 @@
     "instanceTestDescription": {
         "message": "테스트는 고정된 예제 요청을 보냅니다. 선택 사항이며 이 인스턴스를 활성화하거나 비활성화하지 않습니다."
     },
-    "configureNamedInstance": {
-        "message": "$1 설정",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
-    },
-    "configureInstance": {
-        "message": "설정"
-    },
     "enableInstance": {
         "message": "$1 활성화",
         "placeholders": {
@@ -526,14 +468,8 @@
     "setupMigrationPending": {
         "message": "저장된 설정의 업데이트를 완료하지 못했습니다. 이전 설정은 계속 사용됩니다. 편집하기 전에 다시 시도하세요."
     },
-    "draftInstance": {
-        "message": "저장 안 됨"
-    },
     "cancel": {
         "message": "취소"
-    },
-    "addProviderInstance": {
-        "message": "인스턴스 추가: $1"
     },
     "googleProviderDescription": {
         "message": "API 키가 필요 없는 Google 웹 서비스입니다."
@@ -548,16 +484,10 @@
         "message": "관리형 서비스를 사용하거나 직접 운영하는 서버에 연결합니다."
     },
     "newInstanceDescription": {
-        "message": "이 설정을 저장한 다음 활성화하여 번역 순서에 추가하세요."
-    },
-    "connect": {
-        "message": "연결"
-    },
-    "connectInstance": {
-        "message": "$1 연결"
+        "message": "나중을 위해 저장하면 서비스는 꺼진 상태로 유지되며 제공업체에 연결하지 않습니다. 추가 및 활성화는 브라우저 접근 권한을 요청하며 인증 정보를 테스트하지 않습니다."
     },
     "customConnectionDescription": {
-        "message": "설정 중 서버에 연결하지만 번역 텍스트나 키는 전송하지 않습니다. 요청이 표시되면 브라우저의 로컬 네트워크 접근을 허용하세요."
+        "message": "기존 사용자 지정 서버를 켜거나 접근 권한을 부여하면 텍스트나 키를 보내지 않고 연결을 확인합니다. 요청 시 로컬 네트워크 접근을 허용하세요."
     },
     "instanceConnected": {
         "message": "$1에 연결했습니다."
@@ -565,7 +495,115 @@
     "customConnectionFailed": {
         "message": "$1 연결을 확인하지 못했습니다. 요청이 표시되면 브라우저의 로컬 네트워크 접근을 허용한 후 테스트를 다시 실행하세요."
     },
-    "addInstance": {
-        "message": "인스턴스 추가"
+    "servicesWorkflowDesc": {
+        "message": "활성화된 인스턴스만 텍스트를 받습니다. 위에서 아래로 시도하며, 드래그하거나 화살표로 순서를 바꿉니다. 실패하면 다음 인스턴스가 같은 텍스트를 받을 수 있습니다."
+    },
+    "serviceOff": {
+        "message": "꺼짐"
+    },
+    "serviceNotTested": {
+        "message": "테스트 안 함"
+    },
+    "grantInstanceAccess": {
+        "message": "$1 접근 허용"
+    },
+    "providerConfiguredCount": {
+        "message": "설정됨: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "addAnother": {
+        "message": "다른 항목 추가"
+    },
+    "addProvider": {
+        "message": "추가"
+    },
+    "addAndEnable": {
+        "message": "추가 및 활성화"
+    },
+    "saveForLater": {
+        "message": "나중을 위해 저장"
+    },
+    "enable": {
+        "message": "활성화"
+    },
+    "disable": {
+        "message": "비활성화"
+    },
+    "showServiceDetails": {
+        "message": "$1 세부 정보",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "settings": {
+        "message": "설정"
+    },
+    "lang_zh": {
+        "message": "중국어"
+    },
+    "deleteConfirmation": {
+        "message": "$1을(를) 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteConfirmationLabel": {
+        "message": "$1 삭제 확인",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "draftTestDescription": {
+        "message": "테스트는 서비스를 저장하거나 활성화하지 않고 현재 값을 확인합니다."
+    },
+    "instanceEnabledStatus": {
+        "message": "$1 활성화됨.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDisabledStatus": {
+        "message": "$1 비활성화됨.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDeletedStatus": {
+        "message": "$1 삭제됨.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessGrantedStatus": {
+        "message": "$1의 브라우저 접근이 허용되었습니다.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessRemovedStatus": {
+        "message": "$1의 브라우저 접근이 제거되었습니다.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
     }
 }

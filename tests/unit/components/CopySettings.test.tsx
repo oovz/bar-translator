@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { useState } from 'preact/hooks';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, waitFor } from '@testing-library/preact';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, waitFor } from '@testing-library/preact';
 import userEvent from '@testing-library/user-event';
 import { CopySettings } from '@/entrypoints/options/components/CopySettings';
 import { createDefaultSetup } from '@/utils/instances';
@@ -36,6 +36,9 @@ beforeEach(() => {
     vi.mocked(chrome.permissions.request).mockImplementation(async () => { granted = true; return true; });
     vi.mocked(chrome.permissions.remove).mockImplementation(async () => { granted = false; return true; });
 });
+
+// Flush pending Preact effects before jsdom removes its animation-frame globals.
+afterEach(async () => { await act(() => cleanup()); });
 
 describe('copy preference and device permissions', () => {
     it('requests both permissions during the click before persisting enabled intent', async () => {

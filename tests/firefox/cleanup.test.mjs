@@ -32,7 +32,7 @@ async function fixture(t) {
     };
 }
 
-test('keeps the session open through uninstall and removes the remaining disposable profile', async t => {
+test('uninstalls the add-on, closes Firefox, and removes its profile', async t => {
     const resources = await fixture(t);
     await cleanupFirefox(resources);
     await assert.rejects(stat(resources.temporary), { code: 'ENOENT' });
@@ -40,7 +40,7 @@ test('keeps the session open through uninstall and removes the remaining disposa
     assert.equal(resources.diagnostics.cleanup.temporaryRootRemoved, true);
 });
 
-test('writes diagnostics and reports permanent removal failures even without a screenshot', async t => {
+test('reports cleanup failures when screenshots are unavailable', async t => {
     const resources = await fixture(t);
     resources.failed = true;
     resources.diagnostics.failed = true;

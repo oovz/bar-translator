@@ -1,9 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/**
- * Playwright configuration for Chrome extension E2E testing.
- * @see https://playwright.dev/docs/test-configuration
- */
 export default defineConfig({
     testDir: './tests/e2e',
     fullyParallel: false,
@@ -17,7 +13,8 @@ export default defineConfig({
         timeout: 10_000,
     },
     use: {
-        headless: true, // The bundled Chromium channel supports extensions in headless mode.
+        // The bundled Chromium channel's new headless mode supports extension loading.
+        headless: true,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
     },

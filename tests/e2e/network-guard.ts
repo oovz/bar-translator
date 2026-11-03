@@ -9,8 +9,7 @@ export async function startNetworkGuard() {
     const record = (method: string, value: string) => {
         try {
             const url = new URL(method === 'CONNECT' ? `https://${value}` : value);
-            // Browser internal traffic also reaches this proxy. Never retain paths,
-            // queries, headers or bodies, which may contain translation data/keys.
+            // Paths and queries can contain translation text or keys.
             attempts.push({ method, origin: url.origin });
         } catch {
             attempts.push({ method, origin: '<invalid origin>' });

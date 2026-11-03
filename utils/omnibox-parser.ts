@@ -1,27 +1,8 @@
-/**
- * Omnibox Input Parser
- *
- * Parses user input from the Chrome omnibox to extract language codes and text.
- *
- * Format: [source>]target text
- * Examples:
- *   - "fr Hello world" → target=fr, source=auto, text="Hello world"
- *   - "en>fr Bonjour" → target=fr, source=en, text="Bonjour"
- *   - "Hello world" → uses defaults
- *
- * @module utils/omnibox-parser
- */
+/** Parses [source>]target text, using saved language defaults when no prefix is present. */
 
 import type { ParsedOmniboxInput, UserPreferences } from '@/src/types';
 import { isValidLanguageCode, resolveLanguageCode } from './languages';
 
-/**
- * Parse omnibox input string.
- *
- * @param input - Raw user input from omnibox
- * @param defaults - Default preferences for fallback values
- * @returns Parsed input with language codes and text
- */
 type ParserDefaults = Pick<UserPreferences, 'defaultTargetLang' | 'defaultSourceLang' | 'languageOverrides'>;
 
 function languagePair(token: string, overrides?: Record<string, string>): Pick<ParsedOmniboxInput, 'sourceLang' | 'targetLang'> | undefined {
@@ -76,26 +57,14 @@ export function parseOmniboxInput(input: string, defaults?: ParserDefaults): Par
     return defaultText(trimmed, defaults);
 }
 
-/**
- * Format translation result for omnibox suggestion description.
- * Uses XML-like tags supported by Chrome omnibox.
- *
- * @param translation - Translated text
- */
 export function formatSuggestionDescription(translation: string): string {
     return `<match>${escapeXml(translation)}</match>`;
 }
 
-/**
- * Format error state for omnibox.
- */
 export function formatErrorDescription(errorMessage: string): string {
     return `<dim>Error: ${escapeXml(errorMessage)}</dim>`;
 }
 
-/**
- * Escape special characters for XML (omnibox description).
- */
 export function escapeXml(str: string): string {
     return str
         .replace(/&/g, '&amp;')

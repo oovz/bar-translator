@@ -1,6 +1,5 @@
 import { vi } from 'vitest';
 
-// Mock the browser global for WXT
 const browserMock = {
     permissions: {
         contains: vi.fn(async () => true),
@@ -37,11 +36,10 @@ const browserMock = {
     },
 };
 
-// Mock chrome global as well since some libraries might use it
 vi.stubGlobal('browser', browserMock);
 vi.stubGlobal('chrome', browserMock);
 
-// Emulate the browser boundary: exclusive locks queue work until the owner settles.
+// Exclusive locks wait for the current owner to finish.
 let credentialLock = Promise.resolve();
 Object.defineProperty(navigator, 'locks', {
     configurable: true,

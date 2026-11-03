@@ -47,8 +47,7 @@ export async function launchFirefox(t, proxy) {
         'browser.search.suggest.enabled': false,
         'intl.locale.requested': 'en-US',
     })) options.setPreference(key, value);
-    // Firefox >=138 requires this flag for native permission prompts and urlbar.
-    // https://firefox-source-docs.mozilla.org/testing/geckodriver/Flags.html
+    // Firefox requires system access to automate its native prompts and address bar.
     const service = new firefox.ServiceBuilder(process.env.GECKODRIVER_PATH)
         .addArguments('--allow-system-access', '--profile-root', profiles).setStdio('ignore');
     driver = await new Builder().forBrowser('firefox').setFirefoxOptions(options).setFirefoxService(service).build();
@@ -85,8 +84,30 @@ export async function launchFirefox(t, proxy) {
     const configure = async (id, name) => {
         const selector = `${rowSelector(id)} .instance-editor`;
         const editors = await driver.findElements(By.css(selector));
-        if (!editors.length || !await editors[0].isDisplayed()) await clickMessage('configureNamedInstance', rowSelector(id), [name]);
+        if (!editors.length || !await editors[0].isDisplayed()) await clickMessage('showServiceDetails', rowSelector(id), [name]);
         await wait(until.elementIsVisible(await element(selector)));
+    };
+    const addInstance = async provider => {
+        const catalog = `#available-providers [data-catalog-provider="${provider}"]`;
+        await (await element(`${catalog} [data-action="add-provider"]`)).click();
+        const editor = await wait(until.elementLocated(By.css(`${catalog} .instance-editor`)), 'inline provider editor did not open');
+        await wait(until.elementIsVisible(editor));
+        const editorId = await editor.getAttribute('id');
+        assert.match(editorId, /^instance-.+/);
+        return { id: editorId.slice('instance-'.length), catalog };
+    };
+    const toggle = async id => {
+        const control = await element(`${rowSelector(id)} button[data-action="enable-instance"], ${rowSelector(id)} button[data-action="disable-instance"]`);
+        await wait(until.elementIsEnabled(control), 'service activation action stayed disabled');
+        await control.click();
+    };
+    const remove = async id => {
+        const trigger = await element(`${rowSelector(id)} [data-action="delete-instance"]`);
+        await wait(until.elementIsEnabled(trigger), 'service delete action stayed disabled');
+        await trigger.click();
+        const confirm = await element(`${rowSelector(id)} [data-action="confirm-delete"]`);
+        await wait(until.elementIsEnabled(confirm), 'service delete confirmation stayed disabled');
+        await confirm.click();
     };
     const fill = async (id, value) => {
         // Generated instance IDs contain colons; By.id avoids CSS escaping traps.
@@ -100,8 +121,7 @@ export async function launchFirefox(t, proxy) {
             await wait(() => driver.executeScript('return document.getElementById("notification-popup")?.state === "open";'),
                 'native Firefox host permission prompt did not open');
             const control = await element(`#notification-popup .popup-notification-${allow ? 'primary' : 'secondary'}-button`);
-            // Firefox 158 uses native moz-button controls that WebElement.click
-            // cannot scroll. DOM activation still exercises the genuine prompt.
+            // Native moz-button controls cannot be scrolled by WebElement.click.
             await driver.executeScript('arguments[0].click();', control);
         } catch (error) {
             diagnostics.nativePrompt = await driver.executeScript(`return {
@@ -145,8 +165,7 @@ export async function launchFirefox(t, proxy) {
     const settingsUrl = `moz-extension://${uuid}/options.html`;
     await driver.get(settingsUrl);
     await ready();
-    // onInstalled opens its own options tab. Keep one selected WebDriver tab so
-    // the genuine permission doorhanger belongs to the page being clicked.
+    // Keep one options tab so its permission prompt belongs to the selected page.
     const currentHandle = await driver.getWindowHandle();
     for (const handle of await driver.getAllWindowHandles()) {
         if (handle !== currentHandle) {
@@ -158,7 +177,7 @@ export async function launchFirefox(t, proxy) {
 
     return {
         driver, diagnostics, content, chrome, wait, element, message, permissions, rowSelector, button, clickMessage,
-        enabled, ready, configure, fill, nativePermission, typeOmnibox, omniboxRows, closeOmnibox,
+        enabled, ready, configure, addInstance, toggle, remove, fill, nativePermission, typeOmnibox, omniboxRows, closeOmnibox,
         async reload() { await driver.navigate().refresh(); await ready(); },
         async observeSaved(check) {
             const original = await driver.getWindowHandle();

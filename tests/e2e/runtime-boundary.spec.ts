@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { test, expect, launchExtension } from './fixtures';
 
-test('routes an actual extension worker request without reaching its server', async ({ context }) => {
+test('routes extension worker requests to fixtures', async ({ context }) => {
     const serverHits: string[] = [];
     const server = createServer((_request, response) => {
         serverHits.push('reached');
@@ -51,7 +51,7 @@ test('aborts an unapproved worker request and reports only its origin', async ({
     }
 });
 
-test('denies a startup worker request before a Playwright route can exist', async ({ headless }) => {
+test('blocks startup requests before routes are installed', async ({ headless }) => {
     const serverHits: string[] = [];
     const server = createServer((_request, response) => {
         serverHits.push('reached');
@@ -68,8 +68,7 @@ test('denies a startup worker request before a Playwright route can exist', asyn
             permissions: ['storage'], host_permissions: [`${origin}/*`],
             background: { service_worker: 'worker.js' },
         }));
-        // A tiny probe extension tests the harness itself. This is separate from
-        // production WXT acceptance and deliberately starts a request immediately.
+        // The probe starts fetching as soon as its worker loads.
         await writeFile(path.join(directory, 'worker.js'),
             `globalThis.startupRequest = fetch(${JSON.stringify(`${origin}/startup?sample=private`)}).then(r => ({ status: r.status }), () => ({ rejected: true }));`);
         extension = await launchExtension('', headless, { extensionPath: directory, installRouting: false });

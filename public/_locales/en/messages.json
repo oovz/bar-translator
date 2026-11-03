@@ -45,46 +45,23 @@
     "availableProviders": {
         "message": "Available providers"
     },
-    "servicesDesc": {
-        "message": "Enable only instances you allow to receive your text. They are tried in order; later enabled instances may receive the same text if an earlier one fails. Drag or use the arrows to reorder."
-    },
     "primary": {
         "message": "PRIMARY"
     },
     "free": {
         "message": "Free"
     },
-    "keyRequired": {
-        "message": "Key required"
-    },
     "keyNeeded": {
         "message": "Key needed"
     },
-    "makePreferred": {
-        "message": "Make Preferred"
-    },
     "apiKeyLabel": {
         "message": "API Key"
-    },
-    "enterApiKey": {
-        "message": "Enter $1 API Key",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
     },
     "show": {
         "message": "Show"
     },
     "hide": {
         "message": "Hide"
-    },
-    "validateKey": {
-        "message": "Validate Key"
-    },
-    "reValidate": {
-        "message": "Re-validate"
     },
     "checking": {
         "message": "Checking..."
@@ -98,23 +75,8 @@
     "retry": {
         "message": "Retry"
     },
-    "invalidApiKey": {
-        "message": "Invalid API key"
-    },
-    "apiKeyRequired": {
-        "message": "API key required"
-    },
-    "enableFallback": {
-        "message": "Enable Fallback"
-    },
-    "fallbackDesc": {
-        "message": "Try other services if primary fails"
-    },
     "dragToReorder": {
         "message": "Drag to reorder fallback priority (top = first to try)"
-    },
-    "noFallbackAvailable": {
-        "message": "No fallback services available. Add API keys to enable more services."
     },
     "noServicesEnabled": {
         "message": "No services enabled. Enable at least one service to use translations."
@@ -174,12 +136,6 @@
     },
     "noResults": {
         "message": "No results"
-    },
-    "serviceTypeApi": {
-        "message": "Official API"
-    },
-    "serviceTypeWeb": {
-        "message": "Web Interface"
     },
     "requiresApiKey": {
         "message": "• Requires API Key"
@@ -366,9 +322,6 @@
     "permissionChangeFailed": {
         "message": "Could not change access. Please retry."
     },
-    "testNeedsAccess": {
-        "message": "Enable the provider and grant access before testing."
-    },
     "keyChangedDuringTest": {
         "message": "API key changed. Test the current key again."
     },
@@ -447,17 +400,6 @@
     "instanceTestDescription": {
         "message": "Testing sends a fixed sample request. It is optional and does not enable or disable this instance."
     },
-    "configureNamedInstance": {
-        "message": "Configure $1",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
-    },
-    "configureInstance": {
-        "message": "Configure"
-    },
     "enableInstance": {
         "message": "Enable $1",
         "placeholders": {
@@ -534,14 +476,8 @@
     "setupMigrationPending": {
         "message": "Could not finish updating your saved settings. Your previous setup is still active. Retry before editing."
     },
-    "draftInstance": {
-        "message": "Not saved"
-    },
     "cancel": {
         "message": "Cancel"
-    },
-    "addProviderInstance": {
-        "message": "Add instance: $1"
     },
     "googleProviderDescription": {
         "message": "Google’s web service. No API key required."
@@ -556,16 +492,10 @@
         "message": "Use the managed service or connect your own server."
     },
     "newInstanceDescription": {
-        "message": "Save this configuration, then enable it to include it in your translation order."
-    },
-    "connect": {
-        "message": "Connect"
-    },
-    "connectInstance": {
-        "message": "Connect $1"
+        "message": "Save for later keeps this service off and does not contact the provider. Add and enable requests browser access; it does not test credentials."
     },
     "customConnectionDescription": {
-        "message": "Connect contacts this server during setup without sending translation text or a key. Allow local-network access for your browser if asked."
+        "message": "Turning on an existing custom server or granting access checks its connection without sending text or a key. Allow local-network access if asked."
     },
     "instanceConnected": {
         "message": "Connected to $1."
@@ -573,7 +503,109 @@
     "customConnectionFailed": {
         "message": "Connection to $1 could not be confirmed. If prompted, allow local-network access for this browser, then use Test to try again."
     },
-    "addInstance": {
-        "message": "Add instance"
+    "servicesWorkflowDesc": {
+        "message": "Only enabled instances receive text. They are tried from top to bottom; drag or use the arrows to reorder. If one fails, the next may receive the same text."
+    },
+    "serviceOff": {
+        "message": "Off"
+    },
+    "serviceNotTested": {
+        "message": "Not tested"
+    },
+    "grantInstanceAccess": {
+        "message": "Grant access to $1"
+    },
+    "providerConfiguredCount": {
+        "message": "Configured: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "addAnother": {
+        "message": "Add another"
+    },
+    "addProvider": {
+        "message": "Add"
+    },
+    "addAndEnable": {
+        "message": "Add and enable"
+    },
+    "saveForLater": {
+        "message": "Save for later"
+    },
+    "enable": {
+        "message": "Enable"
+    },
+    "disable": {
+        "message": "Disable"
+    },
+    "showServiceDetails": {
+        "message": "Details for $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteConfirmation": {
+        "message": "Delete $1? This cannot be undone.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteConfirmationLabel": {
+        "message": "Confirm deleting $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "draftTestDescription": {
+        "message": "Test checks the current values without saving or enabling the service."
+    },
+    "instanceEnabledStatus": {
+        "message": "$1 enabled.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDisabledStatus": {
+        "message": "$1 disabled.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDeletedStatus": {
+        "message": "$1 deleted.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessGrantedStatus": {
+        "message": "Browser access granted for $1.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessRemovedStatus": {
+        "message": "Browser access removed for $1.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
     }
 }

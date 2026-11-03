@@ -1,18 +1,9 @@
-/**
- * DeepL Translation Service
- * 
- * Implements translation via the official DeepL API.
- * Supports both Free and Pro API tiers.
- * 
- * @module services/deepl
- */
-
-import { BaseTranslationService } from './base';
 import { TranslationError } from '@/utils/errors';
 import { hasProviderAccess } from '@/utils/permissions';
-import { toDeepLLanguage, fromDeepLLanguage } from '@/utils/languages';
+import { toDeepLLanguage, toDeepLSourceLanguage, fromDeepLLanguage } from '@/utils/languages';
 import type {
     TranslationService,
+    TranslationServiceHandler,
     TranslateParams,
     TranslateResult,
     ValidationResult,
@@ -27,7 +18,7 @@ function translationBody(params: TranslateParams): URLSearchParams {
     const body = new URLSearchParams();
     body.append('text', params.text);
     body.append('target_lang', toDeepLLanguage(params.targetLang));
-    if (params.sourceLang !== 'auto') body.append('source_lang', toDeepLLanguage(params.sourceLang));
+    if (params.sourceLang !== 'auto') body.append('source_lang', toDeepLSourceLanguage(params.sourceLang));
     return body;
 }
 
@@ -65,10 +56,8 @@ function translationResult(data: unknown, serviceId: TranslationService['id']): 
     };
 }
 
-export class DeepLTranslationService extends BaseTranslationService {
-    constructor(public readonly service: TranslationService) {
-        super();
-    }
+export class DeepLTranslationService implements TranslationServiceHandler {
+    constructor(public readonly service: TranslationService) {}
 
     async translate(params: TranslateParams): Promise<TranslateResult> {
         if (!params.apiKey) {
@@ -80,7 +69,9 @@ export class DeepLTranslationService extends BaseTranslationService {
         }
 
         const { apiKey } = params;
-        const endpoint = this.getEndpoint(keyTier(apiKey, params.tier));
+        const endpoint = keyTier(apiKey, params.tier) === 'free'
+            ? 'https://api-free.deepl.com/v2/translate'
+            : 'https://api.deepl.com/v2/translate';
         const body = translationBody(params);
 
         try {
@@ -119,8 +110,6 @@ export class DeepLTranslationService extends BaseTranslationService {
             return { valid: false, error: 'DeepL access required. Allow provider access in settings before testing.' };
         }
 
-        // Lightweight check: Get Usage or Translate trivial text
-        // Usage endpoint: GET /v2/usage
         const resolvedTier = keyTier(apiKey, tier);
         const endpoint = resolvedTier === 'free'
             ? 'https://api-free.deepl.com/v2/usage'

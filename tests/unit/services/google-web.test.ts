@@ -18,15 +18,6 @@ describe('GoogleTranslationWebService', () => {
     });
     afterEach(() => vi.restoreAllMocks());
 
-    it('uses its configured default endpoint when no tier is requested', () => {
-        expect(service.getEndpoint()).toBe('https://translate.googleapis.com/translate_a/single');
-    });
-
-    it('is available without an API credential and without probing the provider', async () => {
-        expect(await service.isAvailable()).toBe(true);
-        expect(fetchMock).not.toHaveBeenCalled();
-    });
-
     it('joins translated segments in order while preserving text and skipping null optional output', async () => {
         fetchMock.mockResolvedValue(Response.json([[
             ['Bonjour. ', 'Hello. ', null, null, 1],

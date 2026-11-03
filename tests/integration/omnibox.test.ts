@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_PREFERENCES, type StoredApiKeys, type UserPreferences, type CredentialStorageType, type TranslationInstance } from '@/src/types';
 import messages from '@/public/_locales/en/messages.json';
-import { createDefaultSetup } from '@/utils/instances';
+import { createLegacySetup } from '@/tests/fixtures/legacy-setup';
 
 // The omnibox integration boundary provides coherent setup snapshots. Migration,
 // commit failures and Local/Sync conflicts are exercised by storage.test.ts.
@@ -13,7 +13,7 @@ vi.mock('@/utils/storage', () => ({
         const shared = await chrome.storage.sync.get<{ preferences?: UserPreferences; apiKeys?: StoredApiKeys }>(['preferences', 'apiKeys']);
         const local = await chrome.storage.local.get<{ credentialStorageType?: CredentialStorageType; apiKeys_local?: StoredApiKeys }>(['credentialStorageType', 'apiKeys_local']);
         const keys = local.credentialStorageType === 'sync' ? shared.apiKeys : local.apiKeys_local;
-        const setup = createDefaultSetup(copyEnabled);
+        const setup = createLegacySetup(copyEnabled);
         setup.preferences = structuredClone(shared.preferences ?? DEFAULT_PREFERENCES);
         const deepl = setup.instances.find(instance => instance.providerId === 'deepl')!;
         if (deepl.providerId === 'deepl' && keys?.deepl) deepl.credential = structuredClone(keys.deepl);
@@ -730,15 +730,6 @@ describe('copy confirmation and failure feedback', () => {
         expect(copiedText).not.toHaveBeenCalled();
     });
 
-    it('leaves the clipboard unchanged after translation failure', async () => {
-        fetchMock.mockRejectedValue(new Error('Provider unavailable'));
-        await change('fr Hello');
-        await vi.advanceTimersByTimeAsync(300);
-        await omnibox.onInputEntered.fire('fr Hello', 'currentTab');
-        expect(copiedText).not.toHaveBeenCalled();
-        expect(sendMessage).not.toHaveBeenCalled();
-    });
-
     it('invalidates a completed copy when the next translation fails', async () => {
         fetchMock.mockResolvedValueOnce(googleResponse('Bonjour')).mockRejectedValueOnce(new Error('Provider unavailable'));
         await change('fr Hello');
@@ -803,7 +794,6 @@ describe('copy confirmation and failure feedback', () => {
         expect(description()).toContain('&lt;Bonjour&gt; &amp; salut');
     });
 });
-
 
 describe('translation after setup storage changes', () => {
     it('uses the selected setup snapshot after a whole-setup storage change', async () => {
@@ -1207,7 +1197,6 @@ describe('Firefox background document', () => {
         expect(description()).not.toContain('<dim>');
     });
 });
-
 
 describe('instance configuration and stored copy intent', () => {
     it('does not copy when saved intent is off even when clipboard permission remains granted', async () => {

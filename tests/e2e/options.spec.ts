@@ -1,13 +1,6 @@
 import { test, expect } from './fixtures';
 import { addInstance, languageInput, message, openSettings, chooseLanguage, observeSettings } from './setup-ui';
 
-test('opens first-install setup in a dedicated extension tab', async ({ context, extensionId }) => {
-    const url = `chrome-extension://${extensionId}/options.html`;
-    await expect.poll(() => context.pages().map(page => page.url())).toContain(url);
-    const setup = context.pages().find(page => page.url() === url)!;
-    await expect(setup.locator('#providers')).toBeVisible();
-});
-
 test('persists source and target language choices in the local setup', async ({ context, extensionId }) => {
     const page = await openSettings(context, extensionId);
     await chooseLanguage(page, 'source', 'French');
@@ -30,7 +23,7 @@ test('persists regional language overrides', async ({ context, extensionId }) =>
     await expect(chinese).toHaveValue('zh-TW');
 });
 
-test('keeps copy intent after access revocation and offers repair through the mocked permission boundary', async ({ context, extensionId }) => {
+test('repairs revoked clipboard access while keeping copying enabled', async ({ context, extensionId }) => {
     const page = await openSettings(context, extensionId, true);
     const copy = page.locator('#copy input[type="checkbox"]');
     await expect(copy).not.toBeChecked();

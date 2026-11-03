@@ -16,16 +16,19 @@ export function supportsMultipleInstances(providerId: ServiceId): providerId is 
     return providerId === 'deepl' || providerId === 'libretranslate';
 }
 
+export function getProviderName(providerId: ServiceId): string {
+    return PROVIDER_NAMES[providerId];
+}
+
 export function getInstanceName(instance: TranslationInstance): string {
     return instance.providerId === 'deepl' || instance.providerId === 'libretranslate'
-        ? instance.name : PROVIDER_NAMES[instance.providerId];
+        ? instance.name : getProviderName(instance.providerId);
 }
 
 export function createInstance(providerId: 'deepl'): DeepLInstance;
 export function createInstance(providerId: 'libretranslate'): LibreTranslateInstance;
 export function createInstance(providerId: 'deepl' | 'libretranslate'): DeepLInstance | LibreTranslateInstance;
 export function createInstance(providerId: 'deepl' | 'libretranslate'): DeepLInstance | LibreTranslateInstance {
-    if (!supportsMultipleInstances(providerId)) throw new Error('This provider has one fixed instance.');
     const id = `${providerId}:${crypto.randomUUID()}`;
     if (providerId === 'deepl') return { id, providerId, name: PROVIDER_NAMES[providerId] };
     return {
@@ -144,9 +147,6 @@ function parseInstances(entries: unknown[]): { instances: TranslationInstance[];
         ids.add(entry.id);
         return parseInstance(entry, entry.id, singletons);
     });
-    if (!singletons.has('google-web') || !singletons.has('lingva')) {
-        throw new Error('The saved setup is missing a fixed provider instance.');
-    }
     return { instances, ids };
 }
 
@@ -160,6 +160,25 @@ function parseFallbackOrder(order: unknown[], ids: Set<string>): string[] {
         return id;
     });
     return fallbackOrder;
+}
+
+/** Read old setups without changing their active priority or discarding disabled accounts. */
+export function getInstanceOrder(setup: TranslationSetup): string[] {
+    return setup.instanceOrder ?? [...setup.preferences.fallbackOrder,
+        ...setup.instances.map(instance => instance.id).filter(id => !setup.preferences.fallbackOrder.includes(id))];
+}
+
+function parseInstanceOrder(value: unknown, ids: Set<string>, fallbackOrder: string[]): string[] {
+    if (value === undefined) return [...fallbackOrder, ...ids].filter((id, index, order) => order.indexOf(id) === index);
+    if (!Array.isArray(value) || value.length !== ids.size ||
+        value.some(id => typeof id !== 'string' || !ids.has(id)) || new Set(value).size !== ids.size) {
+        throw new Error('The saved instance order is incomplete or invalid.');
+    }
+    const enabled = value.filter(id => fallbackOrder.includes(id));
+    if (enabled.some((id, index) => id !== fallbackOrder[index])) {
+        throw new Error('The saved instance order contradicts its enabled priority.');
+    }
+    return [...value];
 }
 
 function parseLanguageOverrides(overrides: Record<string, unknown>): Record<string, string> {
@@ -200,7 +219,7 @@ export function validateSetup(value: unknown): TranslationSetup {
             defaultSourceLang: prefs.defaultSourceLang, defaultTargetLang: prefs.defaultTargetLang,
             fallbackOrder, languageOverrides,
         },
-        instances, copyEnabled: value.copyEnabled,
+        instances, instanceOrder: parseInstanceOrder(value.instanceOrder, ids, fallbackOrder), copyEnabled: value.copyEnabled,
     };
 }
 
@@ -210,8 +229,6 @@ export function createDefaultSetup(copyEnabled = false): TranslationSetup {
         preferences: structuredClone(DEFAULT_PREFERENCES),
         instances: [
             { id: 'google-web', providerId: 'google-web' },
-            { id: 'lingva', providerId: 'lingva' },
-            { id: 'deepl', providerId: 'deepl', name: 'DeepL' },
         ],
         copyEnabled,
     };

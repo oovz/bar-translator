@@ -1,27 +1,8 @@
-/**
- * Unit Tests for Omnibox Parser
- *
- * @module tests/unit/omnibox-parser.test
- */
-
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
     parseOmniboxInput,
     formatSuggestionDescription,
 } from '@/utils/omnibox-parser';
-
-// Mock browser global for i18n
-vi.stubGlobal('browser', {
-    i18n: {
-        getMessage: (key: string) => {
-            const messages: Record<string, string> = {
-                'lang_fr': 'French',
-                // Add others if needed
-            };
-            return messages[key] || key;
-        },
-    },
-});
 
 describe('parseOmniboxInput', () => {
     it('keeps source implicit for a target-only query but uses the default when text follows', () => {
@@ -32,7 +13,7 @@ describe('parseOmniboxInput', () => {
         });
     });
 
-    it('preserves the existing first-pair interpretation when an input contains extra separators', () => {
+    it('reads the first language pair when an input contains extra separators', () => {
         expect(parseOmniboxInput('en>fr>de Hello')).toEqual({
             sourceLang: 'en', targetLang: 'fr', text: 'Hello', isLanguageQuery: false,
         });
@@ -51,9 +32,6 @@ describe('parseOmniboxInput', () => {
             expect(result.isLanguageQuery).toBe(true);
         });
     });
-
-
-
     describe('single language code', () => {
         it('parses single language code as target', () => {
             const result = parseOmniboxInput('fr');
@@ -106,7 +84,7 @@ describe('parseOmniboxInput', () => {
             const defaults = {
                 defaultTargetLang: 'en',
                 defaultSourceLang: 'auto' as const,
-                languageOverrides: {} // Fix lint error
+                languageOverrides: {}
             };
             const result = parseOmniboxInput('Hello world', defaults);
             expect(result.targetLang).toBe('en');
@@ -117,7 +95,6 @@ describe('parseOmniboxInput', () => {
 
         it('handles text that looks like invalid language code', () => {
             const result = parseOmniboxInput('xyz test');
-            // "xyz" is not a valid 2-char code, should treat whole thing as text
             expect(result.text).toBe('xyz test');
             expect(result.isLanguageQuery).toBe(false);
         });
@@ -150,7 +127,6 @@ describe('parseOmniboxInput', () => {
 
         it('preserves already-BCP47 codes', () => {
             const result = parseOmniboxInput('zh-TW Hello');
-            // Should normalize to lowercase but preserve the code
             expect(result.targetLang).toBe('zh-tw');
             expect(result.text).toBe('Hello');
         });

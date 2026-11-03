@@ -10,7 +10,7 @@ export default defineConfig({
         coverage: {
             provider: 'v8',
             reporter: ['text', 'lcov'],
-            include: ['{components,entrypoints,services,src,utils}/**/*.{ts,tsx}'],
+            include: ['{entrypoints,services,src,utils}/**/*.{ts,tsx}'],
         },
         environment: 'node',
         setupFiles: ['./tests/setup.ts'],

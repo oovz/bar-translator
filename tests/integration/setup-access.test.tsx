@@ -5,6 +5,8 @@ import { useState } from 'preact/hooks';
 import { act, cleanup, render, fireEvent, within, waitFor } from '@testing-library/preact';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { TranslationSetup } from '@/src/types';
+import { getInstanceOrder } from '@/utils/instances';
+import { createLegacySetup } from '../fixtures/legacy-setup';
 import type { SetupUpdate } from '@/entrypoints/options/hooks/usePreferences';
 import { ServiceList } from '@/entrypoints/options/components/ServiceList';
 import { CopySettings } from '@/entrypoints/options/components/CopySettings';
@@ -117,6 +119,7 @@ async function configuredSetup() {
     permissions = new Set(['clipboardWrite', 'offscreen']);
     return api.updateSetup(setup => ({
         ...setup, copyEnabled: true,
+        instanceOrder: [...getInstanceOrder(setup), 'old', 'shared'],
         instances: [...setup.instances,
             { id: 'old', providerId: 'libretranslate', name: 'Old', hosting: 'custom', endpoint: 'http://old.example' },
             { id: 'shared', providerId: 'libretranslate', name: 'Shared', hosting: 'custom', endpoint: 'http://shared.example' },
@@ -139,6 +142,7 @@ it('retains the former Google host when the chosen migration destination has ano
     await api.getSetup();
     await api.updateSetup(setup => ({
         ...setup,
+        instanceOrder: [...getInstanceOrder(setup), 'shared'],
         instances: [...setup.instances, { id: 'shared', providerId: 'libretranslate', name: 'Shared', hosting: 'custom', endpoint: 'https://translate.google.com/libre' }],
         preferences: { ...setup.preferences, fallbackOrder: ['shared'] },
     }));
@@ -178,7 +182,10 @@ it('releases obsolete host and copy access after a worker restarts during a setu
 
 it('releases a provider grant when its synced selection is disabled', async () => {
     await api.getSetup();
-    await api.updateSetup(setup => ({ ...setup, preferences: { ...setup.preferences, fallbackOrder: ['google-web', 'deepl'] } }));
+    await api.updateSetup(() => {
+        const legacy = createLegacySetup();
+        return { ...legacy, preferences: { ...legacy.preferences, fallbackOrder: ['google-web', 'deepl'] } };
+    });
     await api.switchSetupStorage('sync');
     await startBackground();
     origins = new Set(['https://translate.googleapis.com/*', 'https://api-free.deepl.com/*', 'https://api.deepl.com/*']);
@@ -193,6 +200,7 @@ it.each([false, true])('reconciles recorded Google mobile access while preservin
     if (shared) {
         await api.updateSetup(setup => ({
             ...setup,
+            instanceOrder: [...getInstanceOrder(setup), 'shared-google-host'],
             instances: [...setup.instances, {
                 id: 'shared-google-host', providerId: 'libretranslate', name: 'Shared host',
                 hosting: 'custom', endpoint: 'https://translate.google.com',
@@ -254,6 +262,7 @@ it('remembers newly enabled ownership if sync disables it before the worker obse
     permissions = new Set(['clipboardWrite', 'offscreen']);
     await api.updateSetup(setup => ({
         ...setup, copyEnabled: true,
+        instanceOrder: [...getInstanceOrder(setup), 'new'],
         instances: [...setup.instances, { id: 'new', providerId: 'libretranslate', name: 'New', hosting: 'custom', endpoint: 'http://new.example' }],
         preferences: { ...setup.preferences, fallbackOrder: ['new'] },
     }));
@@ -285,6 +294,7 @@ it('serializes shared-host cleanup with enablement from a second settings page',
     await configuredSetup();
     const setup = await api.updateSetup(current => ({
         ...current,
+        instanceOrder: [...getInstanceOrder(current), 'b'],
         instances: [...current.instances, { id: 'b', providerId: 'libretranslate', name: 'B', hosting: 'custom', endpoint: 'http://old.example:8000' }],
     }));
     await api.reconcileSetupAccess();
@@ -299,7 +309,7 @@ it('serializes shared-host cleanup with enablement from a second settings page',
     const second = render(<InstanceSettings initial={setup} />);
     fireEvent.click(within(first.container.querySelector('[data-id="old"]')! as HTMLElement).getByRole('button', { name: 'disableInstance' }));
     await waitFor(() => expect(finish).toBeTypeOf('function'));
-    fireEvent.click(within(second.container.querySelector('[data-id="b"]')! as HTMLElement).getByRole('button', { name: 'connectInstance' }));
+    fireEvent.click(within(second.container.querySelector('[data-id="b"]')! as HTMLElement).getByRole('button', { name: 'enableInstance' }));
     await waitFor(() => expect(chrome.permissions.request).toHaveBeenCalled());
     // Drain ready browser/storage promises while the removal boundary remains paused.
     await setImmediate();

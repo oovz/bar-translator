@@ -3,7 +3,7 @@
         "message": "Bar Translator"
     },
     "extDescription": {
-        "message": "直接在浏览器地址栏翻译，让思路留在当前页面。"
+        "message": "无需离开当前页面，在浏览器地址栏翻译。"
     },
     "loading": {
         "message": "加载中..."
@@ -40,46 +40,23 @@
     "availableProviders": {
         "message": "可用提供商"
     },
-    "servicesDesc": {
-        "message": "仅启用您允许接收文本的实例。系统按顺序尝试；前面的实例失败时，后续实例也可能收到相同文本。可拖动或使用箭头调整顺序。"
-    },
     "primary": {
         "message": "首选"
     },
     "free": {
         "message": "免费"
     },
-    "keyRequired": {
-        "message": "需要密钥"
-    },
     "keyNeeded": {
         "message": "需要密钥"
     },
-    "makePreferred": {
-        "message": "设为首选"
-    },
     "apiKeyLabel": {
         "message": "API 密钥"
-    },
-    "enterApiKey": {
-        "message": "输入 $1 API 密钥",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
     },
     "show": {
         "message": "显示"
     },
     "hide": {
         "message": "隐藏"
-    },
-    "validateKey": {
-        "message": "验证密钥"
-    },
-    "reValidate": {
-        "message": "重新验证"
     },
     "checking": {
         "message": "检查中..."
@@ -93,23 +70,8 @@
     "retry": {
         "message": "重试"
     },
-    "invalidApiKey": {
-        "message": "API 密钥无效"
-    },
-    "apiKeyRequired": {
-        "message": "需要 API 密钥"
-    },
-    "enableFallback": {
-        "message": "启用备用服务"
-    },
-    "fallbackDesc": {
-        "message": "如果首选服务失败，尝试其他服务"
-    },
     "dragToReorder": {
         "message": "拖动以重新排序优先级（顶部 = 首先尝试）"
-    },
-    "noFallbackAvailable": {
-        "message": "没有可用的备用服务。添加 API 密钥以启用更多服务。"
     },
     "noServicesEnabled": {
         "message": "未启用任何服务。请启用至少一个服务以使用翻译。"
@@ -169,12 +131,6 @@
     },
     "noResults": {
         "message": "无结果"
-    },
-    "serviceTypeApi": {
-        "message": "官方 API"
-    },
-    "serviceTypeWeb": {
-        "message": "网页接口"
     },
     "requiresApiKey": {
         "message": "• 需要 API 密钥"
@@ -358,9 +314,6 @@
     "permissionChangeFailed": {
         "message": "无法更改访问权限，请重试。"
     },
-    "testNeedsAccess": {
-        "message": "请先启用服务并授予访问权限，再测试密钥。"
-    },
     "keyChangedDuringTest": {
         "message": "API 密钥已更改，请测试当前密钥。"
     },
@@ -439,17 +392,6 @@
     "instanceTestDescription": {
         "message": "测试会发送固定的示例请求。测试是可选的，不会启用或停用此实例。"
     },
-    "configureNamedInstance": {
-        "message": "配置 $1",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
-    },
-    "configureInstance": {
-        "message": "配置"
-    },
     "enableInstance": {
         "message": "启用 $1",
         "placeholders": {
@@ -526,14 +468,8 @@
     "setupMigrationPending": {
         "message": "无法完成已保存设置的升级。原有配置仍在使用，请重试后再编辑。"
     },
-    "draftInstance": {
-        "message": "尚未保存"
-    },
     "cancel": {
         "message": "取消"
-    },
-    "addProviderInstance": {
-        "message": "添加实例：$1"
     },
     "googleProviderDescription": {
         "message": "使用 Google 网页服务，无需 API 密钥。"
@@ -548,16 +484,10 @@
         "message": "使用托管服务，或连接您自己的服务器。"
     },
     "newInstanceDescription": {
-        "message": "先保存配置，再启用以将其加入翻译顺序。"
-    },
-    "connect": {
-        "message": "连接"
-    },
-    "connectInstance": {
-        "message": "连接 $1"
+        "message": "保存供以后使用会保持服务停用且不会联系提供商。添加并启用会请求浏览器访问权限，不会测试凭据。"
     },
     "customConnectionDescription": {
-        "message": "连接会在设置过程中联系此服务器，但不会发送翻译文本或密钥。如有提示，请允许浏览器访问本地网络。"
+        "message": "启用现有自定义服务器或授予访问权限时，会检查连接，不会发送文本或密钥。如有提示，请允许访问本地网络。"
     },
     "instanceConnected": {
         "message": "已连接到 $1。"
@@ -565,7 +495,115 @@
     "customConnectionFailed": {
         "message": "无法确认与 $1 的连接。如有提示，请允许浏览器访问本地网络，然后再次点击测试。"
     },
-    "addInstance": {
-        "message": "添加实例"
+    "servicesWorkflowDesc": {
+        "message": "只有已启用的实例会接收文本。它们按从上到下的顺序尝试；拖动或使用箭头调整顺序。如果一个失败，下一个可能会收到相同的文本。"
+    },
+    "serviceOff": {
+        "message": "已停用"
+    },
+    "serviceNotTested": {
+        "message": "未测试"
+    },
+    "grantInstanceAccess": {
+        "message": "授予 $1 访问权限"
+    },
+    "providerConfiguredCount": {
+        "message": "已配置: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "addAnother": {
+        "message": "再添加一个"
+    },
+    "addProvider": {
+        "message": "添加"
+    },
+    "addAndEnable": {
+        "message": "添加并启用"
+    },
+    "saveForLater": {
+        "message": "保存供以后使用"
+    },
+    "enable": {
+        "message": "启用"
+    },
+    "disable": {
+        "message": "停用"
+    },
+    "showServiceDetails": {
+        "message": "$1 的详情",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "settings": {
+        "message": "设置"
+    },
+    "lang_zh": {
+        "message": "中文"
+    },
+    "deleteConfirmation": {
+        "message": "删除 $1？此操作无法撤销。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteConfirmationLabel": {
+        "message": "确认删除 $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "draftTestDescription": {
+        "message": "测试会在不保存或启用服务的情况下检查当前值。"
+    },
+    "instanceEnabledStatus": {
+        "message": "$1 已启用。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDisabledStatus": {
+        "message": "$1 已停用。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDeletedStatus": {
+        "message": "$1 已删除。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessGrantedStatus": {
+        "message": "已为 $1 授予浏览器访问权限。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessRemovedStatus": {
+        "message": "已移除 $1 的浏览器访问权限。",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
     }
 }

@@ -1,30 +1,19 @@
-/**
- * Integration Tests for Translation Orchestration
- *
- * Tests translateWithFallback in services/index.ts
- *
- * @module tests/integration/fallback.test
- */
-
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { translateWithFallback as translateSetupWithFallback, translateDirect as translateInstanceDirect, isInstanceAvailable, testInstance, registerService, getService } from '@/services/index';
+import { translateWithFallback as translateSetupWithFallback, registerService, getService } from '@/services/index';
 import { GoogleTranslationWebService } from '@/services/google-web';
 import { getServiceDefinition } from '@/services/base';
 import { TranslationError } from '@/utils/errors';
-import { createDefaultSetup } from '@/utils/instances';
-import * as storage from '@/utils/storage';
+import { createLegacySetup } from '@/tests/fixtures/legacy-setup';
 import type {
     UserPreferences,
     StoredApiKeys,
     TranslateParams,
     TranslationServiceHandler,
-    ServiceId,
-    TranslationInstance,
 } from '@/src/types';
 
 // These fixtures use the legacy provider IDs as stable migrated instance IDs.
 function configuredSetup(preferences: UserPreferences, apiKeys: StoredApiKeys = {}) {
-    const setup = createDefaultSetup();
+    const setup = createLegacySetup();
     setup.preferences = structuredClone(preferences);
     const deepl = setup.instances.find(instance => instance.providerId === 'deepl')!;
     if (deepl.providerId === 'deepl' && apiKeys.deepl) deepl.credential = apiKeys.deepl;
@@ -33,23 +22,10 @@ function configuredSetup(preferences: UserPreferences, apiKeys: StoredApiKeys = 
 function translateWithFallback(params: TranslateParams, preferences: UserPreferences, apiKeys: StoredApiKeys) {
     return translateSetupWithFallback(params, configuredSetup(preferences, apiKeys));
 }
-function fixtureInstance(serviceId: ServiceId, apiKeys: StoredApiKeys): TranslationInstance {
-    return configuredSetup({ fallbackOrder: [], defaultSourceLang: 'auto', defaultTargetLang: 'es', languageOverrides: {} }, apiKeys)
-        .instances.find(instance => instance.providerId === serviceId)!;
-}
-function translateDirect(serviceId: ServiceId, params: TranslateParams, apiKeys: StoredApiKeys) {
-    return translateInstanceDirect(fixtureInstance(serviceId, apiKeys), params);
-}
-function isServiceAvailable(serviceId: ServiceId, apiKeys: StoredApiKeys) {
-    return isInstanceAvailable(fixtureInstance(serviceId, apiKeys));
-}
-
-// Mock console to keep output clean
 vi.spyOn(console, 'log').mockImplementation(() => { });
 vi.spyOn(console, 'warn').mockImplementation(() => { });
 vi.spyOn(console, 'error').mockImplementation(() => { });
 
-// Mock services
 const mockGoogleTranslate = vi.fn();
 const mockDeepLTranslate = vi.fn();
 
@@ -57,11 +33,6 @@ const mockGoogleHandler: TranslationServiceHandler = {
     service: {
         id: 'google-web',
         name: 'Google',
-        requiresApiKey: false,
-        type: 'api',
-        maxTextLength: 5000,
-        authMethod: 'none',
-        httpMethod: 'POST'
     },
     translate: mockGoogleTranslate,
 };
@@ -70,14 +41,8 @@ const mockDeepLHandler: TranslationServiceHandler = {
     service: {
         id: 'deepl',
         name: 'DeepL',
-        requiresApiKey: true,
-        type: 'api',
-        maxTextLength: 5000,
-        authMethod: 'header-auth-key',
-        httpMethod: 'POST'
     },
     translate: mockDeepLTranslate,
-    validateApiKey: vi.fn(),
 };
 
 describe('Translation Orchestration', () => {
@@ -102,7 +67,6 @@ describe('Translation Orchestration', () => {
         vi.clearAllMocks();
         vi.mocked(chrome.permissions.contains).mockImplementation(async () => true);
 
-        // Overwrite registered services with mocks
         registerService(mockGoogleHandler);
         registerService(mockDeepLHandler);
     });
@@ -112,12 +76,6 @@ describe('Translation Orchestration', () => {
         vi.useRealTimers();
     });
 
-    it('does not advertise configured providers that lack permission or a required key', async () => {
-        expect(await isServiceAvailable('deepl', {})).toBe(false);
-        vi.mocked(chrome.permissions.contains).mockImplementation(async () => false);
-        expect(await isServiceAvailable('google-web', {})).toBe(false);
-    });
-
     it('rejects a completed result at the exact attempt deadline before a delayed timer callback', async () => {
         const now = vi.spyOn(performance, 'now').mockReturnValue(0);
         mockGoogleTranslate.mockImplementation(async () => {
@@ -125,7 +83,8 @@ describe('Translation Orchestration', () => {
             return { translation: 'Too late', serviceId: 'google-web' };
         });
         try {
-            await expect(translateDirect('google-web', defaultParams, {})).rejects.toMatchObject({ code: 'TIMEOUT' });
+            await expect(translateWithFallback(defaultParams, { ...defaultPrefs, fallbackOrder: ['google-web'] }, {}))
+                .rejects.toMatchObject({ code: 'TIMEOUT' });
         } finally { now.mockRestore(); }
     });
 
@@ -147,9 +106,10 @@ describe('Translation Orchestration', () => {
         const translate = vi.fn().mockResolvedValue({ translation: 'Hola', serviceId: 'libretranslate' });
         registerService({ service: getServiceDefinition('libretranslate'), translate });
         try {
-            await translateInstanceDirect({ id: 'home', providerId: 'libretranslate', name: 'Home',
-                hosting: 'custom', endpoint: 'http://localhost:5000', credential: undefined },
-            { ...defaultParams, apiKey: 'previous-recipient-secret' });
+            const setup = configuredSetup({ ...defaultPrefs, fallbackOrder: ['home'] });
+            setup.instances.push({ id: 'home', providerId: 'libretranslate', name: 'Home',
+                hosting: 'custom', endpoint: 'http://localhost:5000', credential: undefined });
+            await translateSetupWithFallback({ ...defaultParams, apiKey: 'previous-recipient-secret' }, setup);
             expect(translate).toHaveBeenCalledWith(expect.objectContaining({ apiKey: undefined, endpoint: 'http://localhost:5000' }));
         } finally { registerService(original); }
     });
@@ -170,7 +130,6 @@ describe('Translation Orchestration', () => {
         expect(result.translation).toBe('Hola');
         expect(result.serviceId).toBe('google-web');
         expect(result.usedFallback).toBe(false);
-        expect(result.cached).toBe(false);
         expect(mockGoogleTranslate).toHaveBeenCalled();
         expect(mockDeepLTranslate).not.toHaveBeenCalled();
     });
@@ -217,21 +176,18 @@ describe('Translation Orchestration', () => {
     });
 
     it('skips services without required API keys', async () => {
-        // Setup Google mock to succeed
         mockGoogleTranslate.mockResolvedValue({
             translation: 'Success',
             detectedSourceLang: 'en',
             serviceId: 'google-web',
         });
 
-        // DeepL requires key but none provided
         const result = await translateWithFallback(
             defaultParams,
             { ...defaultPrefs, fallbackOrder: ['deepl', 'google-web'] },
-            {} // No keys
+            {}
         );
 
-        // Should skip DeepL and use Google
         expect(result.serviceId).toBe('google-web');
         expect(mockDeepLTranslate).not.toHaveBeenCalled();
         expect(mockGoogleTranslate).toHaveBeenCalled();
@@ -242,11 +198,9 @@ describe('Translation Orchestration', () => {
     it.each([false, true])('uses a supplied key regardless of its validation status (%s)', async validated => {
         mockDeepLTranslate.mockResolvedValue({ translation: 'Hola', serviceId: 'deepl' });
         const keys = { deepl: { key: 'user-supplied-key', validated } };
-        expect(await isServiceAvailable('deepl', keys)).toBe(true);
         const result = await translateWithFallback(defaultParams, { ...defaultPrefs, fallbackOrder: ['deepl'] }, keys);
         expect(result.translation).toBe('Hola');
         expect(mockDeepLTranslate).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'user-supplied-key' }));
-        expect(mockDeepLHandler.validateApiKey).not.toHaveBeenCalled();
     });
 
     it('skips denied provider access and reports it with a successful fallback', async () => {
@@ -265,7 +219,8 @@ describe('Translation Orchestration', () => {
         const granted = ['https://api-free.deepl.com/*'];
         vi.mocked(chrome.permissions.contains).mockImplementation(async permission =>
             permission.origins?.every(origin => granted.includes(origin)) ?? true);
-        await expect(translateDirect('deepl', defaultParams, validApiKeys)).rejects.toMatchObject({ code: 'PERMISSION_REQUIRED' });
+        await expect(translateWithFallback(defaultParams, { ...defaultPrefs, fallbackOrder: ['deepl'] }, validApiKeys))
+            .rejects.toMatchObject({ code: 'PERMISSION_REQUIRED' });
         expect(chrome.permissions.contains).toHaveBeenCalledWith({ origins: ['https://api-free.deepl.com/*', 'https://api.deepl.com/*'] });
         expect(mockDeepLTranslate).not.toHaveBeenCalled();
     });
@@ -306,11 +261,6 @@ describe('Translation Orchestration', () => {
                 { code: 'INVALID_API_KEY', serviceId: 'deepl', instanceId: 'deepl' },
             ],
         });
-    });
-
-    it('does not fetch directly when a credential is missing', async () => {
-        await expect(translateDirect('deepl', defaultParams, {})).rejects.toMatchObject({ code: 'API_KEY_REQUIRED' });
-        expect(mockDeepLTranslate).not.toHaveBeenCalled();
     });
 
     it('cancels a pending attempt without starting another provider', async () => {
@@ -411,12 +361,13 @@ describe('Translation Orchestration', () => {
             translateWithFallback(
                 defaultParams,
                 { ...defaultPrefs, fallbackOrder: ['deepl'] },
-                {} // No keys
+                {}
             )
         ).rejects.toMatchObject({ code: 'API_KEY_REQUIRED', warnings: [{ code: 'API_KEY_REQUIRED', serviceId: 'deepl', instanceId: 'deepl' }] });
+        expect(mockDeepLTranslate).not.toHaveBeenCalled();
     });
 
-    it('handles unexpected errors gracefully', async () => {
+    it('classifies a non-Error provider rejection as a service failure', async () => {
         mockGoogleTranslate.mockRejectedValue('String error');
 
         await expect(
@@ -425,7 +376,7 @@ describe('Translation Orchestration', () => {
                 { ...defaultPrefs, fallbackOrder: ['google-web'] },
                 {}
             )
-        ).rejects.toThrow();
+        ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE', serviceId: 'google-web', instanceId: 'google-web' });
     });
     it('attempts two enabled DeepL accounts independently without carrying credentials', async () => {
         const setup = configuredSetup(defaultPrefs);
@@ -476,23 +427,6 @@ describe('Translation Orchestration', () => {
             expect(result).toMatchObject({ instanceId: 'home', usedFallback: true,
                 warnings: [{ code: 'API_KEY_REQUIRED', instanceId: 'managed' }] });
         } finally { registerService(original); }
-    });
-
-    it('does not explicitly test a disabled or changed instance from a stale settings page', async () => {
-        const instance: TranslationInstance = { id: 'home', providerId: 'libretranslate', name: 'Home', hosting: 'custom', endpoint: 'http://localhost:5000' };
-        const setup = configuredSetup(defaultPrefs);
-        setup.instances.push(instance);
-        setup.preferences.fallbackOrder = [];
-        const read = vi.spyOn(storage, 'getSetup').mockResolvedValue(setup);
-        const fetch = vi.spyOn(globalThis, 'fetch');
-        try {
-            expect((await testInstance(instance)).valid).toBe(false);
-            setup.preferences.fallbackOrder = ['home'];
-            setup.instances = setup.instances.map(candidate => candidate.id === 'home'
-                ? { ...instance, endpoint: 'http://localhost:9000' } : candidate);
-            expect((await testInstance(instance)).valid).toBe(false);
-            expect(fetch).not.toHaveBeenCalled();
-        } finally { read.mockRestore(); fetch.mockRestore(); }
     });
 
     it('warns when a configured instance has disappeared, then tries the next enabled recipient', async () => {

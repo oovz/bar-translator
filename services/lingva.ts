@@ -1,18 +1,10 @@
-/**
- * Lingva Translation Service
- *
- * Lingva is a free, open-source Google Translate proxy. Public deployment
- * availability varies. It requires no API key.
- *
- * @see https://github.com/thedaviddelta/lingva-translate
- * @module services/lingva
- */
+/** Lingva API: https://github.com/thedaviddelta/lingva-translate */
 
-import { BaseTranslationService } from './base';
 import { TranslationError } from '@/utils/errors';
 import { toLingvaLanguage } from '@/utils/languages';
 import type {
     TranslationService,
+    TranslationServiceHandler,
     TranslateParams,
     TranslateResult
 } from '@/src/types';
@@ -35,20 +27,15 @@ function translationResult(data: unknown, serviceId: TranslationService['id']): 
     };
 }
 
-export class LingvaTranslationService extends BaseTranslationService {
-    constructor(public readonly service: TranslationService) {
-        super();
-    }
+export class LingvaTranslationService implements TranslationServiceHandler {
+    constructor(public readonly service: TranslationService) {}
 
     async translate(params: TranslateParams): Promise<TranslateResult> {
         const { text, sourceLang, targetLang } = params;
 
-        // Convert to Lingva's expected format (same as Google Translate)
         const sl = toLingvaLanguage(sourceLang);
         const tl = toLingvaLanguage(targetLang);
 
-        // Lingva API: /api/v1/{source}/{target}/{text}
-        // Use lingva.ml as default, but can be self-hosted
         const baseUrl = this.service.endpoint || 'https://lingva.ml/api/v1';
         const encodedText = encodeURIComponent(text);
         const url = `${baseUrl}/${sl}/${tl}/${encodedText}`;

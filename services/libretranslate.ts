@@ -1,8 +1,7 @@
-import { BaseTranslationService } from './base';
 import { readBoundedJson } from './response-json';
 import { TranslationError } from '@/utils/errors';
 import { MANAGED_LIBRETRANSLATE_ENDPOINT, normalizeEndpoint } from '@/utils/instances';
-import type { TranslationService, TranslateParams, TranslateResult, ValidationResult } from '@/src/types';
+import type { TranslationService, TranslationServiceHandler, TranslateParams, TranslateResult, ValidationResult } from '@/src/types';
 
 const LANGUAGE_CODE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i;
 
@@ -162,8 +161,8 @@ async function translate(endpoint: string, params: TranslateParams): Promise<Tra
     return translationResult(data);
 }
 
-export class LibreTranslateService extends BaseTranslationService {
-    constructor(public readonly service: TranslationService) { super(); }
+export class LibreTranslateService implements TranslationServiceHandler {
+    constructor(public readonly service: TranslationService) {}
 
     async translate(params: TranslateParams): Promise<TranslateResult> {
         return translate(params.endpoint ?? this.service.endpoint ?? MANAGED_LIBRETRANSLATE_ENDPOINT, params);

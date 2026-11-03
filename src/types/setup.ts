@@ -28,6 +28,8 @@ export interface TranslationSetup {
     schemaVersion: 2;
     preferences: UserPreferences;
     instances: TranslationInstance[];
+    /** Stable display order, independent of enabled membership. Derive with getInstanceOrder when absent. */
+    instanceOrder?: InstanceId[];
     copyEnabled: boolean;
 }
 

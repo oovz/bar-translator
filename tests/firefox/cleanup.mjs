@@ -30,8 +30,7 @@ export async function cleanupFirefox({ driver, extension, temporary, diagnostics
     }
     diagnostics.cleanup.temporaryRootRemoved = false;
     try {
-        // WebDriver quit does not wait for every geckodriver shutdown write.
-        // Node retries transient ENOTEMPTY/EBUSY errors while removing the tree.
+        // Geckodriver may still be writing after quit returns.
         await removeTemporary(temporary, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
         diagnostics.cleanup.temporaryRootRemoved = true;
     } catch { failures.push(new Error('Could not remove the disposable Firefox files')); }

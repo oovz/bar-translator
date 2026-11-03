@@ -3,8 +3,7 @@ import { LibreTranslateService, probeLibreTranslate, testLibreTranslate } from '
 import type { TranslationService } from '@/src/types';
 
 const definition: TranslationService = {
-    id: 'libretranslate', name: 'LibreTranslate', type: 'api', requiresApiKey: false,
-    authMethod: 'none', httpMethod: 'POST', endpoint: 'https://libretranslate.com',
+    id: 'libretranslate', name: 'LibreTranslate', endpoint: 'https://libretranslate.com',
 };
 const params = { text: 'Hello', sourceLang: 'en', targetLang: 'es' };
 const languages = [
