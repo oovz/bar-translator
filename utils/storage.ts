@@ -4,7 +4,7 @@ import {
     type SetupResolution, type SetupState, type TranslationSetup,
 } from '@/src/types';
 import { createDefaultSetup, validateSetup } from './instances';
-import { getEnabledOrigins, releaseInstanceOrigins, removeCopyAccess } from './permissions';
+import { COPY_PERMISSIONS, getEnabledOrigins, releaseInstanceOrigins, removeCopyAccess } from './permissions';
 
 /** New records deliberately do not overlap the provider-keyed legacy format. */
 export const SETUP_STORAGE_KEYS = {
@@ -313,13 +313,17 @@ async function readLegacy(): Promise<{ setup: TranslationSetup; storageType: Cre
     const storageType = local[LOCAL_STORAGE_KEYS.CREDENTIAL_STORAGE_TYPE] === 'sync' ? 'sync' : 'local';
     const keys: unknown = storageType === 'sync'
         ? synced[SYNC_STORAGE_KEYS.API_KEYS] : local[LOCAL_STORAGE_KEYS.API_KEYS];
-    const granted = await chrome.permissions.contains({
-        permissions: import.meta.env.FIREFOX ? ['clipboardWrite'] : ['clipboardWrite', 'offscreen'],
-    });
+    const granted = await chrome.permissions.contains({ permissions: COPY_PERMISSIONS });
     const setup = createDefaultSetup(granted);
     const stored: unknown = synced[SYNC_STORAGE_KEYS.PREFERENCES];
     if (isRecord(stored)) setup.preferences = legacyPreferences(stored);
     const credential = legacyCredential(keys);
+    // Historical defaults included inactive Lingva and a DeepL slot. Any legacy record,
+    // including the old storage choice, marks an existing profile rather than a fresh install.
+    if (isRecord(stored) || isRecord(keys) || local[LOCAL_STORAGE_KEYS.CREDENTIAL_STORAGE_TYPE] !== undefined) setup.instances.push(
+        { id: 'lingva', providerId: 'lingva' },
+        { id: 'deepl', providerId: 'deepl', name: 'DeepL' },
+    );
     if (credential) {
         setup.instances = setup.instances.map(instance => instance.providerId === 'deepl' ? { ...instance, credential } : instance);
     }
