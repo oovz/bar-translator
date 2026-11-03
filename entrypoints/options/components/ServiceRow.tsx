@@ -1,36 +1,37 @@
+import { useCallback, useLayoutEffect, useRef, useState } from 'preact/hooks';
+import type { RefObject } from 'preact';
 import { t } from '@/utils/i18n';
-import { getInstanceName } from '@/utils/instances';
+import { getInstanceName, supportsMultipleInstances } from '@/utils/instances';
 import { getInstanceOrigins } from '@/utils/permissions';
 import type { DeepLInstance, TranslationInstance, TranslationSetup } from '@/src/types';
 import { InstanceEditor } from './InstanceEditor';
-import { usesCustomServer, needsCredential } from './instance-model';
-import type { ConfigurableInstance, ServiceListProps } from './instance-model';
+import { needsCredential, instanceTier } from './instance-model';
+import type { ConfigurableInstance, FocusRequest, ServiceListProps } from './instance-model';
 
-interface ServiceRowView {
+export interface ServiceRowView {
     setup: TranslationSetup;
-    draft: ConfigurableInstance | null;
-    placeholderIds: Set<string>;
+    drafts: Partial<Record<'deepl' | 'libretranslate', ConfigurableInstance>>;
     configured: TranslationInstance[];
     access: Record<string, boolean>;
     anyAccess: Record<string, boolean>;
     enabled: TranslationInstance[];
-    expanded: string | null;
+    expandedIds: Record<string, boolean>;
     busy: string | null;
-    editorTransitionBlocked: boolean;
+    blockedIds: Record<string, boolean>;
     replacedDefault: DeepLInstance | undefined;
 }
 
-interface ServiceRowActions {
+export interface ServiceRowActions {
     releaseAccess: (instance: TranslationInstance) => Promise<void>;
     grantAccess: (instance: TranslationInstance) => void;
     move: (id: string, offset: number) => void;
     add: (provider: 'deepl' | 'libretranslate') => void;
-    setExpanded: (id: string | null) => void;
+    setExpanded: (id: string, expanded: boolean) => void;
     toggle: (instance: TranslationInstance) => void;
-    remove: (instance: ConfigurableInstance) => Promise<void>;
-    setEditorTransitionBlocked: (blocked: boolean) => void;
-    setDraft: (instance: ConfigurableInstance | null) => void;
-    setReplacedDefault: (instance: DeepLInstance | undefined) => void;
+    remove: (instance: TranslationInstance) => Promise<void>;
+    setBlocked: (id: string, blocked: boolean) => void;
+    closeDraft: (provider: 'deepl' | 'libretranslate') => void;
+    requestFocus: (request: FocusRequest) => void;
     updateSetup: ServiceListProps['updateSetup'];
 }
 
@@ -41,40 +42,74 @@ interface ServiceRowProps {
     actions: ServiceRowActions;
 }
 
-export function ServiceRow({ instance, index, view, actions }: ServiceRowProps) {
-    const { setup, draft, placeholderIds, configured, access, enabled, expanded, busy, replacedDefault } = view;
-    const { setExpanded, setEditorTransitionBlocked, setDraft, setReplacedDefault, updateSetup } = actions;
-    const isEnabled = index !== undefined;
-    const configurable = 'name' in instance;
-    const isNew = draft?.id === instance.id && !setup.instances.some(saved => saved.id === instance.id);
-    const isPlaceholder = placeholderIds.has(instance.id);
-    const hasConfiguration = configured.some(saved => saved.providerId === instance.providerId);
-    const name = getInstanceName(instance);
-    const needsKey = needsCredential(instance);
-    const ready = Boolean(access[instance.id]) && !needsKey;
-    const sharedGrant = enabled.some(other => getInstanceOrigins(other).some(origin => getInstanceOrigins(instance).includes(origin)));
-    const presentation = { instance, index, isEnabled, configurable, isNew, isPlaceholder, name, ready };
-    return <li key={instance.id} class={`service-item ${isEnabled ? 'enabled' : 'disabled-item'}`} data-id={instance.id} data-provider={instance.providerId}>
-        <div class="service-row">
-            {isEnabled && <><span class="drag-handle" title={t('dragToReorder')}>⋮⋮</span><span class="service-index">{index + 1}</span></>}
-            <ServiceInfo {...presentation} view={view} />
-            <ServiceActions {...presentation} view={view} actions={actions} sharedGrant={sharedGrant} hasConfiguration={hasConfiguration} />
-        </div>
-        {configurable && expanded === instance.id && <InstanceEditor instance={instance} enabled={isEnabled} allowed={Boolean(access[instance.id])}
-            isNew={isNew} replaces={isNew ? replacedDefault : undefined}
-            transitioning={busy === instance.id} onTransitionBlockedChange={setEditorTransitionBlocked}
-            onCancel={() => { setDraft(null); setReplacedDefault(undefined); setExpanded(null); }} updateSetup={updateSetup} />}
-    </li>;
+export function DisclosureChevron({ expanded }: { expanded: boolean }) {
+    return <span class="disclosure-chevron" aria-hidden="true" data-expanded={expanded}>
+        <svg viewBox="0 0 16 16" width="16" height="16" focusable="false">
+            <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+    </span>;
+}
 
+export function ServiceRow({ instance, index, view, actions }: ServiceRowProps) {
+    const { setup, access, enabled, expandedIds, busy } = view;
+    const { setExpanded } = actions;
+    const { confirming, setConfirming, deleteTrigger, dismissConfirmation } = useDeleteConfirmation();
+    const isEnabled = setup.preferences.fallbackOrder.includes(instance.id);
+    const configurable = supportsMultipleInstances(instance.providerId);
+    const name = getInstanceName(instance);
+    const ready = Boolean(access[instance.id]) && !needsCredential(instance);
+    const sharedGrant = enabled.some(other => getInstanceOrigins(other).some(origin => getInstanceOrigins(instance).includes(origin)));
+    const presentation = { instance, index, isEnabled, name, ready };
+    return <li key={instance.id} tabIndex={-1} class={`service-item ${isEnabled ? 'enabled' : 'disabled-item'}`} data-id={instance.id} data-provider={instance.providerId}>
+        <div class="service-row">
+            {index !== undefined && <><span class="drag-handle" title={t('dragToReorder')}>⋮⋮</span><span class="service-index">{index + 1}</span></>}
+            {configurable
+                ? <button class="service-disclosure" aria-label={t('showServiceDetails', [name])} aria-expanded={Boolean(expandedIds[instance.id])}
+                    aria-controls={`instance-panel-${instance.id}`} aria-describedby={`instance-summary-${instance.id}`} disabled={catalogOwns(instance.id, view) || busy === instance.id}
+                    onClick={() => setExpanded(instance.id, !expandedIds[instance.id])}>
+                    <ServiceInfo {...presentation} view={view} />
+                    <DisclosureChevron expanded={Boolean(expandedIds[instance.id])} />
+                </button>
+                : <ServiceInfo {...presentation} view={view} />}
+            <ServiceActions {...presentation} view={view} actions={actions} sharedGrant={sharedGrant}
+                confirming={confirming} setConfirming={setConfirming} deleteTrigger={deleteTrigger} />
+        </div>
+        {confirming && <DeleteConfirmation instance={instance} name={name} view={view}
+            onCancel={dismissConfirmation}
+            onConfirm={() => { dismissConfirmation(); void actions.remove(instance); }} />}
+        {configurable && <ServiceDetailsPanel instance={instance} view={view} actions={actions} />}
+    </li>;
+}
+
+function useDeleteConfirmation() {
+    const [confirming, setConfirming] = useState(false);
+    const deleteTrigger = useRef<HTMLButtonElement>(null);
+    const returnDeleteFocus = useRef(false);
+    useLayoutEffect(() => {
+        if (confirming || !returnDeleteFocus.current) return;
+        returnDeleteFocus.current = false;
+        deleteTrigger.current?.focus();
+    }, [confirming]);
+    const dismissConfirmation = () => { returnDeleteFocus.current = true; setConfirming(false); };
+    return { confirming, setConfirming, deleteTrigger, dismissConfirmation };
+}
+
+function ServiceDetailsPanel({ instance, view, actions }: ServiceRowProps) {
+    const reportBlocked = useCallback((blocked: boolean) => actions.setBlocked(instance.id, blocked), [instance.id, actions.setBlocked]);
+    if (!('name' in instance) || catalogOwns(instance.id, view)) {
+        return <div id={`instance-panel-${instance.id}`} hidden />;
+    }
+    return <div id={`instance-panel-${instance.id}`} hidden={!view.expandedIds[instance.id]}>
+        {Object.hasOwn(view.expandedIds, instance.id) && <InstanceEditor instance={instance} enabled={view.setup.preferences.fallbackOrder.includes(instance.id)}
+            allowed={Boolean(view.access[instance.id])} isNew={false} transitioning={view.busy === instance.id}
+            onTransitionBlockedChange={reportBlocked} onCancel={() => actions.setExpanded(instance.id, false)} updateSetup={actions.updateSetup} />}
+    </div>;
 }
 
 interface RowPresentation {
     instance: TranslationInstance;
     index: number | undefined;
     isEnabled: boolean;
-    configurable: boolean;
-    isNew: boolean;
-    isPlaceholder: boolean;
     name: string;
     ready: boolean;
 }
@@ -82,58 +117,67 @@ interface RowPresentation {
 type ServiceInfoProps = RowPresentation & { view: ServiceRowView };
 
 function ServiceInfo(props: ServiceInfoProps) {
-    return <div class="service-info">
+    return <span class="service-info" id={`instance-summary-${props.instance.id}`}>
         <ServiceHeading {...props} />
         <InstanceDescription {...props} />
         <EndpointWarning {...props} />
         <InstanceStatus {...props} />
-    </div>;
+    </span>;
 }
 
-function ServiceHeading({ name, isNew, index, isEnabled, ready }: ServiceInfoProps) {
-    return <div class="service-heading"><span class="service-name">{name}</span>
-        {isNew && <span class="badge badge-muted">{t('draftInstance')}</span>}
+function ServiceHeading({ name, index }: ServiceInfoProps) {
+    return <span class="service-heading"><span class="service-name">{name}</span>
         {index === 0 && <span class="badge badge-primary">{t('primary')}</span>}
-        {isEnabled && ready && <span class="badge badge-success" aria-label={t('providerReady')}>✓</span>}
-    </div>;
+    </span>;
 }
 
-function InstanceDescription({ instance, isPlaceholder, isEnabled, name }: ServiceInfoProps) {
-    if (isPlaceholder) return <div class="setting-hint">{t(instance.providerId === 'deepl' ? 'deepLProviderDescription' : 'libreProviderDescription')}</div>;
-    if ('name' in instance) return <ConfiguredDescription instance={instance} name={name} />;
-    if (isEnabled) return null;
-    return <div class="setting-hint">{t(instance.providerId === 'google-web' ? 'googleProviderDescription' : 'lingvaProviderDescription')}</div>;
+function InstanceDescription({ instance }: ServiceInfoProps) {
+    if ('name' in instance) return <ConfiguredDescription instance={instance} />;
+    return <span class="setting-hint">{t(instance.providerId === 'google-web' ? 'googleProviderDescription' : 'lingvaProviderDescription')}</span>;
 }
 
-function ConfiguredDescription({ instance, name }: { instance: ConfigurableInstance; name: string }) {
-    if (instance.providerId === 'libretranslate') return <div class="setting-hint">{`LibreTranslate · ${instance.endpoint}`}</div>;
-    if (name !== 'DeepL') return <div class="setting-hint">DeepL</div>;
-    return !instance.credential?.key ? <div class="setting-hint">{t('keyNeeded')}</div> : null;
+function ConfiguredDescription({ instance }: { instance: ConfigurableInstance }) {
+    const detail = instance.providerId === 'libretranslate'
+        ? `LibreTranslate · ${safeEndpointSummary(instance.endpoint)}`
+        : `DeepL · API ${instanceTier(instance) === 'pro' ? 'Pro' : 'Free'}`;
+    return <span class="setting-hint">{detail}</span>;
 }
 
-function EndpointWarning({ instance, isPlaceholder, view }: ServiceInfoProps) {
-    if (isPlaceholder || instance.providerId !== 'libretranslate' || !instance.endpoint.startsWith('http:') || view.expanded === instance.id) return null;
-    return <div class="setting-hint http-warning">{t('httpEndpointWarning')}</div>;
+/** Show the recipient address without credentials, query strings or fragments. */
+function safeEndpointSummary(endpoint: string) {
+    try {
+        const url = new URL(endpoint);
+        return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
+    } catch { return t('instanceEndpointInvalid'); }
 }
 
-function InstanceStatus({ instance, isEnabled, ready, view }: ServiceInfoProps) {
-    if (!isEnabled || ready) return null;
-    return <div class="setting-hint service-status">{!view.access[instance.id] ? t('providerPermissionRequired') : t('keyNeeded')}</div>;
+function EndpointWarning({ instance, view }: ServiceInfoProps) {
+    if (instance.providerId !== 'libretranslate' || !instance.endpoint.startsWith('http:') || view.expandedIds[instance.id]) return null;
+    return <span class="setting-hint http-warning">{t('httpEndpointWarning')}</span>;
+}
+
+function InstanceStatus({ instance, isEnabled, ready }: ServiceInfoProps) {
+    if (needsCredential(instance)) return <span class="setting-hint service-status">{t('keyNeeded')}</span>;
+    if (!isEnabled) return <span class="setting-hint">{t('serviceOff')}</span>;
+    if (!ready) return <span class="setting-hint service-status">{t('providerPermissionRequired')}</span>;
+    if (!('credential' in instance)) return <span class="setting-hint">{t('providerReady')}</span>;
+    return <span class="setting-hint">{instance.credential?.validated ? t('valid') : t('serviceNotTested')}</span>;
 }
 
 type ServiceActionsProps = RowPresentation & {
     view: ServiceRowView;
     actions: ServiceRowActions;
     sharedGrant: boolean;
-    hasConfiguration: boolean;
+    confirming: boolean;
+    setConfirming: (confirming: boolean) => void;
+    deleteTrigger: RefObject<HTMLButtonElement | null>;
 };
 
 function ServiceActions(props: ServiceActionsProps) {
     return <div class="service-actions">
         <AccessActions {...props} />
         <ReorderActions {...props} />
-        <ConfigureAction {...props} />
-        <ToggleAction {...props} />
+        {supportsMultipleInstances(props.instance.providerId) && <ToggleAction {...props} />}
         <DeleteAction {...props} />
     </div>;
 }
@@ -141,59 +185,60 @@ function ServiceActions(props: ServiceActionsProps) {
 function AccessActions({ instance, isEnabled, name, view, actions, sharedGrant }: ServiceActionsProps) {
     const { anyAccess, access, busy } = view;
     if (!isEnabled) return anyAccess[instance.id] && !sharedGrant
-        ? <button class="btn btn-sm" disabled={busy !== null} onClick={() => void actions.releaseAccess(instance)}>{t('removeAccess')}</button>
+        ? <button class="btn btn-sm" disabled={busy !== null || catalogOwns(instance.id, view) || view.blockedIds[instance.id]} onClick={() => void actions.releaseAccess(instance)}>{t('removeAccess')}</button>
         : null;
     if (access[instance.id]) return null;
-    const custom = usesCustomServer(instance);
-    return <button class="btn btn-sm" disabled={busy !== null}
-        data-action={custom ? 'connect-instance' : 'grant-access'}
-        aria-label={custom ? t('connectInstance', [name]) : undefined}
-        onClick={() => actions.grantAccess(instance)}>{t(custom ? 'connect' : 'grantAccess')}</button>;
+    return <button class="btn btn-sm" disabled={busy !== null || catalogOwns(instance.id, view) || view.blockedIds[instance.id]}
+        data-action="grant-access" aria-label={t('grantInstanceAccess', [name])}
+        onClick={() => actions.grantAccess(instance)}>{t('grantAccess')}</button>;
 }
 
-function ReorderActions({ instance, index, isEnabled, name, view, actions }: ServiceActionsProps) {
+function ReorderActions({ instance, isEnabled, name, view, actions }: ServiceActionsProps) {
     if (!isEnabled) return null;
+    const position = view.enabled.findIndex(candidate => candidate.id === instance.id);
     return <>
-        <button class="btn btn-sm" aria-label={t('moveInstanceUp', [name])} disabled={index === 0 || view.busy !== null} onClick={() => actions.move(instance.id, -1)}>↑</button>
-        <button class="btn btn-sm" aria-label={t('moveInstanceDown', [name])} disabled={index === view.enabled.length - 1 || view.busy !== null} onClick={() => actions.move(instance.id, 1)}>↓</button>
+        <button class="btn btn-sm" aria-label={t('moveInstanceUp', [name])} disabled={position === 0 || view.busy !== null || view.blockedIds[instance.id]} onClick={() => actions.move(instance.id, -1)}>↑</button>
+        <button class="btn btn-sm" aria-label={t('moveInstanceDown', [name])} disabled={position === view.enabled.length - 1 || view.busy !== null || view.blockedIds[instance.id]} onClick={() => actions.move(instance.id, 1)}>↓</button>
     </>;
 }
 
-function ConfigureAction(props: ServiceActionsProps) {
-    const { instance, isPlaceholder, isNew, name, view, actions, hasConfiguration } = props;
-    if (!('name' in instance)) return null;
-    if (isPlaceholder) return <button class="btn btn-sm btn-primary" data-action="add-provider"
-        aria-label={t(hasConfiguration ? 'addProviderInstance' : 'configureNamedInstance', [name])} disabled={view.busy !== null || view.draft !== null}
-        onClick={() => actions.add(instance.providerId)}>{t(hasConfiguration ? 'addInstance' : 'configureInstance')}</button>;
-    if (isNew) return null;
-    return <ExistingConfigurationAction {...props} />;
+
+function ToggleAction({ instance, isEnabled, name, view, actions }: ServiceActionsProps) {
+    return <button class="btn btn-sm" aria-label={t(isEnabled ? 'disableInstance' : 'enableInstance', [name])}
+        data-action={isEnabled ? 'disable-instance' : 'enable-instance'}
+        disabled={view.busy !== null || catalogOwns(instance.id, view) || view.blockedIds[instance.id]}
+        onClick={() => actions.toggle(instance)}>{t(isEnabled ? 'disable' : 'enable')}</button>;
 }
 
-function ExistingConfigurationAction({ instance, name, view, actions }: ServiceActionsProps) {
-    const expanded = view.expanded === instance.id;
-    return <button class="btn btn-sm" aria-label={t('configureNamedInstance', [name])} aria-expanded={expanded} aria-controls={`instance-${instance.id}`}
-        disabled={view.busy !== null || (view.draft !== null && view.draft.id !== instance.id)}
-        onClick={() => actions.setExpanded(expanded ? null : instance.id)}>{t('configureInstance')}</button>;
+function DeleteAction({ instance, name, view, confirming, setConfirming, deleteTrigger }: ServiceActionsProps) {
+    if (confirming) return null;
+    const blocked = view.busy !== null || catalogOwns(instance.id, view) || view.blockedIds[instance.id];
+    return <button ref={deleteTrigger} class="btn btn-sm" data-action="delete-instance"
+        aria-label={t('deleteNamedInstance', [name])} disabled={blocked}
+        onClick={() => setConfirming(true)}>{t('deleteInstance')}</button>;
 }
 
-function ToggleAction({ instance, isNew, isPlaceholder, isEnabled, name, view, actions }: ServiceActionsProps) {
-    if (isNew || isPlaceholder) return null;
-    const labels = toggleLabels(instance, isEnabled);
-    return <button class={`btn btn-sm ${!isEnabled ? 'btn-primary' : ''}`}
-        data-action={labels.action} aria-label={t(labels.label, [name])}
-        disabled={view.busy !== null || (view.expanded === instance.id && view.editorTransitionBlocked)}
-        onClick={() => actions.toggle(instance)}>{labels.text}</button>;
+function DeleteConfirmation({ instance, name, view, onCancel, onConfirm }: {
+    instance: TranslationInstance;
+    name: string;
+    view: ServiceRowView;
+    onCancel: () => void;
+    onConfirm: () => void;
+}) {
+    const confirm = useRef<HTMLButtonElement>(null);
+    useLayoutEffect(() => { confirm.current?.focus(); }, []);
+    const warningId = `delete-warning-${instance.id}`;
+    const blocked = view.busy !== null || catalogOwns(instance.id, view) || view.blockedIds[instance.id];
+    return <div class="delete-confirmation" role="group" aria-label={t('deleteConfirmationLabel', [name])}>
+        <span id={warningId} class="delete-confirmation-text">{t('deleteConfirmation', [name])}</span>
+        <span class="delete-confirmation-actions">
+            <button class="btn btn-sm" data-action="cancel-delete" disabled={view.busy !== null} onClick={onCancel}>{t('cancel')}</button>
+            <button ref={confirm} class="btn btn-sm btn-danger" data-action="confirm-delete"
+                aria-describedby={warningId} disabled={blocked} onClick={onConfirm}>{t('deleteInstance')}</button>
+        </span>
+    </div>;
 }
 
-function toggleLabels(instance: TranslationInstance, isEnabled: boolean) {
-    if (isEnabled) return { action: 'disable-instance', label: 'disableInstance', text: '✕' };
-    return usesCustomServer(instance)
-        ? { action: 'connect-instance', label: 'connectInstance', text: t('connect') }
-        : { action: 'enable-instance', label: 'enableInstance', text: '+' };
-}
-
-function DeleteAction({ instance, isNew, isPlaceholder, name, view, actions }: ServiceActionsProps) {
-    if (!('name' in instance) || isNew || isPlaceholder) return null;
-    return <button class="btn btn-sm" aria-label={t('deleteNamedInstance', [name])} disabled={view.busy !== null}
-        onClick={() => void actions.remove(instance)}>{t('deleteInstance')}</button>;
+function catalogOwns(id: string, view: ServiceRowView) {
+    return Object.values(view.drafts).some(draft => draft.id === id);
 }

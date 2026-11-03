@@ -15,40 +15,48 @@ export async function openSettings(context: BrowserContext, extensionId: string,
 }
 
 export function instanceRow(page: Page, id: string) {
-    return page.locator(`.service-item[data-id="${id}"]`);
+    return page.locator(`.service-item[data-id="${id}"], #available-providers [data-catalog-provider]:has(.instance-editor[id="instance-${id}"])`);
 }
 
 export async function configure(page: Page, row: Locator) {
     if (await row.locator('.instance-editor').isVisible()) return;
     const name = (await row.locator('.service-name').textContent())!;
-    const disclosure = row.getByRole('button', { name: await message(page, 'configureNamedInstance', [name]), exact: true });
+    const disclosure = row.getByRole('button', { name: await message(page, 'showServiceDetails', [name]), exact: true });
     if (await disclosure.getAttribute('aria-expanded') !== 'true') await disclosure.click();
     await expect(row.locator('.instance-editor')).toBeVisible();
 }
 
 export async function saveInstance(page: Page, row: Locator) {
-    const save = row.getByRole('button', { name: await message(page, 'saveInstance'), exact: true });
+    const adding = await row.locator('[data-action="add-and-enable"]').count() > 0;
+    const save = row.getByRole('button', { name: await message(page, adding ? 'saveForLater' : 'saveInstance'), exact: true });
     await save.click();
-    await expect(save).toBeDisabled();
-    await expect(row.getByRole('status')).toBeVisible();
+    if (adding) {
+        await expect(row.locator('[data-action="add-and-enable"]')).toHaveCount(0);
+        await expect(row).toHaveClass(/\bdisabled-item\b/);
+        // Reopen explicitly: creation closes the inline catalog form, editing does not.
+        await configure(page, row);
+    } else {
+        await expect(save).toBeDisabled();
+        await expect(row.getByRole('status')).toBeVisible();
+    }
 }
 
 export async function setEnabled(row: Locator, enabled: boolean) {
-    await row.locator(enabled ? '[data-action="enable-instance"], [data-action="connect-instance"]' : '[data-action="disable-instance"]').click();
+    await row.locator(enabled ? '[data-action="enable-instance"]' : '[data-action="disable-instance"]').click();
+    await expect(row.locator(enabled ? '[data-action="disable-instance"]' : '[data-action="enable-instance"]')).toBeVisible();
     await expect(row).toHaveClass(enabled ? /\benabled\b/ : /\bdisabled-item\b/);
 }
 
 export async function addInstance(page: Page, provider: 'deepl' | 'libretranslate') {
-    const rows = page.locator('.service-item[data-id]');
-    const previousIds = await rows.evaluateAll(items => items.map(item => item.getAttribute('data-id')));
-    await page.locator(`[data-provider="${provider}"] [data-action="add-provider"]`).click();
-    const id = await rows.evaluateAll((items, previousIds) => items
-        .map(item => item.getAttribute('data-id'))
-        .find(id => !previousIds.includes(id)), previousIds);
-    expect(id).toBeTruthy();
-    const row = instanceRow(page, id!);
-    await expect(row.locator('.instance-editor')).toBeVisible();
-    return { id: id!, row };
+    const catalog = page.locator(`#available-providers [data-catalog-provider="${provider}"]`);
+    await catalog.locator('[data-action="add-provider"]').click();
+    const editor = catalog.locator('.instance-editor');
+    await expect(editor).toBeVisible();
+    const editorId = await editor.getAttribute('id');
+    expect(editorId).toMatch(/^instance-.+/);
+    const id = editorId!.slice('instance-'.length);
+    // This locator follows the draft from the catalog to its stable configured row.
+    return { id, row: instanceRow(page, id) };
 }
 
 export async function nameAndKey(page: Page, row: Locator, name: string, key: string) {

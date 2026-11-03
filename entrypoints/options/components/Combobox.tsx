@@ -1,88 +1,109 @@
-import { useState, useRef, useEffect } from 'preact/hooks';
+import { useState, useRef, useEffect, useId } from 'preact/hooks';
+import type { TargetedKeyboardEvent } from 'preact';
 import { t } from '@/utils/i18n';
 import type { LanguageInfo } from '@/src/types';
 
 interface ComboboxProps {
+    id?: string;
     value: string;
     options: readonly LanguageInfo[];
     onChange: (value: string) => void;
     placeholder?: string;
 }
 
-export function Combobox({ value, options, onChange, placeholder }: ComboboxProps) {
+export function Combobox({ id, value, options, onChange, placeholder }: ComboboxProps) {
+    const listId = useId();
+    const state = useComboboxState(value, options, onChange);
+    const activeId = state.highlighted === undefined ? undefined : `${listId}-${state.highlighted}`;
+    return <div class="combobox-container">
+        <input id={id} type="text" role="combobox" aria-autocomplete="list"
+            aria-expanded={state.isOpen} aria-controls={state.isOpen ? listId : undefined}
+            aria-activedescendant={activeId} class="input" value={state.text} placeholder={placeholder}
+            onFocus={event => state.open(event.currentTarget)}
+            onClick={event => { if (!state.isOpen) state.open(event.currentTarget); }}
+            onInput={event => state.search(event.currentTarget.value)}
+            onKeyDown={event => handleComboboxKey(event, state)} onBlur={state.close} />
+        {state.isOpen && <LanguageOptions id={listId} options={state.options} value={value}
+            highlighted={state.highlighted} onSelect={state.select} />}
+    </div>;
+}
+
+function useComboboxState(value: string, options: readonly LanguageInfo[], onChange: (value: string) => void) {
     const [isOpen, setIsOpen] = useState(false);
-    const [search, setSearch] = useState('');
-    const [isFiltering, setIsFiltering] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const [query, setQuery] = useState<string | null>(null);
+    const [highlighted, setHighlighted] = useState<string>();
+    const selectedText = options.find(option => option.code === value)?.name ?? value;
+    const displayedOptions = query === null ? options : filterLanguages(options, query);
+    const close = () => {
+        setIsOpen(false);
+        setQuery(null);
+        setHighlighted(undefined);
+    };
+    const open = (input: HTMLInputElement) => {
+        setIsOpen(true);
+        setQuery(null);
+        input.select();
+    };
+    const search = (text: string) => {
+        setQuery(text);
+        setHighlighted(undefined);
+        setIsOpen(true);
+    };
+    const move = (direction: number) => {
+        setIsOpen(true);
+        const current = displayedOptions.findIndex(option => option.code === highlighted);
+        const next = nextOptionIndex(current, displayedOptions.length, direction);
+        setHighlighted(displayedOptions[next]?.code);
+    };
+    const select = (code: string) => { onChange(code); close(); };
+    return { isOpen, highlighted, text: query ?? selectedText, options: displayedOptions, close, open, search, move, select };
+}
 
-    // Sync input text with selected value when not editing
-    useEffect(() => {
-        if (!isOpen) {
-            const selected = options.find(o => o.code === value);
-            setSearch(selected ? selected.name : value); // Fallback to value if name not found
-        }
-    }, [value, options, isOpen]);
+function handleComboboxKey(event: TargetedKeyboardEvent<HTMLInputElement>, state: ReturnType<typeof useComboboxState>) {
+    if (event.isComposing) return;
+    switch (event.key) {
+        case 'ArrowDown':
+        case 'ArrowUp':
+            event.preventDefault();
+            state.move(event.key === 'ArrowDown' ? 1 : -1);
+            break;
+        case 'Enter':
+            if (state.highlighted === undefined) return;
+            event.preventDefault();
+            state.select(state.highlighted);
+            break;
+        case 'Escape':
+            event.preventDefault();
+            state.close();
+            break;
+    }
+}
 
-    // Handle click outside to close
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-                setIsFiltering(false);
-            }
-        };
+function LanguageOptions({ id, options, value, highlighted, onSelect }: {
+    id: string;
+    options: readonly LanguageInfo[];
+    value: string;
+    highlighted: string | undefined;
+    onSelect: (code: string) => void;
+}) {
+    const activeRef = useRef<HTMLDivElement>(null);
+    useEffect(() => { activeRef.current?.scrollIntoView?.({ block: 'nearest' }); }, [highlighted]);
+    return <div class="combobox-dropdown" id={id} role="listbox">
+        {options.length === 0 && <div class="combobox-option" style={{ color: 'var(--text-secondary)', cursor: 'default' }}>
+            {t('noResults')}
+        </div>}
+        {options.map(option => <div key={option.code} id={`${id}-${option.code}`} role="option"
+            aria-selected={option.code === value} ref={option.code === highlighted ? activeRef : undefined}
+            class={`combobox-option ${option.code === value ? 'selected' : ''} ${option.code === highlighted ? 'active' : ''}`}
+            onMouseDown={event => event.preventDefault()} onClick={() => onSelect(option.code)}>
+            <span>{option.name}</span><span class="combobox-option-code">{option.code}</span>
+        </div>)}
+    </div>;
+}
 
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
-
-    const displayedOptions = isFiltering ? filterLanguages(options, search) : options;
-
-    return (
-        <div class="combobox-container" ref={containerRef}>
-            <input
-                type="text"
-                class="input"
-                value={search}
-                placeholder={placeholder}
-                onFocus={(e) => {
-                    setIsOpen(true);
-                    setIsFiltering(false); // Show all options on focus
-                    e.currentTarget.select(); // Select all text for easy replacement
-                }}
-                onInput={(e) => {
-                    setSearch(e.currentTarget.value);
-                    setIsFiltering(true); // Filter only when typing
-                    setIsOpen(true);
-                }}
-            />
-            {isOpen && (
-                <div class="combobox-dropdown">
-                    {displayedOptions.length === 0 ? (
-                        <div class="combobox-option" style={{ color: 'var(--text-secondary)', cursor: 'default' }}>
-                            {t('noResults')}
-                        </div>
-                    ) : (
-                        displayedOptions.map(opt => (
-                            <div
-                                key={opt.code}
-                                class={`combobox-option ${opt.code === value ? 'selected' : ''}`}
-                                onClick={() => {
-                                    onChange(opt.code);
-                                    setIsOpen(false);
-                                    setIsFiltering(false);
-                                    // Search text update is handled by useEffect when isOpen becomes false
-                                }}
-                            >
-                                <span>{opt.name}</span>
-                                <span class="combobox-option-code">{opt.code}</span>
-                            </div>
-                        ))
-                    )}
-                </div>
-            )}
-        </div>
-    );
+function nextOptionIndex(current: number, length: number, direction: number) {
+    if (current < 0) return direction > 0 ? 0 : length - 1;
+    return Math.max(0, Math.min(length - 1, current + direction));
 }
 
 function filterLanguages(options: readonly LanguageInfo[], search: string) {

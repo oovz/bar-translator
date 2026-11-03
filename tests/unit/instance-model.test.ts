@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createDefaultSetup } from '@/utils/instances';
+import { createLegacySetup } from '@/tests/fixtures/legacy-setup';
+import { validateSetup } from '@/utils/instances';
 import {
-    configurationIdentity, editedInstance, recordInstanceTest, replaceEditedInstance, draftChanged, moveInstance, needsCredential, toggleInstance,
+    addSingletonInstance, configurationIdentity, editedInstance, recordInstanceTest, replaceEditedInstance, draftChanged, moveInstance, needsCredential, toggleInstance,
     type ConfigurableInstance, type InstanceDraft,
 } from '@/entrypoints/options/components/instance-model';
 import type { DeepLInstance, LibreTranslateInstance, TranslationInstance } from '@/src/types';
@@ -11,7 +12,7 @@ const account: DeepLInstance = {
     credential: { key: 'secret:fx', tier: 'free', validated: false },
 };
 function setupWith(instance: ConfigurableInstance) {
-    const setup = createDefaultSetup();
+    const setup = createLegacySetup();
     setup.instances.push(structuredClone(instance));
     return setup;
 }
@@ -20,6 +21,15 @@ function draft(name: string): InstanceDraft {
 }
 
 describe('editing and validating configured instances', () => {
+    it('adds an inactive fixed provider in its saved priority slot', () => {
+        const setup = createLegacySetup();
+        setup.instanceOrder = ['google-web', 'deepl', 'lingva'];
+        setup.preferences.fallbackOrder = ['deepl'];
+        const updated = addSingletonInstance(setup, { id: 'google-web', providerId: 'google-web' });
+        expect(validateSetup(updated).preferences.fallbackOrder).toEqual(['google-web', 'deepl']);
+        expect(updated.instanceOrder).toEqual(setup.instanceOrder);
+    });
+
     it.each(['', '   ', 'x'.repeat(129)])('rejects an invalid display name before preparing an edited instance: %j', name => {
         expect(() => editedInstance(account, draft(name), false)).toThrow('instanceNameInvalid');
     });
@@ -30,7 +40,7 @@ describe('editing and validating configured instances', () => {
     });
 
     it('refuses an edit of an account removed by another settings page', () => {
-        const setup = createDefaultSetup();
+        const setup = createLegacySetup();
         expect(() => replaceEditedInstance(setup, account, { ...account, name: 'Renamed' }, 'free')).toThrow('instanceChanged');
         expect(setup.instances.some(instance => instance.id === account.id)).toBe(false);
     });
@@ -63,7 +73,7 @@ describe('editing and validating configured instances', () => {
     });
 
     it('rejects a completed test after the account was removed', () => {
-        expect(() => recordInstanceTest(createDefaultSetup(), account.id, configurationIdentity(account), true)).toThrow('keyChangedDuringTest');
+        expect(() => recordInstanceTest(createLegacySetup(), account.id, configurationIdentity(account), true)).toThrow('keyChangedDuringTest');
     });
 
     it('rejects a completed test for a credential replaced while the request was running', () => {
@@ -95,20 +105,20 @@ describe('editing and validating configured instances', () => {
     });
 
     it('moves the first provider down without losing or duplicating any other instance', () => {
-        const setup = createDefaultSetup();
+        const setup = createLegacySetup();
         setup.preferences.fallbackOrder = ['google-web', 'deepl', 'lingva'];
         expect(moveInstance(setup, 'google-web', 1).preferences.fallbackOrder).toEqual(['deepl', 'google-web', 'lingva']);
         expect(setup.preferences.fallbackOrder).toEqual(['google-web', 'deepl', 'lingva']);
     });
 
     it('ignores a reorder request for an account removed since the user started reordering', () => {
-        const setup = createDefaultSetup();
+        const setup = createLegacySetup();
         setup.preferences.fallbackOrder = ['google-web', 'deepl', 'lingva'];
         expect(moveInstance(setup, 'removed-account', 1)).toEqual(setup);
     });
 
     it('does not wrap the first provider around the list when asked to move upward', () => {
-        const setup = createDefaultSetup();
+        const setup = createLegacySetup();
         setup.preferences.fallbackOrder = ['google-web', 'deepl', 'lingva'];
         expect(moveInstance(setup, 'google-web', -1).preferences.fallbackOrder).toEqual(['google-web', 'deepl', 'lingva']);
     });
@@ -132,8 +142,23 @@ describe('editing and validating configured instances', () => {
         expect(current.preferences.fallbackOrder).not.toContain(original.id);
     });
 
+    it('enables a keyless account when its required access is granted', async () => {
+        const keyless = { ...account, credential: undefined };
+        const current = setupWith(keyless);
+        vi.mocked(chrome.permissions.contains).mockImplementation(async () => true);
+        const next = await toggleInstance(current, keyless, true);
+        expect(next.preferences.fallbackOrder).toContain(account.id);
+        expect(next.instances).toEqual(current.instances);
+    });
+
+    it('still allows turning off an active account whose key has been erased', async () => {
+        const current = setupWith({ ...account, credential: undefined });
+        current.preferences.fallbackOrder.push(account.id);
+        expect((await toggleInstance(current, account, false)).preferences.fallbackOrder).not.toContain(account.id);
+    });
+
     it('reports a removed account rather than failing internally when an enable request completes', async () => {
-        await expect(toggleInstance(createDefaultSetup(), account, true)).rejects.toThrow('instanceChanged');
+        await expect(toggleInstance(createLegacySetup(), account, true)).rejects.toThrow('instanceChanged');
     });
 
 });

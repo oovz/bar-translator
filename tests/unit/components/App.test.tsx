@@ -3,8 +3,9 @@ import { render as renderPreact } from 'preact';
 import { act } from 'preact/test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, waitFor, within } from '@testing-library/preact';
+import userEvent from '@testing-library/user-event';
 import App from '@/entrypoints/options/App';
-import { createDefaultSetup } from '@/utils/instances';
+import { createLegacySetup } from '@/tests/fixtures/legacy-setup';
 import { getSetupState, retrySetupMigration, switchSetupStorage, updateSetup } from '@/utils/storage';
 import type { SetupState, TranslationSetup } from '@/src/types';
 
@@ -37,7 +38,7 @@ beforeEach(() => {
     Object.defineProperty(window, 'sessionStorage', { configurable: true, value: jsdom.window.sessionStorage });
     window.localStorage.clear();
     window.sessionStorage.clear();
-    state = { setup: createDefaultSetup(), storageType: 'local' };
+    state = { setup: createLegacySetup(), storageType: 'local' };
     state.setup.preferences.fallbackOrder = [];
     vi.mocked(chrome.permissions.contains).mockImplementation(async () => true);
     vi.mocked(chrome.permissions.request).mockImplementation(async () => true);
@@ -46,6 +47,18 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('whole-setup settings application', () => {
+    it('saves the default languages selected through their labeled keyboard controls', async () => {
+        const view = render(<App />);
+        const user = userEvent.setup();
+        await user.click(await view.findByRole('combobox', { name: 'labelSource' }));
+        await user.keyboard('French{ArrowDown}{Enter}');
+        await waitFor(() => expect(state.setup.preferences.defaultSourceLang).toBe('fr'));
+        await user.click(view.getByRole('combobox', { name: 'labelTarget' }));
+        await user.keyboard('Japanese{ArrowDown}{Enter}');
+        await waitFor(() => expect(state.setup.preferences.defaultTargetLang).toBe('ja'));
+        expect(state.setup.preferences.defaultSourceLang).toBe('fr');
+    });
+
     it('clears retired analytics data while preserving unrelated browser storage', async () => {
         const token = 'phc_yI0ofU7zKrbDyBlCEwGTfsT5EkfcGnmmUE2XRewGg3h';
         const keys = [`ph_${token}_posthog`, `__ph_opt_in_out_${token}`, `ph_${token}_window_id`, `ph_${token}_primary_window_exists`];
@@ -62,13 +75,13 @@ describe('whole-setup settings application', () => {
         }
     });
 
-    it('preserves disable-all across visits and can re-enable a fixed provider', async () => {
+    it('preserves an empty active list across visits and can add a fixed provider', async () => {
         const first = render(<App />);
         await first.findByText('noServicesEnabled');
         first.unmount();
         const second = render(<App />);
         await second.findByText('noServicesEnabled');
-        fireEvent.click(within(second.container.querySelector('[data-id="lingva"]')! as HTMLElement).getByRole('button', { name: 'enableInstance' }));
+        fireEvent.click(within(second.container.querySelector('#available-providers [data-catalog-provider="lingva"]')! as HTMLElement).getByRole('button', { name: 'addProvider' }));
         await waitFor(() => expect(state.setup.preferences.fallbackOrder).toEqual(['lingva']));
         second.unmount();
         const third = render(<App />);
@@ -85,7 +98,7 @@ describe('whole-setup settings application', () => {
         if (deepL.providerId === 'deepl') { deepL.name = 'Work'; deepL.credential = { key: 'external-key', validated: false }; }
         listener({ 'setup-v2': { newValue: 'revision' } }, 'local');
         await view.findByText('Work');
-        fireEvent.click(within(view.container.querySelector('[data-id="deepl"]')! as HTMLElement).getByText('configureInstance'));
+        fireEvent.click(within(view.container.querySelector('[data-id="deepl"]')! as HTMLElement).getByRole('button', { name: 'showServiceDetails' }));
         expect((view.getByLabelText('apiKeyLabel') as HTMLInputElement).value).toBe('external-key');
         view.unmount();
         await waitFor(() => expect(chrome.storage.onChanged.removeListener).toHaveBeenCalledWith(listener));
@@ -93,7 +106,7 @@ describe('whole-setup settings application', () => {
 
     it('merges a delayed enablement with newer language and provider choices', async () => {
         state.setup.preferences.fallbackOrder = ['google-web'];
-        state.setup.instances = state.setup.instances.map(instance => instance.providerId === 'deepl' ? { ...instance, name: 'Saved account' } : instance);
+        state.setup.instances = state.setup.instances.map(instance => instance.providerId === 'deepl' ? { ...instance, name: 'Saved account', credential: { key: 'saved-key', validated: false } } : instance);
         let grant!: (granted: boolean) => void;
         vi.mocked(chrome.permissions.request).mockImplementationOnce(() => new Promise<boolean>(resolve => { grant = resolve; }));
         const view = render(<App />);
@@ -123,7 +136,7 @@ describe('whole-setup settings application', () => {
     });
 
     it('keeps an active setup usable while presenting a storage conflict without silently resolving it', async () => {
-        const destination = createDefaultSetup();
+        const destination = createLegacySetup();
         destination.preferences.defaultTargetLang = 'fr';
         vi.mocked(switchSetupStorage).mockResolvedValueOnce({ ...state, conflict: { token: 'revision', source: state.setup, destination, destinationStorage: 'sync', reason: 'switch' } });
         const view = render(<App />);
@@ -138,7 +151,7 @@ describe('whole-setup settings application', () => {
     });
 
     it('disables edits during a pending migration while keeping its resolver active', async () => {
-        state.conflict = { token: 'migration', source: state.setup, destination: createDefaultSetup(), destinationStorage: 'local', reason: 'migration' };
+        state.conflict = { token: 'migration', source: state.setup, destination: createLegacySetup(), destinationStorage: 'local', reason: 'migration' };
         const view = render(<App />);
         await view.findByRole('region', { name: 'setupConflictTitle' });
         expect(addProvider(view).matches(':disabled')).toBe(true);
@@ -199,8 +212,7 @@ describe('whole-setup settings application', () => {
     it('saves and clears a regional dialect without discarding another language override', async () => {
         state.setup.preferences.languageOverrides = { zh: 'zh-TW' };
         const view = render(<App />);
-        const label = await view.findByText('lang_pt (pt)');
-        const select = within(label.parentElement!).getByRole('combobox') as HTMLSelectElement;
+        const select = await view.findByRole('combobox', { name: 'lang_pt (pt)' }) as HTMLSelectElement;
         expect(within(select).getByRole('option', { name: 'lang_variant_brazil' })).toHaveProperty('value', 'pt-BR');
         fireEvent.change(select, { target: { value: 'pt-BR' } });
         await waitFor(() => expect(state.setup.preferences.languageOverrides).toEqual({ zh: 'zh-TW', pt: 'pt-BR' }));
@@ -212,10 +224,10 @@ describe('whole-setup settings application', () => {
 
     it('shows save failures as alerts while leaving successfully loaded settings free of error alerts', async () => {
         const view = render(<App />);
-        const label = await view.findByText('lang_pt (pt)');
+        const select = await view.findByRole('combobox', { name: 'lang_pt (pt)' });
         expect(view.queryByRole('alert')).toBeNull();
         vi.mocked(updateSetup).mockRejectedValueOnce(new Error('Storage unavailable'));
-        fireEvent.change(within(label.parentElement!).getByRole('combobox'), { target: { value: 'pt-BR' } });
+        fireEvent.change(select, { target: { value: 'pt-BR' } });
         expect((await view.findByRole('alert')).textContent).toBe('settingsSaveFailed');
         expect(state.setup.preferences.languageOverrides).toEqual({});
     });
